@@ -2,7 +2,9 @@ import {
   type Template,
   type SizeKey,
   type Overlay,
+  type LogoSpec,
   resolveElement,
+  resolveLogo,
 } from "../templates/schema";
 
 // Pure-canvas renderer — the single source of truth for how a banner looks.
@@ -13,6 +15,7 @@ export type RenderInput = {
   template: Template;
   size: SizeKey;
   image: HTMLImageElement | null;
+  logo?: HTMLImageElement | null;
   texts: Record<string, string>;
   showText: boolean;
 };
@@ -78,6 +81,26 @@ function drawOverlay(ctx: CanvasRenderingContext2D, ov: Overlay, W: number, H: n
   ctx.fillRect(0, 0, W, H);
 }
 
+function drawLogo(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  W: number,
+  H: number,
+  spec: LogoSpec
+) {
+  const ar = img.naturalHeight / img.naturalWidth || 0.4;
+  const w = (spec.widthPct / 100) * W;
+  const h = w * ar;
+  const [v, hh] = (spec.anchor || "top-left").split("-");
+  let dx = (spec.x / 100) * W;
+  let dy = (spec.y / 100) * H;
+  if (hh === "center") dx -= w / 2;
+  else if (hh === "right") dx -= w;
+  if (v === "bottom") dy -= h;
+  else if (v === "center") dy -= h / 2;
+  ctx.drawImage(img, dx, dy, w, h);
+}
+
 function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const words = String(text).split(/\s+/);
   const lines: string[] = [];
@@ -116,6 +139,11 @@ export function renderBanner(input: RenderInput): HTMLCanvasElement {
   // overlay (per size)
   const ov = size === "mobile" && template.overlayMobile ? template.overlayMobile : template.overlay;
   if (ov) drawOverlay(ctx, ov, dim.w, dim.h);
+
+  // logo (per size)
+  if (input.logo && template.logo?.enabled) {
+    drawLogo(ctx, input.logo, dim.w, dim.h, resolveLogo(template.logo, size));
+  }
 
   // text
   if (showText) {

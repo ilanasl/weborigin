@@ -25,6 +25,7 @@ type CardState = {
   topic: string;
   customPrompt: string;
   uploadedImage?: string; // if set, use this instead of AI generation
+  uploadedLogo?: string; // optional logo overlaid on the banner
   text: CardText;
 };
 const emptyText: CardText = { enabled: false, texts: {} };
@@ -34,6 +35,7 @@ const defaultCard = (): CardState => ({
   topic: "",
   customPrompt: "",
   uploadedImage: undefined,
+  uploadedLogo: undefined,
   text: { ...emptyText },
 });
 
@@ -111,6 +113,7 @@ export default function Gallery() {
           url = await generateImage(prompt);
         }
         const img = await loadImage(url);
+        const logo = card.uploadedLogo ? await loadImage(card.uploadedLogo) : null;
         await ensureFontReady(t.defaultFont);
 
         const sizes: ("desktop" | "mobile")[] = card.mobile ? ["desktop", "mobile"] : ["desktop"];
@@ -119,6 +122,7 @@ export default function Gallery() {
             template: t,
             size,
             image: img,
+            logo,
             texts: card.text.enabled ? card.text.texts : {},
             showText: card.text.enabled,
           });
@@ -289,8 +293,33 @@ function Card({
           template={template}
           size="desktop"
           imageSrc={state.uploadedImage ?? null}
-          showText={false}
+          logoSrc={state.uploadedLogo ?? null}
+          texts={state.text.enabled ? state.text.texts : {}}
+          showText={state.text.enabled}
         />
+      </div>
+
+      <div className="src-row">
+        <span className="field-label">
+          Logo: <b>{state.uploadedLogo ? "added" : "none"}</b>
+        </span>
+        <label className="upload-mini">
+          {state.uploadedLogo ? "Replace logo" : "Upload logo"}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) onPatch({ uploadedLogo: await fileToDataUrl(f) });
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
+        {state.uploadedLogo && (
+          <button className="tiny" onClick={() => onPatch({ uploadedLogo: undefined })}>
+            Remove
+          </button>
+        )}
       </div>
 
       <div className="src-row">

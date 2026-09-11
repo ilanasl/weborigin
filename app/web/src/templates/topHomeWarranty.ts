@@ -42,7 +42,15 @@ export const topHomeWarranty: Template = {
     coverage: "left",
     hold: 52, // solid white card on the left ~52%, then reveal the photo
   },
-  logo: { enabled: false, source: "upload", x: 0, y: 0, widthPct: 0 },
+  logo: {
+    enabled: true,
+    source: "upload",
+    x: 2,
+    y: 14,
+    widthPct: 11,
+    anchor: "top-left",
+    mobile: { x: 6, y: 7, widthPct: 34, anchor: "top-left" },
+  },
   elements: [
     {
       key: "headline",
