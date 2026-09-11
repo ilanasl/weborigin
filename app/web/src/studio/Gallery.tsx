@@ -18,16 +18,26 @@ import { getTopics, addTopic } from "../lib/topics";
 import { BannerThumb } from "./BannerThumb";
 import { TextModal, type CardText } from "./TextModal";
 
-type CardState = { selected: boolean; mobile: boolean; text: CardText };
+type CardState = {
+  selected: boolean;
+  mobile: boolean;
+  topic: string;
+  customPrompt: string;
+  text: CardText;
+};
 const emptyText: CardText = { enabled: false, texts: {} };
-const defaultCard = (): CardState => ({ selected: false, mobile: false, text: { ...emptyText } });
+const defaultCard = (): CardState => ({
+  selected: false,
+  mobile: false,
+  topic: "",
+  customPrompt: "",
+  text: { ...emptyText },
+});
 
 export default function Gallery() {
   const [cards, setCards] = useState<Record<string, CardState>>(() =>
     Object.fromEntries(templates.map((t) => [t.id, defaultCard()]))
   );
-  const [topic, setTopic] = useState("");
-  const [customPrompt, setCustomPrompt] = useState("");
   const [bank, setBank] = useState<string[]>(() => getTopics());
   const [format, setFormat] = useState<ExportFormat>("png");
   const [limitOn, setLimitOn] = useState(false);
@@ -65,7 +75,13 @@ export default function Gallery() {
   async function runAll() {
     const chosen = templates.filter((t) => cards[t.id]?.selected);
     if (!chosen.length) return;
-    if (topic.trim()) setBank(addTopic(topic));
+    // Remember every topic typed for a selected banner.
+    let nextBank = bank;
+    for (const t of chosen) {
+      const tp = cards[t.id].topic.trim();
+      if (tp) nextBank = addTopic(tp);
+    }
+    setBank(nextBank);
 
     setRunning(true);
     setLog([]);
@@ -79,7 +95,7 @@ export default function Gallery() {
       const card = cards[t.id];
       try {
         addLog(`⏳ ${t.name} — generating image…`);
-        const promptText = [topic, customPrompt].filter((s) => s.trim()).join(". ");
+        const promptText = [card.topic, card.customPrompt].filter((s) => s.trim()).join(". ");
         const prompt = buildBackgroundPrompt(
           promptText || t.background.defaultTopic || "clean background",
           aspectFromSize(t.sizes.desktop.w, t.sizes.desktop.h)
@@ -134,44 +150,18 @@ export default function Gallery() {
         {hasKey === false && <span className="warn">No API key — add server/.env for AI images</span>}
       </header>
 
-      <div className="run-panel">
-        <div className="run-row">
-          <label className="f grow">
-            <span className="field-label">Image topic (applies to every banner)</span>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. a moving company — movers carrying boxes"
-              list="topic-bank"
-            />
-            <datalist id="topic-bank">
-              {bank.map((t) => (
-                <option key={t} value={t} />
-              ))}
-            </datalist>
-          </label>
-        </div>
-        {bank.length > 0 && (
-          <div className="chips">
-            {bank.slice(0, 12).map((t) => (
-              <button key={t} className="chip" onClick={() => setTopic(t)} title="Use this topic">
-                {t}
-              </button>
-            ))}
-          </div>
-        )}
-        <label className="f">
-          <span className="field-label">Extra prompt (optional)</span>
-          <input
-            type="text"
-            value={customPrompt}
-            onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="e.g. warm daylight, photorealistic, no text on boxes"
-          />
-        </label>
+      {/* Shared bank of remembered topics — each card's topic input reads from it */}
+      <datalist id="topic-bank">
+        {bank.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
 
+      <div className="run-panel">
         <div className="run-row wrap">
+          <span className="muted" style={{ marginRight: "auto" }}>
+            Set a topic under each banner, tick the ones to generate, then Run all.
+          </span>
           <label className="f">
             <span className="field-label">Format</span>
             <select value={format} onChange={(e) => setFormat(e.target.value as ExportFormat)}>
@@ -288,6 +278,26 @@ function Card({
       <div className="gcard-thumb" onClick={() => onPatch({ selected: !state.selected })}>
         <BannerThumb template={template} size="desktop" image={null} showText={false} />
       </div>
+
+      <label className="f">
+        <span className="field-label">Image topic</span>
+        <input
+          type="text"
+          list="topic-bank"
+          value={state.topic}
+          onChange={(e) => onPatch({ topic: e.target.value })}
+          placeholder={template.background.defaultTopic || "e.g. moving company"}
+        />
+      </label>
+      <label className="f">
+        <span className="field-label">Extra prompt (optional)</span>
+        <input
+          type="text"
+          value={state.customPrompt}
+          onChange={(e) => onPatch({ customPrompt: e.target.value })}
+          placeholder="e.g. warm daylight, no text"
+        />
+      </label>
 
       <div className="gcard-actions">
         <label className="check sm">
