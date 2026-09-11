@@ -1,0 +1,159 @@
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1e222c;
+  --border: #2a2f3a;
+  --text: #e7ecf5;
+  --muted: #98a2b3;
+  --accent: #5b8cff;
+  --accent-ink: #0b1020;
+  --danger: #ff6b6b;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.app { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.brand { font-weight: 800; font-size: 18px; letter-spacing: 0.3px; }
+.warn { margin-left: auto; color: #ffcf6b; font-size: 12px; }
+
+.mode-switch, .toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mode-switch button, .toggle button {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.mode-switch button.active, .toggle button.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.workspace { display: flex; flex: 1; min-height: 0; }
+
+.sidebar {
+  width: 360px;
+  flex-shrink: 0;
+  padding: 16px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+.panel h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.panel h3:not(:first-child) { margin-top: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.field.grow { flex: 1; }
+.field-label { font-size: 12px; color: var(--muted); }
+.field.checkbox { flex-direction: row; align-items: center; gap: 8px; }
+.field.checkbox.disabled { opacity: 0.5; }
+
+input[type="text"], input[type="number"], textarea, select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  width: 100%;
+}
+input[type="color"] { width: 44px; height: 36px; padding: 2px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; }
+textarea { resize: vertical; }
+
+.row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+
+button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+
+.upload-btn {
+  display: inline-block;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+.upload-btn input { display: none; }
+
+.template-list { display: flex; flex-direction: column; gap: 8px; }
+.template-card {
+  text-align: left;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+}
+.template-card.active { border-color: var(--accent); }
+.template-card small { color: var(--muted); font-weight: 500; }
+
+.stage { flex: 1; padding: 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
+.stage-bar { display: flex; align-items: center; gap: 14px; }
+
+.preview-frame {
+  background:
+    repeating-conic-gradient(#20242e 0% 25%, #191d25 0% 50%) 50% / 24px 24px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ad-preview { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+
+.empty { color: var(--muted); text-align: center; margin: auto; max-width: 420px; line-height: 1.6; }
+
+.muted { color: var(--muted); font-size: 12px; }
+.error { color: var(--danger); font-size: 13px; }
+.status { color: #7fe0a1; font-size: 13px; }
+
+.offscreen {
+  position: absolute;
+  left: -99999px;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
