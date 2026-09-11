@@ -37,6 +37,7 @@ export type TextElement = {
   y: number;
   anchor?: Anchor; // default "top-left"
   maxWidthPct?: number; // max text-box width as % of banner width
+  hiddenMobile?: boolean; // drop this element on the mobile variant
   // per-size overrides for the mobile variant
   mobile?: Partial<
     Pick<
@@ -60,6 +61,9 @@ export type Overlay = {
   opacity: number; // 0..1
   gradient?: boolean; // fade instead of a flat wash
   coverage?: "full" | "left" | "right" | "top" | "bottom";
+  // For gradients: keep the color solid up to this % before it fades to clear
+  // (e.g. a white card that stays solid on the left, then reveals the photo).
+  hold?: number; // 0..100, default 0
 };
 
 export type LogoSpec = {
@@ -91,9 +95,11 @@ export type Template = {
   defaultFont: string; // a Google Fonts family name
   background: BackgroundSpec;
   overlay?: Overlay;
-  // Optional: a different overlay shape for the mobile variant. The live
-  // color/opacity from the panel still apply; only coverage/gradient change.
-  overlayMobile?: Pick<Overlay, "coverage" | "gradient">;
+  // Optional: a completely separate overlay for the mobile variant (e.g. a
+  // white left-fade for a light "card" layout vs. a dark wash on desktop).
+  // When present it is used as-is on mobile; the live panel color/opacity apply
+  // to the desktop overlay only.
+  overlayMobile?: Overlay;
   logo?: LogoSpec;
   elements: TextElement[];
 };

@@ -132,7 +132,8 @@ button:disabled { opacity: 0.6; cursor: default; }
 .template-card small { color: var(--muted); font-weight: 500; }
 
 .stage { flex: 1; padding: 20px; overflow: auto; display: flex; flex-direction: column; gap: 14px; }
-.stage-bar { display: flex; align-items: center; gap: 14px; }
+.stage-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.text-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
 
 .preview-frame {
   background:

@@ -25,13 +25,15 @@ function overlayStyle(
   opacity: number,
   size: SizeKey
 ): React.CSSProperties | null {
-  const ov = t.overlay;
+  // Mobile can define a completely separate overlay (its own color/opacity);
+  // desktop uses the live panel color/opacity with the template's shape.
+  const mobileOv = size === "mobile" ? t.overlayMobile : undefined;
+  const ov = mobileOv ?? t.overlay;
   if (!ov) return null;
-  // Mobile may override the overlay shape (coverage/gradient); color+opacity
-  // still come from the live panel controls so the slider affects both sizes.
-  const shape = size === "mobile" && t.overlayMobile ? t.overlayMobile : ov;
-  const coverage = shape.coverage ?? "full";
-  if (shape.gradient) {
+  const c = mobileOv ? mobileOv.color : color;
+  const o = mobileOv ? mobileOv.opacity : opacity;
+  const coverage = ov.coverage ?? "full";
+  if (ov.gradient) {
     const dir =
       coverage === "left"
         ? "to right"
@@ -40,14 +42,15 @@ function overlayStyle(
         : coverage === "top"
         ? "to bottom"
         : "to top";
+    const hold = Math.max(0, Math.min(100, ov.hold ?? 0));
     return {
-      background: `linear-gradient(${dir}, ${hexA(color, opacity)}, ${hexA(
-        color,
-        0
-      )})`,
+      background: `linear-gradient(${dir}, ${hexA(c, o)} 0%, ${hexA(
+        c,
+        o
+      )} ${hold}%, ${hexA(c, 0)} 100%)`,
     };
   }
-  return { background: hexA(color, opacity) };
+  return { background: hexA(c, o) };
 }
 
 /** hex + alpha (0..1) -> rgba() */
@@ -65,6 +68,7 @@ type Props = {
   template: Template;
   values: BannerValues;
   size: SizeKey;
+  showText?: boolean; // when false, render image + overlay only (clean banner)
 };
 
 /**
@@ -73,7 +77,7 @@ type Props = {
  * exported PNG matches the template dimensions.
  */
 export const BannerCanvas = forwardRef<HTMLDivElement, Props>(
-  ({ template, values, size }, ref) => {
+  ({ template, values, size, showText = true }, ref) => {
     const dims = template.sizes[size];
     const font = values.fontFamily || template.defaultFont;
     const ov = overlayStyle(
@@ -139,8 +143,11 @@ export const BannerCanvas = forwardRef<HTMLDivElement, Props>(
           />
         )}
 
-        {/* Text elements */}
-        {template.elements.map((raw) => {
+        {/* Text elements (illustration only — can be hidden for a clean export) */}
+        {showText &&
+          template.elements
+            .filter((raw) => !(size === "mobile" && raw.hiddenMobile))
+            .map((raw) => {
           const el = resolveElement(raw, size);
           const text = values.texts[el.key] ?? el.default;
           const isButton = el.key === "cta";

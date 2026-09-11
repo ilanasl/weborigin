@@ -14,8 +14,8 @@ export const topHomeWarranty: Template = {
   name: "Home Warranty Hero",
   description: "Wide photo hero with a navy left-fade overlay and white text.",
   sizes: {
-    desktop: { w: 1900, h: 260 },
-    mobile: { w: 375, h: 320 },
+    desktop: { w: 1920, h: 260 },
+    mobile: { w: 375, h: 280 },
   },
   defaultFont: "Open Sans",
   background: {
@@ -33,9 +33,15 @@ export const topHomeWarranty: Template = {
     gradient: true,
     coverage: "left",
   },
-  // Mobile (inferred): same photo, dark gradient rising from the bottom so the
-  // stacked white text stays readable.
-  overlayMobile: { coverage: "bottom", gradient: true },
+  // Mobile: the site's light "card" look — a white left-fade so the left side
+  // reads as a white card with dark text, while the photo shows on the right.
+  overlayMobile: {
+    color: "#ffffff",
+    opacity: 1,
+    gradient: true,
+    coverage: "left",
+    hold: 52, // solid white card on the left ~52%, then reveal the photo
+  },
   logo: { enabled: false, source: "upload", x: 0, y: 0, widthPct: 0 },
   elements: [
     {
@@ -51,7 +57,15 @@ export const topHomeWarranty: Template = {
       anchor: "top-left",
       maxWidthPct: 52,
       lineHeight: 1.05,
-      mobile: { size: 30, x: 6, y: 40, maxWidthPct: 88, lineHeight: 1.1 },
+      // Mobile card: dark navy headline on the white left side.
+      mobile: {
+        size: 25,
+        x: 6,
+        y: 14,
+        maxWidthPct: 60,
+        lineHeight: 1.12,
+        color: "#16324a",
+      },
     },
     {
       key: "subtitle",
@@ -68,7 +82,14 @@ export const topHomeWarranty: Template = {
       anchor: "top-left",
       maxWidthPct: 47,
       lineHeight: 1.3,
-      mobile: { size: 15, x: 6, y: 64, maxWidthPct: 90 },
+      // Mobile card: short orange subtitle, like the source.
+      mobile: {
+        size: 15,
+        x: 6,
+        y: 56,
+        maxWidthPct: 56,
+        color: "#c15a1e",
+      },
     },
     {
       key: "lastUpdated",
@@ -81,7 +102,7 @@ export const topHomeWarranty: Template = {
       x: 15.5,
       y: 86,
       anchor: "top-left",
-      mobile: { size: 13, x: 6, y: 90 },
+      mobile: { size: 12.5, x: 6, y: 84, color: "#16324a" },
     },
     {
       key: "disclosure",
@@ -94,7 +115,7 @@ export const topHomeWarranty: Template = {
       x: 98,
       y: 92,
       anchor: "bottom-right",
-      mobile: { x: 94, y: 8, anchor: "top-right", size: 11 },
+      hiddenMobile: true, // the mobile card doesn't show the disclosure
     },
   ],
 };

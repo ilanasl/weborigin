@@ -33,6 +33,7 @@ export default function App() {
     valuesById[templateId] ?? defaultValues(template);
 
   const [size, setSize] = useState<SizeKey>("desktop");
+  const [showText, setShowText] = useState(true);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
 
   const desktopRef = useRef<HTMLDivElement>(null);
@@ -125,6 +126,17 @@ export default function App() {
             <span className="muted">
               {dims.w} × {dims.h} px
             </span>
+            <label className="text-toggle">
+              <input
+                type="checkbox"
+                checked={showText}
+                onChange={(e) => setShowText(e.target.checked)}
+              />
+              <span>Show text (illustration)</span>
+            </label>
+            {!showText && (
+              <span className="muted">Exports a clean banner — image + overlay only</span>
+            )}
           </div>
 
           {/* Visible, scaled preview */}
@@ -140,7 +152,12 @@ export default function App() {
                 height: dims.h,
               }}
             >
-              <BannerCanvas template={template} values={values} size={size} />
+              <BannerCanvas
+                template={template}
+                values={values}
+                size={size}
+                showText={showText}
+              />
             </div>
           </div>
         </main>
@@ -153,12 +170,14 @@ export default function App() {
           template={template}
           values={values}
           size="desktop"
+          showText={showText}
         />
         <BannerCanvas
           ref={mobileRef}
           template={template}
           values={values}
           size="mobile"
+          showText={showText}
         />
       </div>
     </div>
