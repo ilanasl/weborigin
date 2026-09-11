@@ -39,6 +39,44 @@ app.post("/api/generate-image", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/save
+ * body: { filename: string, dataUrl: string }
+ * Writes a generated banner to the local output folder (for "Run all").
+ */
+app.post("/api/save", async (req, res) => {
+  try {
+    const filename = String(req.body?.filename || "").replace(/[^\w.\-]+/g, "_");
+    const dataUrl = String(req.body?.dataUrl || "");
+    if (!filename || !dataUrl) {
+      return res.status(400).json({ error: "Missing 'filename' or 'dataUrl'." });
+    }
+    const m = /^data:[^;]+;base64,(.*)$/.exec(dataUrl);
+    if (!m) return res.status(400).json({ error: "dataUrl must be base64." });
+
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const outDir = process.env.OUTPUT_DIR
+      ? path.resolve(process.env.OUTPUT_DIR)
+      : path.resolve(here, "../output");
+    fs.mkdirSync(outDir, { recursive: true });
+    const full = path.join(outDir, filename);
+    fs.writeFileSync(full, Buffer.from(m[1], "base64"));
+    res.json({ ok: true, path: full });
+  } catch (err: any) {
+    console.error("save failed:", err?.message || err);
+    res.status(500).json({ error: err?.message || "Save failed." });
+  }
+});
+
+/** Where files are being saved (shown in the UI). */
+app.get("/api/output-dir", (_req, res) => {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const outDir = process.env.OUTPUT_DIR
+    ? path.resolve(process.env.OUTPUT_DIR)
+    : path.resolve(here, "../output");
+  res.json({ dir: outDir });
+});
+
 // In production (`npm run build` then `npm start`) serve the built web app too.
 const distDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

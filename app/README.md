@@ -1,11 +1,22 @@
 # Banner Studio (local)
 
-A local tool to create website banners and Google-ad images.
+A local tool to batch-create website banners.
 
-- **Banners mode** — pick a template, fill in the text and image topic, and get a
-  finished banner (desktop + mobile) to download as PNG / JPG / WebP.
-- **Ad Images mode** — generate clean atmosphere images (no text) for Google ads,
-  with positive/negative guidance and optional logo placement.
+**The Studio (main screen):** a gallery of banner types, each titled by its size.
+You:
+1. Type an **image topic** (applies to every banner) — optionally add an extra prompt.
+   Topics you type are remembered and offered as quick chips next time.
+2. **Select** the banners you want, and tick **Mobile** on any that also need a
+   mobile version.
+3. Banners are generated **without text** by default. For any banner that needs
+   text, click **Text** to open a window, add it, and Save — it's baked in on run
+   using that banner's default font and colors.
+4. Pick a **format** (PNG / JPG / WebP) and optional **target weight**, then
+   **Run all** — every selected banner is generated and saved at once.
+
+Generated files are saved to the **output folder** (default `app/output`, or set
+`OUTPUT_DIR` in `server/.env`). If the local server isn't reachable, files fall
+back to normal browser downloads.
 
 Images are generated with **Google Gemini**. Your API key stays on your machine
 in `server/.env` and is used only by the local server — it is never sent to the
