@@ -219,3 +219,12 @@ button.tiny.on { background: var(--accent); color: var(--accent-ink); border-col
 .modal-preview { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin: 10px 0 14px; background: #111; }
 .modal-preview .thumb-canvas { width: 100%; }
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+
+.src-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.src-row .field-label { margin-right: auto; }
+.upload-mini {
+  display: inline-block; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 7px; padding: 5px 10px;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.upload-mini input { display: none; }

@@ -15,6 +15,7 @@ import {
 } from "../lib/encode";
 import { saveToFolder, getOutputDir } from "../lib/saveApi";
 import { getTopics, addTopic } from "../lib/topics";
+import { fileToDataUrl } from "../lib/file";
 import { BannerThumb } from "./BannerThumb";
 import { TextModal, type CardText } from "./TextModal";
 
@@ -23,6 +24,7 @@ type CardState = {
   mobile: boolean;
   topic: string;
   customPrompt: string;
+  uploadedImage?: string; // if set, use this instead of AI generation
   text: CardText;
 };
 const emptyText: CardText = { enabled: false, texts: {} };
@@ -31,6 +33,7 @@ const defaultCard = (): CardState => ({
   mobile: false,
   topic: "",
   customPrompt: "",
+  uploadedImage: undefined,
   text: { ...emptyText },
 });
 
@@ -94,13 +97,19 @@ export default function Gallery() {
     for (const t of chosen) {
       const card = cards[t.id];
       try {
-        addLog(`⏳ ${t.name} — generating image…`);
-        const promptText = [card.topic, card.customPrompt].filter((s) => s.trim()).join(". ");
-        const prompt = buildBackgroundPrompt(
-          promptText || t.background.defaultTopic || "clean background",
-          aspectFromSize(t.sizes.desktop.w, t.sizes.desktop.h)
-        );
-        const url = await generateImage(prompt);
+        let url: string;
+        if (card.uploadedImage) {
+          addLog(`🖼 ${t.name} — using your uploaded image…`);
+          url = card.uploadedImage;
+        } else {
+          addLog(`⏳ ${t.name} — generating image…`);
+          const promptText = [card.topic, card.customPrompt].filter((s) => s.trim()).join(". ");
+          const prompt = buildBackgroundPrompt(
+            promptText || t.background.defaultTopic || "clean background",
+            aspectFromSize(t.sizes.desktop.w, t.sizes.desktop.h)
+          );
+          url = await generateImage(prompt);
+        }
         const img = await loadImage(url);
         await ensureFontReady(t.defaultFont);
 
@@ -276,24 +285,54 @@ function Card({
       </label>
 
       <div className="gcard-thumb" onClick={() => onPatch({ selected: !state.selected })}>
-        <BannerThumb template={template} size="desktop" image={null} showText={false} />
+        <BannerThumb
+          template={template}
+          size="desktop"
+          imageSrc={state.uploadedImage ?? null}
+          showText={false}
+        />
       </div>
 
-      <label className="f">
-        <span className="field-label">Image topic</span>
+      <div className="src-row">
+        <span className="field-label">
+          Image source: <b>{state.uploadedImage ? "your upload" : "AI from topic"}</b>
+        </span>
+        <label className="upload-mini">
+          {state.uploadedImage ? "Replace" : "Upload image"}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              if (f) onPatch({ uploadedImage: await fileToDataUrl(f) });
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
+        {state.uploadedImage && (
+          <button className="tiny" onClick={() => onPatch({ uploadedImage: undefined })}>
+            Use AI
+          </button>
+        )}
+      </div>
+
+      <label className="f" style={{ opacity: state.uploadedImage ? 0.5 : 1 }}>
+        <span className="field-label">Image topic (for AI)</span>
         <input
           type="text"
           list="topic-bank"
           value={state.topic}
+          disabled={!!state.uploadedImage}
           onChange={(e) => onPatch({ topic: e.target.value })}
           placeholder={template.background.defaultTopic || "e.g. moving company"}
         />
       </label>
-      <label className="f">
+      <label className="f" style={{ opacity: state.uploadedImage ? 0.5 : 1 }}>
         <span className="field-label">Extra prompt (optional)</span>
         <input
           type="text"
           value={state.customPrompt}
+          disabled={!!state.uploadedImage}
           onChange={(e) => onPatch({ customPrompt: e.target.value })}
           placeholder="e.g. warm daylight, no text"
         />

@@ -40,7 +40,7 @@ export function TextModal({ template, value, onSave, onClose }: Props) {
         </label>
 
         <div className="modal-preview">
-          <BannerThumb template={template} size="desktop" image={null} texts={texts} showText={enabled} />
+          <BannerThumb template={template} size="desktop" texts={texts} showText={enabled} />
         </div>
 
         <div className={enabled ? "" : "dimmed"}>
