@@ -49,6 +49,7 @@ export type TextElement = {
       | "anchor"
       | "maxWidthPct"
       | "lineHeight"
+      | "color"
     >
   >;
 };
@@ -76,6 +77,10 @@ export type BackgroundSpec = {
   mode: "ai" | "upload" | "color";
   defaultTopic?: string; // seed prompt/topic for AI mode
   color?: string; // used for "color" mode or as a fallback
+  // CSS object-position for the image (e.g. "right center" keeps the subject
+  // on the right visible while an overlay darkens the opposite side).
+  position?: string;
+  positionMobile?: string;
 };
 
 export type Template = {
@@ -86,6 +91,9 @@ export type Template = {
   defaultFont: string; // a Google Fonts family name
   background: BackgroundSpec;
   overlay?: Overlay;
+  // Optional: a different overlay shape for the mobile variant. The live
+  // color/opacity from the panel still apply; only coverage/gradient change.
+  overlayMobile?: Pick<Overlay, "coverage" | "gradient">;
   logo?: LogoSpec;
   elements: TextElement[];
 };

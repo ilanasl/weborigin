@@ -22,12 +22,16 @@ function anchorTransform(anchor: Anchor = "top-left"): string {
 function overlayStyle(
   t: Template,
   color: string,
-  opacity: number
+  opacity: number,
+  size: SizeKey
 ): React.CSSProperties | null {
   const ov = t.overlay;
   if (!ov) return null;
-  const coverage = ov.coverage ?? "full";
-  if (ov.gradient) {
+  // Mobile may override the overlay shape (coverage/gradient); color+opacity
+  // still come from the live panel controls so the slider affects both sizes.
+  const shape = size === "mobile" && t.overlayMobile ? t.overlayMobile : ov;
+  const coverage = shape.coverage ?? "full";
+  if (shape.gradient) {
     const dir =
       coverage === "left"
         ? "to right"
@@ -72,7 +76,12 @@ export const BannerCanvas = forwardRef<HTMLDivElement, Props>(
   ({ template, values, size }, ref) => {
     const dims = template.sizes[size];
     const font = values.fontFamily || template.defaultFont;
-    const ov = overlayStyle(template, values.overlayColor, values.overlayOpacity);
+    const ov = overlayStyle(
+      template,
+      values.overlayColor,
+      values.overlayOpacity,
+      size
+    );
     const logo = template.logo?.enabled ? resolveLogo(template.logo, size) : null;
     const logoSrc =
       logo?.source === "upload" ? values.logoImage : logo?.fixedUrl;
@@ -102,6 +111,10 @@ export const BannerCanvas = forwardRef<HTMLDivElement, Props>(
               width: "100%",
               height: "100%",
               objectFit: "cover",
+              objectPosition:
+                (size === "mobile"
+                  ? template.background.positionMobile
+                  : template.background.position) ?? "center",
             }}
           />
         )}
