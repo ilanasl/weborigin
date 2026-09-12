@@ -170,6 +170,23 @@ app.get("/api/health", (_req, res) =>
   res.json({ ok: true, hasKey: hasKey(), hasOpenAI: hasOpenAI() })
 );
 
+// Diagnostic: which image-capable models does this Gemini key actually have?
+app.get("/api/models", async (_req, res) => {
+  try {
+    if (!hasKey()) return res.status(400).json({ error: "No Gemini key." });
+    if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const all = [];
+    const pager = await client.models.list();
+    for await (const m of pager) all.push({ name: m.name, actions: m.supportedActions || [] });
+    const image = all.filter((m) => /imagen|image/i.test(m.name));
+    console.log("\n  Image-capable models on your key:\n   " +
+      (image.map((m) => m.name).join("\n   ") || "(none found)") + "\n");
+    res.json({ imageModels: image, totalModels: all.length });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
+});
+
 app.post("/api/generate-image", async (req, res) => {
   try {
     const prompt = String(req.body?.prompt || "").trim();
