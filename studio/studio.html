@@ -285,7 +285,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
   const font=over.font||tpl.font;
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
-  const vy=vertNum(tpl.bgPos[size]);
+  const vy=(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:vertNum(tpl.bgPos[size]);
   const zoom=over.zoom||1;
   if(tpl.bgColor){ctx.fillStyle=tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
   if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
@@ -320,7 +320,7 @@ function initOverrides(tpl){
   const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,fade:o.fade,auto:false};}
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -376,6 +376,29 @@ function enableLocalMode(){
   if(n)n.textContent='AI is active. Type a topic per banner and click Generate — or Run selected to generate + save all to your output folder.';
 }
 
+/* ---- Saved topics bank (kept in this browser) ---- */
+const TOPICS_KEY="bs_saved_topics";
+function loadSavedTopics(){try{return JSON.parse(localStorage.getItem(TOPICS_KEY)||"[]");}catch(_){return [];}}
+function persistSavedTopics(list){try{localStorage.setItem(TOPICS_KEY,JSON.stringify(list));}catch(_){}}
+function addSavedTopic(topic,prompt){
+  topic=(topic||"").trim(); if(!topic)return;
+  prompt=(prompt||"").trim();
+  const list=loadSavedTopics(), key=topic+""+prompt;
+  if(list.some(e=>(e.topic+""+(e.prompt||""))===key))return;
+  list.unshift({topic,prompt});
+  persistSavedTopics(list.slice(0,50));
+  refreshSavedSelects();
+}
+function refreshSavedSelects(){
+  const list=loadSavedTopics();
+  document.querySelectorAll(".c-saved").forEach(sel=>{
+    sel.innerHTML='<option value="">↩ Load a saved topic…</option>'+list.map((e,i)=>{
+      const label=(e.topic.length>44?e.topic.slice(0,44)+"…":e.topic).replace(/</g,"&lt;");
+      return `<option value="${i}">${label}</option>`;
+    }).join("");
+  });
+}
+
 const grid=document.getElementById("grid");
 document.getElementById("count").textContent=`${TEMPLATES.length} banner types`;
 
@@ -413,6 +436,7 @@ TEMPLATES.forEach(tpl=>{
       <input type="text" class="c-topic" placeholder="${tpl.defaultTopic}"></label>
     <label class="f"><span>Specific prompt (optional)</span>
       <input type="text" class="c-prompt" placeholder="e.g. warm daylight, no text on boxes"></label>
+    <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button></div>
     <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
     <div class="card-foot">
       <label class="chk"><input type="checkbox" class="c-mob"> Mobile (${m.w}×${m.h})</label>
@@ -464,6 +488,9 @@ TEMPLATES.forEach(tpl=>{
   topicEl.value=st.topic||""; promptEl.value=st.customPrompt||"";
   topicEl.addEventListener("input",()=>{st.topic=topicEl.value;});
   promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;});
+  const savedSel=card.querySelector(".c-saved"), saveBtn=card.querySelector(".c-savetopic");
+  saveBtn.addEventListener("click",()=>{ if(!(st.topic||"").trim()){saveBtn.textContent="type a topic";setTimeout(()=>saveBtn.textContent="💾 Save",1200);return;} addSavedTopic(st.topic,st.customPrompt); saveBtn.textContent="✓ Saved"; setTimeout(()=>saveBtn.textContent="💾 Save",1200); });
+  savedSel.addEventListener("change",()=>{ if(savedSel.value==="")return; const e=loadSavedTopics()[+savedSel.value]; savedSel.value=""; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; });
   if(LOCAL.on){ card.querySelector(".c-airow").hidden=false; card.querySelector(".c-ailbl").textContent="(AI)"; }
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
@@ -473,6 +500,7 @@ TEMPLATES.forEach(tpl=>{
     genBtn.disabled=false;
   });
 });
+refreshSavedSelects();
 
 function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
 
@@ -537,6 +565,7 @@ function openEditor(tpl,st,onClose){
   html+=`<label class="f"><span>Logo position (left–right)</span><input type="range" class="e-logox" min="0" max="100" step="1"></label>`;
   html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
+  html+=`<label class="f"><span>… fine (up–down)</span><input type="range" class="e-posy" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — enlarge to reposition</span><input type="range" class="e-zoom" min="1" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
@@ -581,6 +610,7 @@ function openEditor(tpl,st,onClose){
     q(".e-ovo").value=ov.opacity;q(".e-ovov").textContent=Math.round(ov.opacity*100)+"%";
     q(".e-ovhold").value=ov.hold;q(".e-ovhv").textContent=Math.round(ov.hold)+"%";
     q(".e-posx").value=(o.anchorX&&o.anchorX[size]!=null)?o.anchorX[size]:50;
+    q(".e-posy").value=(o.anchorY&&o.anchorY[size]!=null)?o.anchorY[size]:50;
     q(".e-zoom").value=o.zoom;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";
     [...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));
     q(".e-logox").value=o.logoX;
@@ -598,6 +628,7 @@ function openEditor(tpl,st,onClose){
   q(".e-logosz").addEventListener("input",e=>{o.logoScale=+e.target.value;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";draw();});
   controls.querySelectorAll(".e-pos button").forEach(b=>b.addEventListener("click",()=>{o.anchorX[size]=+b.dataset.p;syncSize();draw();}));
   q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;syncSize();draw();});
+  q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;syncSize();draw();});
   q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
