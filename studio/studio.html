@@ -135,15 +135,13 @@ const TEMPLATES = [
     id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins",
     sizes:{desktop:{w:300,h:600}, mobile:{w:300,h:600}},
     bgPos:{desktop:"center", mobile:"center"},
-    // Solid light card fills the whole tile; the photo is confined to the lower band.
+    // Beige base + a same-colour beige gradient over the top half → no visible seam.
     bgColor:"#ece4d6",
-    imageBox:{x:0,y:56,w:100,h:44},
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
-    defaultTopic:"a smiling person holding a product, with the product package at their feet",
-    composition:"The subject (a smiling person and the product) sits at the BOTTOM of the frame, standing on a plain, seamless soft-beige studio background (#ece4d6) that fills the rest of the frame with empty space above. Full product visible, nothing cropped. Photorealistic, bright even studio light, no text, no props, one clean image.",
-    // Soft beige gradient softening the top edge of the photo band.
-    overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:52,fade:64},
-             mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:52,fade:64}},
+    defaultTopic:"a smiling woman holding a slimming product, large in the lower half, plain beige background",
+    composition:"A tall vertical image. A smiling woman is shown LARGE, from about the waist up, filling the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless soft-beige (#ece4d6) studio background — nothing at all in the top half. She should be big and clearly visible. Photorealistic, bright even studio light, no text.",
+    overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72},
+             mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72}},
     elements:[
       {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:24,anchor:"center",maxW:86},
       {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:33,anchor:"center",maxW:80,lh:1.15},
