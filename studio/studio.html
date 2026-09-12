@@ -93,6 +93,8 @@
   <span class="note">Set each banner's image (upload your own here — AI-from-topic runs in the local app), tick the ones to make, then Run.</span>
   <label class="f" id="engineWrap" hidden><span>AI engine</span>
     <select id="engine"></select></label>
+  <label class="f" id="qualityWrap" hidden><span>GPT quality</span>
+    <select id="quality"><option value="high">High (sharpest)</option><option value="medium" selected>Medium</option><option value="low">Low (cheapest)</option></select></label>
   <label class="f"><span>Format</span>
     <select id="fmt"><option value="webp" selected>WebP</option><option value="png">PNG</option><option value="jpeg">JPG</option></select></label>
   <label class="f"><span>Max weight (KB)</span>
@@ -361,7 +363,8 @@ function buildAIPrompt(tpl,st){
 async function aiGenerate(tpl,st){
   const d=tpl.sizes.desktop;
   const engine=(document.getElementById('engine')||{}).value||'gemini';
-  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h),provider:engine})});
+  const quality=(document.getElementById('quality')||{}).value||'medium';
+  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h),provider:engine,quality})});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
   st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
@@ -697,6 +700,9 @@ fetch('/api/health').then(r=>r.json()).then(h=>{
     sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
     sel.value=h.hasOpenAI?'openai':'gemini'; // default to the sharper engine when available
     if(opts.length>1) wrap.hidden=false; // only show the picker when there's a choice
+    const qWrap=document.getElementById('qualityWrap');
+    const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
+    sel.addEventListener('change',syncQ); syncQ(); // GPT quality only applies to GPT
   }
 }).catch(()=>{});
 </script>
