@@ -18,9 +18,13 @@ import { GoogleGenAI } from "@google/genai";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+const OPENAI_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+const OPENAI_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "high";
 
 const hasKey = () =>
   !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_key_here";
+const hasOpenAI = () =>
+  !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "your_key_here";
 
 function outputDir() {
   return process.env.OUTPUT_DIR
@@ -73,18 +77,56 @@ async function generateImage(prompt, aspectRatio) {
   );
 }
 
+// --- OpenAI (gpt-image-1) image generation ----------------------------------
+async function generateImageOpenAI(prompt, aspectRatio) {
+  if (!hasOpenAI()) {
+    throw new Error(
+      "No OpenAI key. Add OPENAI_API_KEY to .env and restart."
+    );
+  }
+  // gpt-image-1 supports a small set of sizes; pick the closest to the banner.
+  let size = "1536x1024";
+  if (aspectRatio) {
+    const [w, h] = String(aspectRatio).split(":").map(Number);
+    if (w && h) {
+      const r = w / h;
+      size = r >= 1.2 ? "1536x1024" : r <= 0.8 ? "1024x1536" : "1024x1024";
+    }
+  }
+  const resp = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({ model: OPENAI_MODEL, prompt, size, quality: OPENAI_QUALITY, n: 1 }),
+  });
+  const j = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(j?.error?.message || `OpenAI HTTP ${resp.status}`);
+  const b64 = j?.data?.[0]?.b64_json;
+  if (!b64) throw new Error("OpenAI returned no image.");
+  return { dataUrl: `data:image/png;base64,${b64}`, mimeType: "image/png" };
+}
+
 // --- Server -----------------------------------------------------------------
 const app = express();
 app.use(express.json({ limit: "25mb" })); // banners with base64 images are large
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, hasKey: hasKey() }));
+app.get("/api/health", (_req, res) =>
+  res.json({ ok: true, hasKey: hasKey(), hasOpenAI: hasOpenAI() })
+);
 
 app.post("/api/generate-image", async (req, res) => {
   try {
     const prompt = String(req.body?.prompt || "").trim();
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
     const aspectRatio = req.body?.aspectRatio ? String(req.body.aspectRatio) : undefined;
-    res.json(await generateImage(prompt, aspectRatio));
+    const provider = String(req.body?.provider || "gemini");
+    res.json(
+      provider === "openai"
+        ? await generateImageOpenAI(prompt, aspectRatio)
+        : await generateImage(prompt, aspectRatio)
+    );
   } catch (err) {
     console.error("generate-image failed:", err?.message || err);
     res.status(500).json({ error: err?.message || "Image generation failed." });
@@ -118,15 +160,12 @@ app.use(express.static(HERE));
 app.listen(PORT, () => {
   console.log(`\n  🗂  Banner Studio is running.`);
   console.log(`  Open this in your browser:  http://localhost:${PORT}\n`);
-  if (hasKey()) {
-    console.log(`  ✓ AI is active (model: ${MODEL}).`);
+  if (hasKey()) console.log(`  ✓ Gemini active (model: ${MODEL}).`);
+  if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}).`);
+  if (hasKey() || hasOpenAI()) {
     console.log(`  ✓ Generated banners save to: ${outputDir()}\n`);
   } else {
-    console.log(
-      `  ⚠  No Gemini key yet — you can still upload your own images.`
-    );
-    console.log(
-      `     To turn on AI: copy .env.example to .env, paste your key, restart.\n`
-    );
+    console.log(`  ⚠  No AI key yet — you can still upload your own images.`);
+    console.log(`     To turn on AI: copy .env.example to .env, paste a key, restart.\n`);
   }
 });
