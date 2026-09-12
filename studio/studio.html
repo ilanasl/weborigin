@@ -134,17 +134,20 @@ const TEMPLATES = [
   {
     id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins",
     sizes:{desktop:{w:300,h:600}, mobile:{w:300,h:600}},
-    bgPos:{desktop:"center bottom", mobile:"center bottom"},
+    bgPos:{desktop:"center", mobile:"center"},
+    // Solid light card fills the whole tile; the photo is confined to the lower band.
+    bgColor:"#ece4d6",
+    imageBox:{x:0,y:56,w:100,h:44},
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
-    defaultTopic:"a product photo with a smiling person, on a soft light background, subject in the lower half",
-    composition:"A single vertical scene. The product or smiling person fills the LOWER HALF of the frame; the TOP HALF is a soft, clean, light background with room for a headline and a button. One continuous image, no panels or collage.",
-    // Light card across the top ~half; the product image shows in the bottom half.
-    overlay:{desktop:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50},
-             mobile:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50}},
+    defaultTopic:"a smiling person holding a product, with the product package at their feet",
+    composition:"The subject (a smiling person and the product) sits at the BOTTOM of the frame, standing on a plain, seamless soft-beige studio background (#ece4d6) that fills the rest of the frame with empty space above. Full product visible, nothing cropped. Photorealistic, bright even studio light, no text, no props, one clean image.",
+    // Soft beige gradient softening the top edge of the photo band.
+    overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:52,fade:64},
+             mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:52,fade:64}},
     elements:[
-      {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:26,anchor:"center",maxW:86},
-      {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:35,anchor:"center",maxW:80,lh:1.15},
-      {type:"button",key:"cta",label:"Button text",val:"Claim Offer",size:17,weight:700,color:"#ffffff",x:50,y:50,anchor:"center",btnColor:"#1e3a5f",padX:22,padY:12,radius:8}
+      {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:24,anchor:"center",maxW:86},
+      {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:33,anchor:"center",maxW:80,lh:1.15},
+      {type:"button",key:"cta",label:"Button text",val:"Claim Offer",size:17,weight:700,color:"#ffffff",x:50,y:46,anchor:"center",btnColor:"#1e3a5f",padX:22,padY:12,radius:8}
     ]
   },
   {
@@ -362,9 +365,11 @@ function buildAIPrompt(tpl,st){
 }
 async function aiGenerate(tpl,st){
   const d=tpl.sizes.desktop;
+  // When the image is confined to a box, match the AI aspect ratio to the box.
+  const box=tpl.imageBox, arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
   const engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
   const isGpt=engine==='openai';
-  const body={prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h),provider:isGpt?'openai':'gemini'};
+  const body={prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(arW,arH),provider:isGpt?'openai':'gemini'};
   if(isGpt) body.quality=(document.getElementById('quality')||{}).value||'medium'; else body.model=engine;
   const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await res.json().catch(()=>({}));
