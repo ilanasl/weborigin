@@ -114,8 +114,8 @@ const TEMPLATES = [
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
-    composition:"A single cohesive wide scene: a cheerful family or homeowner couple on the RIGHT third, framed from about the waist up and kept fully within the central horizontal band so NONE of them is cropped at the top or bottom edge, standing in front of a suburban house with a porch and garden. The LEFT ~55% is a calm, softly-lit continuation of the same scene (house, lawn, plants) with room for a dark navy text panel. One continuous photo, no seams, no collage.",
-    overlay:{desktop:{color:"#0e2340",opacity:.9,gradient:true,coverage:"left",hold:12,fade:66},
+    composition:"A single cohesive wide scene: a cheerful family or homeowner couple standing in front of a suburban house with a porch and garden, positioned in the RIGHT third. IMPORTANT — keep the people SMALL within the frame with generous empty space ABOVE their heads and BELOW, kept inside the central horizontal band, because the image is cropped to a very wide short strip; they must survive a central horizontal crop with NOTHING cut off (no cropped heads, arms or legs). The LEFT ~55% is a calm, softly-lit continuation of the same scene (house, lawn, plants) for a dark text panel. One continuous photo, no seams, no collage.",
+    overlay:{desktop:{color:"#0a111c",opacity:.92,gradient:true,coverage:"left",hold:14,fade:66},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
       {key:"headline",label:"Headline",val:"Top Home Warranty Companies 2026",size:46,weight:800,color:"#ffffff",align:"left",x:15.5,y:26,anchor:"top-left",maxW:52,lh:1.05,
@@ -645,6 +645,7 @@ async function downloadOne(tpl,st,sizes){
   await fontsReady;const f=currentFmt();
   for(const size of (sizes||(st.mobile?["desktop","mobile"]:["desktop"]))){
     const {blob,name}=await exportBanner(tpl,st,size,f);browserDownload(blob,name);
+    log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${(f.kb&&f.fmt!=="png")?` (target ≤${f.kb}KB)`:""}`);
   }
 }
 
