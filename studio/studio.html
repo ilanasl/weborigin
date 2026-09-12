@@ -1,0 +1,642 @@
+<title>Banner Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;600;700;800&family=Montserrat:wght@400;600;700;800;900&family=Poppins:wght@400;600;700;800&display=swap">
+<style>
+  :root{
+    --bg:#0f1319; --panel:#161b23; --panel-2:#1d232d; --border:#2a323f;
+    --text:#e7ecf4; --muted:#93a0b1; --accent:#2f86ff; --accent-ink:#04121f;
+    --ok:#37b578; --warn:#f0b23a; --ui:"Inter",system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#eef1f6; --panel:#ffffff; --panel-2:#f3f5f9; --border:#d9dee7;
+      --text:#16202e; --muted:#5a6675; --accent:#0f6fe0; --accent-ink:#ffffff;
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f6; --panel:#ffffff; --panel-2:#f3f5f9; --border:#d9dee7;
+    --text:#16202e; --muted:#5a6675; --accent:#0f6fe0; --accent-ink:#ffffff;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--ui)}
+  .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--panel)}
+  .brand{font-weight:700;font-size:17px}.brand b{color:var(--accent)}
+  .muted{color:var(--muted);font-size:12px}
+  .run-panel{position:sticky;top:53px;z-index:15;background:var(--panel);border-bottom:1px solid var(--border);padding:12px 18px;display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .note{color:var(--muted);font-size:12px;margin-right:auto;max-width:420px}
+  .f{display:flex;flex-direction:column;gap:5px}
+  .f > span{font-size:12px;color:var(--muted)}
+  input[type=text],input[type=number],select,textarea{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;width:100%}
+  textarea{resize:vertical}
+  button{cursor:pointer;font:inherit}
+  .btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:8px;padding:9px 15px;font-weight:700}
+  .btn.big{padding:11px 20px;font-size:15px}
+  .btn:disabled{opacity:.5}
+  .ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-weight:600}
+  .actions{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+  .grid{display:grid;gap:16px;padding:18px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+  .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .card-h{display:flex;align-items:center;gap:8px}
+  .card-title{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+  .card-name{margin-left:auto;color:var(--muted);font-size:12px}
+  .thumb{background:repeating-conic-gradient(#20242e 0% 25%,#191d25 0% 50%) 50%/16px 16px;border:1px solid var(--border);border-radius:8px;overflow:hidden;cursor:pointer;height:170px;display:flex;align-items:center;justify-content:center}
+  .thumb canvas{display:block;max-width:100%;max-height:158px;width:auto;height:auto}
+  .src{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .src .lab{font-size:12px;color:var(--muted);margin-right:auto}
+  .mini{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;display:inline-block}
+  .mini input{display:none}
+  .tiny{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600}
+  .tiny.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .chk{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+  .card-btns{display:flex;gap:6px}
+  .log{margin:0 18px 18px;padding:12px 14px;background:var(--panel);border:1px solid var(--border);border-radius:10px;font:12px/1.6 ui-monospace,monospace;max-height:200px;overflow:auto}
+  .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;width:min(560px,100%);max-height:90vh;overflow:auto}
+  .modal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+  .modal-prev{border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:10px 0;background:#111}
+  .modal-prev canvas{width:100%;display:block}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+  .modal.editor{width:min(1000px,100%)}
+  .editor-body{display:flex;gap:16px;align-items:flex-start}
+  .editor-controls{flex:0 0 300px;max-height:72vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+  .editor-preview{flex:1;display:flex;flex-direction:column;gap:10px;align-items:center;position:sticky;top:0}
+  .e-canvas{background:repeating-conic-gradient(#20242e 0% 25%,#191d25 0% 50%) 50%/16px 16px;border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:64vh;max-width:100%}
+  .e-canvas canvas{display:block;max-width:100%;max-height:62vh;height:auto}
+  .e-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .e-seg button{background:transparent;color:var(--muted);border:0;padding:6px 12px;font-weight:600;cursor:pointer}
+  .e-seg button.on{background:var(--accent);color:var(--accent-ink)}
+  .e-inline{display:flex;gap:6px;align-items:center}
+  .e-inline input[type=text]{width:100%}
+  .e-inline input[type=color]{flex:0 0 34px;height:28px;padding:1px}
+  .e-posrow{gap:6px}
+  .pxl{font-size:11px;color:var(--muted);flex:0 0 auto}
+  .e-posrow input[type=range]{flex:1;min-width:56px}
+  .e-texts .f{gap:4px;margin-bottom:6px}
+  .e-row{display:flex;gap:8px}
+  .e-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:6px}
+  .cwhite{color:var(--text)}
+  @media (max-width:760px){.editor-body{flex-direction:column}.editor-controls{flex:none;width:100%}.editor-preview{position:static;width:100%}}
+</style>
+
+<div class="top">
+  <div class="brand">Banner<b>Studio</b></div>
+  <span class="muted" id="count"></span>
+  <span style="flex:1"></span>
+  <button class="ghost" id="theme">◐</button>
+</div>
+
+<div class="run-panel">
+  <span class="note">Set each banner's image (upload your own here — AI-from-topic runs in the local app), tick the ones to make, then Run.</span>
+  <label class="f"><span>Format</span>
+    <select id="fmt"><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select></label>
+  <label class="f"><span>Max weight (KB)</span>
+    <input type="number" id="kb" placeholder="off" style="width:110px"></label>
+  <div class="actions">
+    <button class="ghost" id="selAll">Select all</button>
+    <button class="ghost" id="clr">Clear</button>
+    <button class="btn big" id="run">Run selected</button>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+<div class="log" id="log" hidden></div>
+
+<script>
+/* ---------------- Templates (each = one banner type) ---------------- */
+const TEMPLATES = [
+  {
+    id:"top-home-warranty", name:"Home Warranty Hero", font:"Poppins",
+    sizes:{desktop:{w:1920,h:260}, mobile:{w:375,h:280}},
+    bgPos:{desktop:"right", mobile:"center"},
+    logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
+    defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
+    overlay:{desktop:{color:"#0e2a3f",opacity:.82,gradient:true,coverage:"left",hold:0},
+             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
+    elements:[
+      {key:"headline",label:"Headline",val:"Top Home Warranty Companies 2026",size:46,weight:800,color:"#ffffff",align:"left",x:15.5,y:26,anchor:"top-left",maxW:52,lh:1.05,
+       mobile:{size:25,x:6,y:14,maxW:60,lh:1.12,color:"#16324a"}},
+      {key:"subtitle",label:"Subtitle",val:"Be prepared for the unexpected and avoid unnecessary expenses.",size:21,weight:400,color:"#e8eef4",align:"left",x:15.5,y:48,anchor:"top-left",maxW:47,lh:1.3,
+       mobile:{size:15,x:6,y:56,maxW:56,color:"#c15a1e"}},
+      {key:"updated",label:"Last updated",val:"✓ Last Updated: September 2026",size:16,weight:400,color:"#ffffff",align:"left",x:15.5,y:86,anchor:"top-left",maxW:60,
+       mobile:{size:12.5,x:6,y:84,color:"#16324a"}},
+      {key:"disc",label:"Advertising disclosure",val:"Advertising Disclosure",size:13,weight:400,color:"#d7dee6",align:"right",x:98,y:92,anchor:"bottom-right",maxW:40,hiddenMobile:true}
+    ]
+  },
+  {
+    id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins",
+    sizes:{desktop:{w:300,h:600}, mobile:{w:300,h:600}},
+    bgPos:{desktop:"center bottom", mobile:"center bottom"},
+    logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
+    defaultTopic:"a product photo with a smiling person, on a soft light background, subject in the lower half",
+    // Light card across the top ~half; the product image shows in the bottom half.
+    overlay:{desktop:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50},
+             mobile:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50}},
+    elements:[
+      {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:26,anchor:"center",maxW:86},
+      {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:35,anchor:"center",maxW:80,lh:1.15},
+      {type:"button",key:"cta",label:"Button text",val:"Claim Offer",size:17,weight:700,color:"#ffffff",x:50,y:50,anchor:"center",btnColor:"#1e3a5f",padX:22,padY:12,radius:8}
+    ]
+  },
+  {
+    id:"gold-popup", name:"Popup (Split)", font:"Poppins",
+    sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
+    // White card on the left; the image fills the right side.
+    bgColor:"#ffffff",
+    imageBox:{x:48,y:0,w:52,h:100},
+    bgPos:{desktop:"center", mobile:"center"},
+    buttonAuto:false, // popups usually use a fixed brand button color
+    logo:{x:24,y:10,widthPct:30,anchor:"top-center", mobile:{x:24,y:8,widthPct:34,anchor:"top-center"}},
+    defaultTopic:"stacked gold bars and coins, warm rich lighting, financial background",
+    overlay:{desktop:{color:"#000000",opacity:0,gradient:false,coverage:"full",hold:0},
+             mobile:{color:"#000000",opacity:0,gradient:false,coverage:"full",hold:0}},
+    elements:[
+      {key:"headline",label:"Headline",val:"Protect Your Wealth from Inflation and Invest in Gold Today",size:25,weight:700,color:"#16324a",align:"left",x:8,y:40,anchor:"center-left",maxW:37,lh:1.2,
+       mobile:{size:16,x:8,y:38,maxW:40}},
+      {type:"button",key:"cta",label:"Button text",val:"View Plan",size:17,weight:700,color:"#ffffff",x:8,y:72,anchor:"top-left",btnColor:"#c8102e",padX:30,padY:14,radius:6,
+       mobile:{y:72,padX:22,padY:11}},
+      {key:"dismiss",label:"Dismiss link",val:"Not now, Thanks!",size:12,weight:400,color:"#9aa0a6",align:"center",x:24,y:92,anchor:"top-center",maxW:40}
+    ]
+  },
+  {
+    id:"popup-fade", name:"Popup (Fade)", font:"Poppins",
+    sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
+    bgPos:{desktop:"right", mobile:"right"},
+    buttonAuto:false,
+    // Full image with a white left-fade so text sits on white and the photo shows on the right.
+    overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:36},
+             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:40}},
+    logo:{x:22,y:10,widthPct:32,anchor:"top-center", mobile:{x:22,y:8,widthPct:36,anchor:"top-center"}},
+    defaultTopic:"a happy family on a sunny beach, bright cheerful lighting",
+    elements:[
+      {key:"headline",label:"Headline",val:"Beat The Heat Summer Sale!",size:22,weight:700,color:"#1a1a1a",align:"left",x:7,y:30,anchor:"top-left",maxW:38,lh:1.15,
+       mobile:{size:15,maxW:44}},
+      {key:"offer",label:"Offer (highlight)",val:"$75 Off + 1 Month Free",size:28,weight:800,color:"#111111",align:"left",x:7,y:46,anchor:"top-left",maxW:32,lh:1.35,highlight:"#f5c518",hlPadX:8,hlPadY:4,
+       mobile:{size:18,maxW:40}},
+      {type:"button",key:"cta",label:"Button text",val:"VIEW PLAN",size:18,weight:700,color:"#ffffff",x:7,y:74,anchor:"top-left",btnColor:"#2f6bff",padX:34,padY:14,radius:8,upper:true,
+       mobile:{y:74,padX:22,padY:11,size:14}},
+      {key:"dismiss",label:"Dismiss link",val:"Not now, Thanks.",size:11,weight:400,color:"#9aa0a6",align:"center",x:20,y:93,anchor:"top-center",maxW:36}
+    ]
+  },
+  {
+    id:"table-bg", name:"Page Background (Full page)", font:"Poppins",
+    // Tall full-page background: the comparison table sits over the center (live
+    // on the site), so keep the subjects at the SIDES and the center/lower area open.
+    sizes:{desktop:{w:1600,h:1100}, mobile:{w:390,h:1000}},
+    bgPos:{desktop:"center", mobile:"center"},
+    defaultTopic:"travel atmosphere, a small airplane on the far LEFT and a suitcase with travel items on the far RIGHT, bright open EMPTY center, soft blue-lavender gradient background, clean 3D render",
+    overlay:{desktop:{color:"#28306e",opacity:0.3,gradient:true,coverage:"top",hold:0},
+             mobile:{color:"#28306e",opacity:0.4,gradient:true,coverage:"top",hold:0}},
+    elements:[
+      {key:"headline",label:"Headline",val:"Best Travel Insurance Companies 2026",size:44,weight:800,color:"#ffffff",align:"left",x:12,y:6,anchor:"top-left",maxW:52,lh:1.1,
+       mobile:{size:26,x:6,y:4,maxW:88}},
+      {key:"subtitle",label:"Subtitle",val:"Check and compare the best travel insurance companies of 2026. Find the best plan for your trip and avoid unnecessary expenses.",size:19,weight:400,color:"#eaeefc",align:"left",x:12,y:11,anchor:"top-left",maxW:42,lh:1.35,
+       mobile:{size:14,x:6,y:12,maxW:88}},
+      {key:"updated",label:"Last updated",val:"✓ Last Updated: September 2026",size:15,weight:400,color:"#ffffff",align:"left",x:12,y:17,anchor:"top-left",maxW:40,
+       mobile:{size:12,x:6,y:20}}
+    ]
+  },
+  {
+    id:"landing-bg", name:"Landing Background (Full screen)", font:"Poppins",
+    sizes:{desktop:{w:1920,h:1080}, mobile:{w:390,h:844}},
+    bgPos:{desktop:"center", mobile:"center"},
+    // The whole colorway comes from the overlay color you pick: choose purple and
+    // the background turns purple. Keep the image subjects at the sides.
+    defaultTopic:"casino atmosphere, glowing chips on the LEFT and a roulette wheel on the RIGHT, dark open center, moody purple lighting",
+    // Default: no wash (natural image colors). Raise Overlay strength and pick a
+    // color to set the whole colorway (e.g. purple).
+    overlay:{desktop:{color:"#3a1560",opacity:0,gradient:false,coverage:"full",hold:0},
+             mobile:{color:"#3a1560",opacity:0,gradient:false,coverage:"full",hold:0}},
+    elements:[
+      {key:"date",label:"Date",val:"September 11, 2026",size:16,weight:600,color:"#ffffff",align:"left",x:14,y:9,anchor:"top-left",maxW:40,
+       mobile:{size:12,x:6,y:5}},
+      {key:"headline",label:"Headline",val:"10 Best Online Casino Sites UK",size:46,weight:800,color:"#ffffff",align:"left",x:14,y:14,anchor:"top-left",maxW:52,lh:1.1,
+       mobile:{size:26,x:6,y:9,maxW:88}},
+      {key:"subtitle",label:"Subtitle",val:"A comparison between the leading online casino sites in the UK, with the best regulated and trusted casinos, reviews and welcome offers.",size:18,weight:400,color:"#e7dcf5",align:"left",x:14,y:22,anchor:"top-left",maxW:44,lh:1.35,
+       mobile:{size:14,x:6,y:20,maxW:88}},
+      {key:"features",label:"Features line",val:"UK Licensed   ·   Secure & Trusted   ·   Fast Withdrawals   ·   Daily Updated",size:15,weight:600,color:"#ffffff",align:"left",x:14,y:33,anchor:"top-left",maxW:52,
+       mobile:{size:12,x:6,y:34,maxW:88}},
+      {key:"disclosure",label:"Disclosure",val:"18+ Advertising Disclosure",size:13,weight:400,color:"#cbb9e0",align:"left",x:60,y:33,anchor:"top-left",maxW:30,
+       mobile:{size:11,x:6,y:40}}
+    ]
+  }
+];
+
+/* ---------------- Renderer ---------------- */
+function hexA(hex,a){const m=/^#?([0-9a-f]{6})$/i.exec(hex.replace("#",""));if(!m)return`rgba(0,0,0,${a})`;const n=parseInt(m[1],16);return`rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+function horiz(p){return (p||"").includes("left")?"left":(p||"").includes("right")?"right":"center";}
+function horizNum(p){return (p||"").includes("left")?0:(p||"").includes("right")?100:50;}
+function vert(p){return (p||"").includes("top")?"top":(p||"").includes("bottom")?"bottom":"center";}
+function vertNum(p){return (p||"").includes("top")?0:(p||"").includes("bottom")?100:50;}
+function resolveEl(el,size){return size==="mobile"&&el.mobile?Object.assign({},el,el.mobile):el;}
+// hx/vy = pan 0..100; zoom>1 enlarges the image so there is room to pan
+function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=(W-dw)*(hx/100),dy=(H-dh)*(vy/100);ctx.drawImage(img,dx,dy,dw,dh);}
+function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
+function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
+function drawOverlay(ctx,ov,W,H){const c=ov.color,o=ov.opacity,hold=Math.max(0,Math.min(100,ov.hold||0))/100,cov=ov.coverage||"full";let g=null;if(cov==="left")g=ctx.createLinearGradient(0,0,W,0);else if(cov==="right")g=ctx.createLinearGradient(W,0,0,0);else if(cov==="top")g=ctx.createLinearGradient(0,0,0,H);else if(cov==="bottom")g=ctx.createLinearGradient(0,H,0,0);if(ov.gradient&&g){g.addColorStop(0,hexA(c,o));g.addColorStop(hold,hexA(c,o));g.addColorStop(1,hexA(c,0));ctx.fillStyle=g;}else ctx.fillStyle=hexA(c,o);ctx.fillRect(0,0,W,H);}
+function wrapLines(ctx,text,maxW){const words=String(text).split(/\s+/),lines=[];let line="";for(const w of words){const t=line?line+" "+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}if(line)lines.push(line);return lines;}
+function resolveLogo(logo,size){return size==="mobile"&&logo.mobile?Object.assign({},logo,logo.mobile):logo;}
+function drawLogo(ctx,img,W,H,spec,scale,xOver){
+  const ar=(img.naturalHeight/img.naturalWidth)||0.4;
+  const w=spec.widthPct*(scale||1)/100*W, h=w*ar;
+  const parts=(spec.anchor||"top-left").split("-");const v=parts[0],hh=parts[1];
+  let dx=(xOver!=null?xOver:spec.x)/100*W, dy=spec.y/100*H;
+  if(hh==="center")dx-=w/2; else if(hh==="right")dx-=w;
+  if(v==="bottom")dy-=h; else if(v==="center")dy-=h/2;
+  ctx.drawImage(img,dx,dy,w,h);
+}
+function contrast(hex){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return"#ffffff";const n=parseInt(m[1],16);const L=(0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;return L>0.6?"#10202e":"#ffffff";}
+function roundRect(ctx,x,y,w,h,r){if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,r);return;}ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawButton(ctx,el,text,W,H,accent,font){
+  const bg=accent||el.btnColor||"#1e3a5f", txt=accent?contrast(bg):(el.color||"#ffffff");
+  const padX=el.padX||22, padY=el.padY||12, radius=el.radius||8;
+  ctx.font=`${el.weight||700} ${el.size}px "${font}", sans-serif`;
+  const label=el.upper?String(text).toUpperCase():text;
+  const bw=ctx.measureText(label).width+padX*2, bh=el.size+padY*2;
+  const parts=(el.anchor||"center").split("-");const v=parts[0]||"center",hh=parts[1]||parts[0]||"center";
+  const bx=el.x/100*W, by=el.y/100*H;
+  const x0=hh==="left"?bx:hh==="right"?bx-bw:bx-bw/2;
+  const y0=v==="top"?by:v==="bottom"?by-bh:by-bh/2;
+  roundRect(ctx,x0,y0,bw,bh,radius);ctx.fillStyle=bg;ctx.fill();
+  ctx.fillStyle=txt;ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillText(label,x0+bw/2,y0+bh/2+1);ctx.textBaseline="alphabetic";
+}
+function getAccent(img){try{const c=document.createElement("canvas");c.width=24;c.height=24;const x=c.getContext("2d");x.drawImage(img,0,0,24,24);const d=x.getImageData(0,0,24,24).data;let br=0,bg=0,bb=0,bs=-1,ar=0,ag=0,ab=0,cnt=0;for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2];ar+=r;ag+=g;ab+=b;cnt++;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);const v=mx/255,s=mx===0?0:(mx-mn)/mx;const score=s*(v>0.2&&v<0.95?1:0.25);if(score>bs){bs=score;br=r;bg=g;bb=b;}}if(bs<0.15){br=ar/cnt|0;bg=ag/cnt|0;bb=ab/cnt|0;}return"#"+[br,bg,bb].map(n=>n.toString(16).padStart(2,"0")).join("");}catch(_){return null;}}
+// A dark, on-hue version of a color — used to tint the overlay to match the image.
+function darken(hex,tv){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return null;const n=parseInt(m[1],16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const mx=Math.max(r,g,b)||1;const k=(tv||58)/mx;r=Math.min(255,r*k)|0;g=Math.min(255,g*k)|0;b=Math.min(255,b*k)|0;return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");}
+function tintFromImage(img){return darken(getAccent(img),58);}
+function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
+  over=over||{};
+  const dim=tpl.sizes[size];const canvas=document.createElement("canvas");canvas.width=dim.w;canvas.height=dim.h;const ctx=canvas.getContext("2d");
+  const font=over.font||tpl.font;
+  const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
+  const vy=vertNum(tpl.bgPos[size]);
+  const zoom=over.zoom||1;
+  if(tpl.bgColor){ctx.fillStyle=tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
+  if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+    if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
+  else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
+  let ovl=tpl.overlay[size]||tpl.overlay.desktop;
+  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold};} drawOverlay(ctx,ovl,dim.w,dim.h); }
+  if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
+  if(showText)for(const raw of tpl.elements){
+    if(size==="mobile"&&raw.hiddenMobile)continue;
+    const el=resolveEl(raw,size),text=(texts&&texts[raw.key]!=null?texts[raw.key]:el.val);
+    const po=(over.pos&&over.pos[size]&&over.pos[size][raw.key])||{};
+    const px=po.x!=null?po.x:el.x, py=po.y!=null?po.y:el.y;
+    if(el.type==="button"){const btn=over.buttonAuto===false?(over.buttonColor||el.btnColor):accent;drawButton(ctx,Object.assign({},el,{x:px,y:py}),text,dim.w,dim.h,btn,font);continue;}
+    const col=(over.colors&&over.colors[size]&&over.colors[size][raw.key])||el.color;
+    const parts=el.anchor==="center"?["center","center"]:(el.anchor||"top-left").split("-");const v=parts[0],h=parts[1];
+    ctx.font=`${el.weight||400} ${el.size}px "${font}", sans-serif`;ctx.fillStyle=col;ctx.textAlign=h;
+    const disp=el.upper?String(text).toUpperCase():text;const maxW=((el.maxW||90)/100)*dim.w;const lh=(el.lh||1.15)*el.size;
+    const lines=wrapLines(ctx,disp,maxW);const totalH=lines.length*lh;const bx=px/100*dim.w,by=py/100*dim.h;
+    let fb;if(v==="top")fb=by+el.size;else if(v==="bottom")fb=by-totalH+el.size;else fb=by-totalH/2+el.size;
+    if(el.highlight){const padx=el.hlPadX||8,pady=el.hlPadY||4;ctx.fillStyle=el.highlight;lines.forEach((ln,i)=>{const w=ctx.measureText(ln).width;const baseY=fb+i*lh;const rx=h==="center"?bx-w/2-padx:h==="right"?bx-w-padx:bx-padx;const ry=baseY-el.size*0.82-pady;roundRect(ctx,rx,ry,w+padx*2,el.size*0.98+pady*2,4);ctx.fill();});ctx.fillStyle=col;}
+    lines.forEach((ln,i)=>ctx.fillText(ln,bx,fb+i*lh));
+  }
+  return canvas;
+}
+
+/* ---------------- Fonts + per-banner overrides ---------------- */
+const FONTS=["Open Sans","Montserrat","Poppins","Inter","Roboto","Lato","Oswald","Playfair Display","Anton","Bebas Neue"];
+const loadedFonts=new Set(["Inter","Open Sans","Montserrat","Poppins"]);
+function loadFont(f){if(loadedFonts.has(f))return;loadedFonts.add(f);const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f.replace(/\s+/g,"+")+":wght@400;500;600;700;800;900&display=swap";document.head.appendChild(l);}
+function initOverrides(tpl){
+  const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,auto:false};}
+  const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
+  const btnEl=tpl.elements.find(e=>e.type==="button");
+  return {font:tpl.font,overlay,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+}
+
+/* ---------------- State ---------------- */
+const state = {}; // id -> {selected,mobile,topic,customPrompt,uploaded,img,accent,logo,logoImg,over,text}
+for(const t of TEMPLATES) state[t.id]={selected:false,mobile:false,topic:"",customPrompt:"",uploaded:null,img:null,accent:null,tint:null,logo:null,logoImg:null,over:initOverrides(t),text:{enabled:false,texts:{}}};
+
+const fontsReady = (async()=>{try{await Promise.all(TEMPLATES.map(t=>document.fonts.load(`800 20px "${t.font}"`)));await document.fonts.ready;}catch(_){}} )();
+
+function loadImage(src){return new Promise((res,rej)=>{const i=new Image();i.crossOrigin="anonymous";i.onload=()=>res(i);i.onerror=()=>rej(new Error("image"));i.src=src;});}
+
+/* ---------------- UI ---------------- */
+// ---- Local (AI) mode: enabled when a local server with a Gemini key is present ----
+let LOCAL={on:false};
+function buildAIPrompt(tpl,st){
+  const topic=(st.topic&&st.topic.trim())||tpl.defaultTopic||"clean background";
+  const extra=(st.customPrompt&&st.customPrompt.trim())?(". "+st.customPrompt.trim()):"";
+  const d=tpl.sizes.desktop;const ar=(d.w/d.h).toFixed(2);
+  return `${topic}${extra}. Background image for a ${d.w}x${d.h} web banner, aspect ratio about ${ar}. Do NOT include any text, letters, words, logos or watermarks in the image.`;
+}
+async function aiGenerate(tpl,st){
+  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:buildAIPrompt(tpl,st)})});
+  const j=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);
+}
+function enableLocalMode(){
+  document.querySelectorAll('.c-airow').forEach(e=>{e.hidden=false;});
+  document.querySelectorAll('.c-ailbl').forEach(e=>{e.textContent='(AI)';});
+  const n=document.querySelector('.note');
+  if(n)n.textContent='AI is active. Type a topic per banner and click Generate — or Run selected to generate + save all to your output folder.';
+}
+
+const grid=document.getElementById("grid");
+document.getElementById("count").textContent=`${TEMPLATES.length} banner types`;
+
+function drawThumb(canvasEl,tpl,st){
+  // Thumbnail always shows the (default) text so you can see how it sits on the
+  // image. Whether text is actually baked into the exported file is controlled
+  // by the "Text" toggle and applied only at Run.
+  const render=()=>{const c=renderBanner(tpl,"desktop",st.img,st.text.texts,true,st.logoImg,st.accent,st.over,st.tint);canvasEl.width=c.width;canvasEl.height=c.height;canvasEl.getContext("2d").drawImage(c,0,0);};
+  render();fontsReady.then(render);
+}
+
+TEMPLATES.forEach(tpl=>{
+  const st=state[tpl.id];const d=tpl.sizes.desktop,m=tpl.sizes.mobile;
+  const card=document.createElement("div");card.className="card";card.dataset.id=tpl.id;
+  card.innerHTML=`
+    <div class="card-h">
+      <input type="checkbox" class="c-sel">
+      <span class="card-title">${d.w}×${d.h}</span>
+      <span class="card-name">${tpl.name}</span>
+    </div>
+    <div class="thumb"><canvas></canvas></div>
+    <div class="src">
+      <span class="lab">Image: <b class="c-srclab">upload needed</b></span>
+      <label class="mini">Upload<input type="file" class="c-file" accept="image/*"></label>
+      <button class="tiny c-clearimg" hidden>Remove</button>
+    </div>
+    <div class="src">
+      <span class="lab">Logo: <b class="c-logolab">none</b></span>
+      <label class="mini">Upload logo<input type="file" class="c-logofile" accept="image/*"></label>
+      <button class="tiny c-clearlogo" hidden>Remove</button>
+    </div>
+    <div class="src c-logoszrow" hidden><span class="lab">Logo size</span><input type="range" class="c-logosz" min="0.4" max="2" step="0.05" style="flex:1"></div>
+    <label class="chk"><input type="checkbox" class="c-tint"> Auto tint overlay from image</label>
+    <label class="f"><span>Image topic <b class="c-ailbl muted">(AI — needs local app)</b></span>
+      <input type="text" class="c-topic" placeholder="${tpl.defaultTopic}"></label>
+    <label class="f"><span>Specific prompt (optional)</span>
+      <input type="text" class="c-prompt" placeholder="e.g. warm daylight, no text on boxes"></label>
+    <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
+    <div class="card-foot">
+      <label class="chk"><input type="checkbox" class="c-mob"> Mobile (${m.w}×${m.h})</label>
+      <div class="card-btns">
+        <button class="tiny c-edit">Edit</button>
+        <button class="tiny c-text">Text</button>
+        <button class="tiny c-reset">Reset</button>
+      </div>
+    </div>`;
+  grid.appendChild(card);
+  const canvasEl=card.querySelector("canvas");
+  drawThumb(canvasEl,tpl,st);
+  const selEl=card.querySelector(".c-sel"), srcLab=card.querySelector(".c-srclab"),
+        fileEl=card.querySelector(".c-file"), clearImg=card.querySelector(".c-clearimg"),
+        logoLab=card.querySelector(".c-logolab"), logoFile=card.querySelector(".c-logofile"),
+        clearLogo=card.querySelector(".c-clearlogo"),
+        mobEl=card.querySelector(".c-mob"), textBtn=card.querySelector(".c-text"),
+        resetBtn=card.querySelector(".c-reset"), tintChk=card.querySelector(".c-tint");
+
+  function refresh(){
+    card.classList.toggle("sel",st.selected);
+    selEl.checked=st.selected; mobEl.checked=st.mobile;
+    srcLab.textContent=st.uploaded?"your upload":"upload needed";
+    clearImg.hidden=!st.uploaded;
+    logoLab.textContent=st.logo?"added":"none";
+    clearLogo.hidden=!st.logo;
+    card.querySelector(".c-logoszrow").hidden=!st.logo;
+    card.querySelector(".c-logosz").value=st.over.logoScale;
+    tintChk.checked=st.over.overlay.desktop.auto;
+    textBtn.classList.toggle("on",st.text.enabled);
+    drawThumb(canvasEl,tpl,st);
+  }
+  tintChk.addEventListener("change",()=>{st.over.overlay.desktop.auto=tintChk.checked;st.over.overlay.mobile.auto=tintChk.checked;refresh();});
+  selEl.addEventListener("change",()=>{st.selected=selEl.checked;refresh();});
+  card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,refresh));
+  mobEl.addEventListener("change",()=>{st.mobile=mobEl.checked;});
+  fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();});
+  clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();});
+  logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
+  clearLogo.addEventListener("click",()=>{st.logo=null;st.logoImg=null;refresh();});
+  card.querySelector(".c-logosz").addEventListener("input",e=>{st.over.logoScale=+e.target.value;drawThumb(canvasEl,tpl,st);});
+  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();});
+  textBtn.addEventListener("click",()=>openTextModal(tpl,st,refresh));
+  card.querySelector(".c-edit").addEventListener("click",e=>{e.stopPropagation();openEditor(tpl,st,refresh);});
+  // topic / prompt / AI generate
+  const topicEl=card.querySelector(".c-topic"), promptEl=card.querySelector(".c-prompt");
+  topicEl.value=st.topic||""; promptEl.value=st.customPrompt||"";
+  topicEl.addEventListener("input",()=>{st.topic=topicEl.value;});
+  promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;});
+  if(LOCAL.on){ card.querySelector(".c-airow").hidden=false; card.querySelector(".c-ailbl").textContent="(AI)"; }
+  const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
+  genBtn.addEventListener("click",async()=>{
+    genBtn.disabled=true; genStat.textContent="Generating…";
+    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ done"; }
+    catch(e){ genStat.textContent="✗ "+(e.message||"failed"); }
+    genBtn.disabled=false;
+  });
+});
+
+function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
+
+/* ---- Text modal ---- */
+function openTextModal(tpl,st,onClose){
+  const back=document.createElement("div");back.className="backdrop";
+  const texts={};for(const el of tpl.elements)texts[el.key]=st.text.texts[el.key]!=null?st.text.texts[el.key]:el.val;
+  let enabled=st.text.enabled;
+  back.innerHTML=`<div class="modal">
+    <div class="modal-h"><b>Add text — ${tpl.name}</b><button class="ghost m-x">✕</button></div>
+    <label class="chk" style="color:var(--text)"><input type="checkbox" class="m-en"> Add text to this banner</label>
+    <div class="modal-prev"><canvas></canvas></div>
+    <div class="m-fields"></div>
+    <div class="modal-foot"><button class="ghost m-cancel">Cancel</button><button class="btn m-save">Save</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  const enEl=back.querySelector(".m-en");enEl.checked=enabled;
+  const prev=back.querySelector(".modal-prev canvas");
+  const fields=back.querySelector(".m-fields");
+  const drawPrev=()=>{const c=renderBanner(tpl,"desktop",st.img,texts,enEl.checked,st.logoImg,st.accent,st.over,st.tint);prev.width=c.width;prev.height=c.height;prev.getContext("2d").drawImage(c,0,0);};
+  tpl.elements.forEach(el=>{
+    const l=document.createElement("label");l.className="f";l.style.marginBottom="8px";
+    l.innerHTML=`<span>${el.label}</span>`;
+    const ta=document.createElement("textarea");ta.rows=el.key==="subtitle"?2:1;ta.value=texts[el.key];
+    ta.addEventListener("input",()=>{texts[el.key]=ta.value;drawPrev();});
+    l.appendChild(ta);fields.appendChild(l);
+  });
+  enEl.addEventListener("change",drawPrev);
+  fontsReady.then(drawPrev);drawPrev();
+  const close=()=>back.remove();
+  back.addEventListener("click",e=>{if(e.target===back)close();});
+  back.querySelector(".m-x").addEventListener("click",close);
+  back.querySelector(".m-cancel").addEventListener("click",close);
+  back.querySelector(".m-save").addEventListener("click",()=>{st.text={enabled:enEl.checked,texts};close();onClose();});
+}
+
+function normHex(v){v=String(v).trim();if(v[0]!=="#")v="#"+v;return /^#[0-9a-fA-F]{6}$/.test(v)?v.toLowerCase():null;}
+
+/* ---- Full per-banner editor ---- */
+function openEditor(tpl,st,onClose){
+  let size="desktop";const o=st.over;
+  const hasBtn=tpl.elements.some(e=>e.type==="button");
+  const back=document.createElement("div");back.className="backdrop";
+  back.innerHTML=`<div class="modal editor">
+    <div class="modal-h"><b>Edit — ${tpl.name}</b><button class="ghost e-x">✕</button></div>
+    <div class="editor-body">
+      <div class="editor-controls"></div>
+      <div class="editor-preview">
+        <div class="e-seg seg2"><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>
+        <div class="e-canvas"><canvas></canvas></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn e-done">Done</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  const prev=back.querySelector(".e-canvas canvas"), controls=back.querySelector(".editor-controls");
+  const draw=()=>{const c=renderBanner(tpl,size,st.img,st.text.texts,true,st.logoImg,st.accent,o,st.tint);prev.width=c.width;prev.height=c.height;prev.getContext("2d").drawImage(c,0,0);};
+
+  let html="";
+  html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*"></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label></div>`;
+  html+=`<label class="f"><span>Logo size <b class="e-logoszv"></b></span><input type="range" class="e-logosz" min="0.4" max="2" step="0.05"></label>`;
+  html+=`<label class="f"><span>Logo position (left–right)</span><input type="range" class="e-logox" min="0" max="100" step="1"></label>`;
+  html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
+  html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
+  html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — enlarge to reposition</span><input type="range" class="e-zoom" min="1" max="2.5" step="0.05"></label>`;
+  html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
+  html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
+  html+=`<div class="f e-ovmanual"><span>Overlay color (HEX)</span><div class="e-inline"><input type="color" class="e-ovc"><input type="text" class="e-ovh" maxlength="7" style="text-transform:uppercase"></div></div>`;
+  html+=`<label class="f"><span>Overlay strength <b class="e-ovov"></b></span><input type="range" class="e-ovo" min="0" max="1" step="0.02"></label>`;
+  html+=`<label class="f"><span>Solid area <b class="e-ovhv"></b></span><input type="range" class="e-ovhold" min="0" max="100" step="1"></label>`;
+  html+=`<div class="e-sec">Text</div><label class="chk cwhite"><input type="checkbox" class="e-showtext" ${st.text.enabled?"checked":""}> Bake text into the exported file</label><div class="e-texts"></div>`;
+  if(hasBtn) html+=`<label class="chk cwhite"><input type="checkbox" class="e-btnauto"> Button color: auto from image</label><div class="f e-btnman"><span>Button color (HEX)</span><div class="e-inline"><input type="color" class="e-btnc"><input type="text" class="e-btnh" maxlength="7" style="text-transform:uppercase"></div></div>`;
+  controls.innerHTML=html;
+  const q=s=>controls.querySelector(s);
+
+  // per-text content + color
+  const trow=q(".e-texts"), textColorEls=[], posEls=[];
+  tpl.elements.forEach(el=>{
+    const wrap=document.createElement("label");wrap.className="f";
+    const sp=document.createElement("span");sp.textContent=el.label||el.key;
+    const inline=document.createElement("div");inline.className="e-inline";
+    const ta=document.createElement("input");ta.type="text";ta.value=st.text.texts[el.key]!=null?st.text.texts[el.key]:el.val;
+    const ci=document.createElement("input");ci.type="color";
+    const hx=document.createElement("input");hx.type="text";hx.maxLength=7;hx.style.cssText="width:74px;text-transform:uppercase";
+    inline.appendChild(ta);inline.appendChild(ci);inline.appendChild(hx);wrap.appendChild(sp);wrap.appendChild(inline);
+    // position sliders (X across, Y down) — for placement + spacing
+    const posr=document.createElement("div");posr.className="e-inline e-posrow";
+    const lx=document.createElement("span");lx.className="pxl";lx.textContent="X";
+    const rx=document.createElement("input");rx.type="range";rx.min=0;rx.max=100;rx.step=1;
+    const ly=document.createElement("span");ly.className="pxl";ly.textContent="Y";
+    const ry=document.createElement("input");ry.type="range";ry.min=0;ry.max=100;ry.step=1;
+    posr.appendChild(ly);posr.appendChild(ry);posr.appendChild(lx);posr.appendChild(rx);wrap.appendChild(posr);
+    trow.appendChild(wrap);
+    ta.addEventListener("input",()=>{st.text.texts[el.key]=ta.value;draw();});
+    ci.addEventListener("input",()=>{o.colors[size][el.key]=ci.value;hx.value=ci.value.toUpperCase();draw();});
+    hx.addEventListener("input",()=>{const v=normHex(hx.value);if(v){o.colors[size][el.key]=v;ci.value=v;draw();}});
+    rx.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
+    ry.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{y:+ry.value});draw();});
+    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry});
+  });
+
+  function syncSize(){
+    const ov=o.overlay[size];
+    q(".e-ovauto").checked=!!ov.auto;q(".e-ovmanual").style.display=ov.auto?"none":"";
+    q(".e-ovc").value=ov.color;q(".e-ovh").value=ov.color.toUpperCase();
+    q(".e-ovo").value=ov.opacity;q(".e-ovov").textContent=Math.round(ov.opacity*100)+"%";
+    q(".e-ovhold").value=ov.hold;q(".e-ovhv").textContent=Math.round(ov.hold)+"%";
+    q(".e-posx").value=(o.anchorX&&o.anchorX[size]!=null)?o.anchorX[size]:50;
+    q(".e-zoom").value=o.zoom;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";
+    [...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));
+    q(".e-logox").value=o.logoX;
+    textColorEls.forEach(({el,ci,hx})=>{const v=o.colors[size][el.key]||el.color;ci.value=v;hx.value=v.toUpperCase();});
+    posEls.forEach(({el,rx,ry})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;});
+  }
+  q(".e-font").value=o.font;
+  q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
+  if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
+
+  // listeners
+  q(".e-showtext").addEventListener("change",e=>{st.text.enabled=e.target.checked;draw();});
+  q(".e-img").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);syncSize();draw();});
+  q(".e-logo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const u=await fileToDataUrl(f);st.logo=u;st.logoImg=await loadImage(u);draw();});
+  q(".e-logosz").addEventListener("input",e=>{o.logoScale=+e.target.value;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";draw();});
+  controls.querySelectorAll(".e-pos button").forEach(b=>b.addEventListener("click",()=>{o.anchorX[size]=+b.dataset.p;syncSize();draw();}));
+  q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;syncSize();draw();});
+  q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
+  q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
+  q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
+  q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;q(".e-ovmanual").style.display=e.target.checked?"none":"";draw();});
+  q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
+  q(".e-ovh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay[size].color=v;q(".e-ovc").value=v;draw();}});
+  q(".e-ovo").addEventListener("input",e=>{o.overlay[size].opacity=+e.target.value;q(".e-ovov").textContent=Math.round(o.overlay[size].opacity*100)+"%";draw();});
+  q(".e-ovhold").addEventListener("input",e=>{o.overlay[size].hold=+e.target.value;q(".e-ovhv").textContent=Math.round(o.overlay[size].hold)+"%";draw();});
+  if(hasBtn){
+    q(".e-btnauto").addEventListener("change",e=>{o.buttonAuto=e.target.checked;q(".e-btnman").style.display=o.buttonAuto?"none":"";draw();});
+    q(".e-btnc").addEventListener("input",e=>{o.buttonColor=e.target.value;q(".e-btnh").value=e.target.value.toUpperCase();draw();});
+    q(".e-btnh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.buttonColor=v;q(".e-btnc").value=v;draw();}});
+  }
+  back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));syncSize();draw();}));
+
+  const close=()=>{back.remove();onClose();};
+  back.addEventListener("click",e=>{if(e.target===back)close();});
+  back.querySelector(".e-x").addEventListener("click",close);
+  back.querySelector(".e-done").addEventListener("click",close);
+
+  loadFont(o.font);syncSize();draw();
+}
+
+/* ---- Encode + save ---- */
+function toBlob(c,type,q){return new Promise(r=>c.toBlob(r,type,q));}
+function flatten(c,bg){const o=document.createElement("canvas");o.width=c.width;o.height=c.height;const x=o.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,o.width,o.height);x.drawImage(c,0,0);return o;}
+async function encode(canvas,fmt,kb){
+  const type=fmt==="jpeg"?"image/jpeg":fmt==="webp"?"image/webp":"image/png";
+  const src=fmt==="jpeg"?flatten(canvas,"#ffffff"):canvas;
+  if(fmt==="png"||!kb)return toBlob(src,type,fmt==="png"?undefined:.92);
+  const target=kb*1024;let lo=.3,hi=.95,best=await toBlob(src,type,hi);if(best.size<=target)return best;
+  for(let i=0;i<8;i++){const mid=(lo+hi)/2;const b=await toBlob(src,type,mid);if(b.size<=target){best=b;lo=mid;}else hi=mid;}
+  return best;
+}
+let downloadsCap=null;
+(async()=>{try{downloadsCap=window.claude&&window.claude.use?await window.claude.use("downloads"):null;}catch(_){}})();
+function blobToDataUrl(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
+async function saveBlob(blob,name){
+  if(LOCAL.on){try{const dataUrl=await blobToDataUrl(blob);const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:name,dataUrl})});const j=await r.json().catch(()=>({}));if(r.ok)return "saved to folder";}catch(_){}}
+  if(downloadsCap){try{await downloadsCap.save({filename:name,data:blob});return "saved";}catch(e){return e&&e.code==="declined"?"cancelled":"failed";}}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();return "downloaded";
+}
+
+/* ---- Run ---- */
+const logEl=document.getElementById("log");
+function log(line){logEl.hidden=false;const d=document.createElement("div");d.textContent=line;logEl.appendChild(d);logEl.scrollTop=logEl.scrollHeight;}
+document.getElementById("run").addEventListener("click",async()=>{
+  const chosen=TEMPLATES.filter(t=>state[t.id].selected);
+  if(!chosen.length)return;
+  await fontsReady;
+  logEl.innerHTML="";logEl.hidden=false;
+  const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);const kb=isNaN(kbRaw)?0:kbRaw;
+  const ext=fmt==="jpeg"?"jpg":fmt;
+  for(const tpl of chosen){
+    const st=state[tpl.id];
+    if(!st.img){
+      if(LOCAL.on){ try{ log(`✨ ${tpl.name} — generating with AI…`); await aiGenerate(tpl,st); const cc=document.querySelector(`.card[data-id="${tpl.id}"]`); }catch(e){ log(`✗ ${tpl.name}: ${e.message||"AI failed"}`); continue; } }
+      else { log(`⚠ ${tpl.name}: no image — upload one, or run the local app for AI. Skipped.`); continue; }
+    }
+    const sizes=st.mobile?["desktop","mobile"]:["desktop"];
+    for(const size of sizes){
+      const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);
+      const blob=await encode(canvas,fmt,fmt==="png"?0:kb);
+      const name=`${tpl.id}-${size}.${ext}`;
+      const r=await saveBlob(blob,name);
+      log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})`);
+    }
+  }
+  log("Done.");
+});
+
+document.getElementById("selAll").addEventListener("click",()=>{TEMPLATES.forEach(t=>{state[t.id].selected=true;});document.querySelectorAll(".card").forEach(c=>{c.classList.add("sel");c.querySelector(".c-sel").checked=true;});});
+document.getElementById("clr").addEventListener("click",()=>{TEMPLATES.forEach(t=>{state[t.id].selected=false;});document.querySelectorAll(".card").forEach(c=>{c.classList.remove("sel");c.querySelector(".c-sel").checked=false;});});
+document.getElementById("theme").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",next);});
+
+// Detect the local server (with a Gemini key) and switch on AI mode.
+fetch('/api/health').then(r=>r.json()).then(h=>{ if(h&&h.ok&&h.hasKey){ LOCAL.on=true; enableLocalMode(); } }).catch(()=>{});
+</script>
