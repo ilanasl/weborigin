@@ -114,7 +114,7 @@ const TEMPLATES = [
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
-    composition:"A single cohesive wide scene: a cheerful family or homeowner couple standing in front of a suburban house with a porch and garden, positioned in the RIGHT third. IMPORTANT — keep the people SMALL within the frame with generous empty space ABOVE their heads and BELOW, kept inside the central horizontal band, because the image is cropped to a very wide short strip; they must survive a central horizontal crop with NOTHING cut off (no cropped heads, arms or legs). The LEFT ~55% is a calm continuation of the same scene (house, lawn, plants) for a dark text panel. Bright natural midday daylight, sunny, evenly and brightly lit faces, no heavy shadows. One continuous photo, no seams, no collage.",
+    composition:"An EXTREMELY WIDE, SHORT letterbox banner — about 6 times wider than it is tall (like a 1920x340 strip). Fill the WHOLE wide frame with one suburban house scene. Place a cheerful family on the RIGHT, drawn SMALL and shown FULL BODY head-to-feet, sized and vertically centered so the entire family fits comfortably inside this short strip with a little margin above their heads and below their feet — nothing cropped. The LEFT ~55% is a calm continuation of the same scene (house facade, lawn, plants) with space for a dark text panel. Bright natural midday daylight, sunny, evenly lit. One continuous photorealistic photo, no seams, no collage, no vertical letterboxing bars.",
     overlay:{desktop:{color:"#0a111c",opacity:.92,gradient:true,coverage:"left",hold:14,fade:66},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
@@ -461,7 +461,7 @@ TEMPLATES.forEach(tpl=>{
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
     genBtn.disabled=true; genStat.textContent="Generating…";
-    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ done"; }
+    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done"); }
     catch(e){ genStat.textContent="✗ "+(e.message||"failed"); }
     genBtn.disabled=false;
   });
