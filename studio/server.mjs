@@ -30,7 +30,7 @@ function outputDir() {
 
 // --- Gemini image generation ------------------------------------------------
 let client = null;
-async function generateImage(prompt) {
+async function generateImage(prompt, aspectRatio) {
   if (!hasKey()) {
     throw new Error(
       "No Gemini key yet. Copy .env.example to .env and paste your key, then restart."
@@ -38,10 +38,20 @@ async function generateImage(prompt) {
   }
   if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-  const response = await client.models.generateContent({
-    model: MODEL,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-  });
+  const contents = [{ role: "user", parts: [{ text: prompt }] }];
+  // Ask for the closest supported output shape (e.g. 21:9 for wide banners).
+  // If this SDK/model build doesn't accept imageConfig, fall back to a plain call.
+  let response;
+  try {
+    response = await client.models.generateContent(
+      aspectRatio
+        ? { model: MODEL, contents, config: { imageConfig: { aspectRatio } } }
+        : { model: MODEL, contents }
+    );
+  } catch (err) {
+    if (!aspectRatio) throw err;
+    response = await client.models.generateContent({ model: MODEL, contents });
+  }
 
   for (const candidate of response.candidates ?? []) {
     for (const part of candidate.content?.parts ?? []) {
@@ -70,7 +80,8 @@ app.post("/api/generate-image", async (req, res) => {
   try {
     const prompt = String(req.body?.prompt || "").trim();
     if (!prompt) return res.status(400).json({ error: "Missing 'prompt'." });
-    res.json(await generateImage(prompt));
+    const aspectRatio = req.body?.aspectRatio ? String(req.body.aspectRatio) : undefined;
+    res.json(await generateImage(prompt, aspectRatio));
   } catch (err) {
     console.error("generate-image failed:", err?.message || err);
     res.status(500).json({ error: err?.message || "Image generation failed." });
