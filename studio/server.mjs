@@ -41,8 +41,9 @@ async function generateImage(prompt, aspectRatio) {
   const contents = [{ role: "user", parts: [{ text: prompt }] }];
   // Ask for the closest supported output shape (e.g. 21:9 for wide banners).
   // If this SDK/model build doesn't accept imageConfig, fall back to a plain call.
-  let response;
+  let response, arFallback = null;
   try {
+    if (aspectRatio) console.log(`  → requesting image at aspectRatio ${aspectRatio}`);
     response = await client.models.generateContent(
       aspectRatio
         ? { model: MODEL, contents, config: { imageConfig: { aspectRatio } } }
@@ -50,6 +51,8 @@ async function generateImage(prompt, aspectRatio) {
     );
   } catch (err) {
     if (!aspectRatio) throw err;
+    arFallback = err?.message || String(err);
+    console.warn(`  ⚠ aspectRatio '${aspectRatio}' was rejected: ${arFallback}\n     retrying without it (image will be square).`);
     response = await client.models.generateContent({ model: MODEL, contents });
   }
 
@@ -58,7 +61,7 @@ async function generateImage(prompt, aspectRatio) {
       const inline = part.inlineData;
       if (inline?.data) {
         const mimeType = inline.mimeType || "image/png";
-        return { dataUrl: `data:${mimeType};base64,${inline.data}`, mimeType };
+        return { dataUrl: `data:${mimeType};base64,${inline.data}`, mimeType, arFallback };
       }
     }
   }

@@ -360,7 +360,7 @@ async function aiGenerate(tpl,st){
   const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h)})});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
-  st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);
+  st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
 }
 function enableLocalMode(){
   document.querySelectorAll('.c-airow').forEach(e=>{e.hidden=false;});
@@ -461,7 +461,7 @@ TEMPLATES.forEach(tpl=>{
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
     genBtn.disabled=true; genStat.textContent="Generating…";
-    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done"); }
+    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done")+(st._arNote?" · 21:9 rejected":""); }
     catch(e){ genStat.textContent="✗ "+(e.message||"failed"); }
     genBtn.disabled=false;
   });
