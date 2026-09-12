@@ -110,12 +110,12 @@
 const TEMPLATES = [
   {
     id:"top-home-warranty", name:"Home Warranty Hero", font:"Poppins",
-    sizes:{desktop:{w:1920,h:260}, mobile:{w:375,h:280}},
+    sizes:{desktop:{w:1920,h:340}, mobile:{w:375,h:280}},
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
-    composition:"A single cohesive wide scene. The people / main subject sit in the RIGHT third of the frame; the LEFT ~50% is a calm, softly-lit continuation of the same scene with room for a dark text panel. One continuous photo, no seams.",
-    overlay:{desktop:{color:"#0e2a3f",opacity:.82,gradient:true,coverage:"left",hold:0},
+    composition:"A single cohesive wide scene: a cheerful family or homeowner couple on the RIGHT third, framed from about the waist up and kept fully within the central horizontal band so NONE of them is cropped at the top or bottom edge, standing in front of a suburban house with a porch and garden. The LEFT ~55% is a calm, softly-lit continuation of the same scene (house, lawn, plants) with room for a dark navy text panel. One continuous photo, no seams, no collage.",
+    overlay:{desktop:{color:"#0e2340",opacity:.9,gradient:true,coverage:"left",hold:12,fade:66},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
       {key:"headline",label:"Headline",val:"Top Home Warranty Companies 2026",size:46,weight:800,color:"#ffffff",align:"left",x:15.5,y:26,anchor:"top-left",maxW:52,lh:1.05,
@@ -243,7 +243,7 @@ function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
 function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
-function drawOverlay(ctx,ov,W,H){const c=ov.color,o=ov.opacity,hold=Math.max(0,Math.min(100,ov.hold||0))/100,cov=ov.coverage||"full";let g=null;if(cov==="left")g=ctx.createLinearGradient(0,0,W,0);else if(cov==="right")g=ctx.createLinearGradient(W,0,0,0);else if(cov==="top")g=ctx.createLinearGradient(0,0,0,H);else if(cov==="bottom")g=ctx.createLinearGradient(0,H,0,0);if(ov.gradient&&g){g.addColorStop(0,hexA(c,o));g.addColorStop(hold,hexA(c,o));g.addColorStop(1,hexA(c,0));ctx.fillStyle=g;}else ctx.fillStyle=hexA(c,o);ctx.fillRect(0,0,W,H);}
+function drawOverlay(ctx,ov,W,H){const c=ov.color,o=ov.opacity,hold=Math.max(0,Math.min(100,ov.hold||0))/100,cov=ov.coverage||"full";let g=null;if(cov==="left")g=ctx.createLinearGradient(0,0,W,0);else if(cov==="right")g=ctx.createLinearGradient(W,0,0,0);else if(cov==="top")g=ctx.createLinearGradient(0,0,0,H);else if(cov==="bottom")g=ctx.createLinearGradient(0,H,0,0);if(ov.gradient&&g){const end=ov.fade!=null?Math.max(0,Math.min(100,ov.fade))/100:1;g.addColorStop(0,hexA(c,o));g.addColorStop(Math.min(hold,end),hexA(c,o));g.addColorStop(end,hexA(c,0));if(end<1)g.addColorStop(1,hexA(c,0));ctx.fillStyle=g;}else ctx.fillStyle=hexA(c,o);ctx.fillRect(0,0,W,H);}
 function wrapLines(ctx,text,maxW){const words=String(text).split(/\s+/),lines=[];let line="";for(const w of words){const t=line?line+" "+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}if(line)lines.push(line);return lines;}
 function resolveLogo(logo,size){return size==="mobile"&&logo.mobile?Object.assign({},logo,logo.mobile):logo;}
 function drawLogo(ctx,img,W,H,spec,scale,xOver){
