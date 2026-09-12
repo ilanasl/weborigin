@@ -362,9 +362,11 @@ function buildAIPrompt(tpl,st){
 }
 async function aiGenerate(tpl,st){
   const d=tpl.sizes.desktop;
-  const engine=(document.getElementById('engine')||{}).value||'gemini';
-  const quality=(document.getElementById('quality')||{}).value||'medium';
-  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h),provider:engine,quality})});
+  const engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
+  const isGpt=engine==='openai';
+  const body={prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(d.w,d.h),provider:isGpt?'openai':'gemini'};
+  if(isGpt) body.quality=(document.getElementById('quality')||{}).value||'medium'; else body.model=engine;
+  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
   st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
@@ -720,21 +722,32 @@ document.getElementById("clr").addEventListener("click",()=>{TEMPLATES.forEach(t
 document.getElementById("theme").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",next);});
 
 // Detect the local server (with a Gemini key) and switch on AI mode.
-fetch('/api/health').then(r=>r.json()).then(h=>{
+function geminiLabel(id){
+  const M={'gemini-3-pro-image':'Gemini 3 Pro (sharpest)','gemini-3-pro-image-preview':'Gemini 3 Pro preview','gemini-3.1-flash-image':'Gemini 3.1 Flash','gemini-3.1-flash-image-preview':'Gemini 3.1 Flash preview','gemini-3.1-flash-lite-image':'Gemini 3.1 Flash Lite','gemini-2.5-flash-image':'Gemini 2.5 Flash (softer)'};
+  return M[id]||id;
+}
+Promise.all([
+  fetch('/api/health').then(r=>r.json()).catch(()=>null),
+  fetch('/api/models').then(r=>r.json()).catch(()=>null)
+]).then(([h,m])=>{
   if(!h||!h.ok) return;
   if(h.hasKey||h.hasOpenAI){ LOCAL.on=true; enableLocalMode(); }
   const sel=document.getElementById('engine'), wrap=document.getElementById('engineWrap');
-  if(sel&&(h.hasKey||h.hasOpenAI)){
-    const opts=[];
-    if(h.hasKey) opts.push(['imagen','Imagen 4 (Google — sharp)']);
-    if(h.hasOpenAI) opts.push(['openai','GPT (sharp)']);
-    if(h.hasKey) opts.push(['gemini','Gemini Flash (fast/cheap)']);
-    sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-    sel.value=h.hasKey?'imagen':(h.hasOpenAI?'openai':'gemini'); // default to a sharp engine
-    if(opts.length>1) wrap.hidden=false; // only show the picker when there's a choice
-    const qWrap=document.getElementById('qualityWrap');
-    const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
-    sel.addEventListener('change',syncQ); syncQ(); // GPT quality only applies to GPT
+  if(!sel||!(h.hasKey||h.hasOpenAI)) return;
+  const opts=[];
+  if(h.hasKey){
+    const avail=((m&&m.imageModels)||[]).map(x=>String(x.name).replace(/^models\//,''));
+    const RANK=['gemini-3-pro-image','gemini-3-pro-image-preview','gemini-3.1-flash-image','gemini-3.1-flash-image-preview','gemini-3.1-flash-lite-image','gemini-2.5-flash-image'];
+    const ordered=RANK.filter(id=>avail.includes(id)).concat(avail.filter(id=>!RANK.includes(id)));
+    for(const id of ordered) opts.push([id, geminiLabel(id)]);
+    if(!opts.length) opts.push(['gemini-2.5-flash-image','Gemini 2.5 Flash']);
   }
+  if(h.hasOpenAI) opts.push(['openai','GPT (sharp)']);
+  sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  sel.value=opts[0][0]; // default to the sharpest available
+  if(opts.length>1) wrap.hidden=false;
+  const qWrap=document.getElementById('qualityWrap');
+  const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
+  sel.addEventListener('change',syncQ); syncQ();
 }).catch(()=>{});
 </script>

@@ -43,30 +43,31 @@ function outputDir() {
 
 // --- Gemini image generation ------------------------------------------------
 let client = null;
-async function generateImage(prompt, aspectRatio) {
+async function generateImage(prompt, aspectRatio, model) {
   if (!hasKey()) {
     throw new Error(
       "No Gemini key yet. Copy .env.example to .env and paste your key, then restart."
     );
   }
   if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const useModel = (model && String(model)) || MODEL;
 
   const contents = [{ role: "user", parts: [{ text: prompt }] }];
   // Ask for the closest supported output shape (e.g. 21:9 for wide banners).
   // If this SDK/model build doesn't accept imageConfig, fall back to a plain call.
   let response, arFallback = null;
   try {
-    if (aspectRatio) console.log(`  → requesting image at aspectRatio ${aspectRatio}`);
+    if (aspectRatio) console.log(`  → ${useModel} at aspectRatio ${aspectRatio}`);
     response = await client.models.generateContent(
       aspectRatio
-        ? { model: MODEL, contents, config: { imageConfig: { aspectRatio } } }
-        : { model: MODEL, contents }
+        ? { model: useModel, contents, config: { imageConfig: { aspectRatio } } }
+        : { model: useModel, contents }
     );
   } catch (err) {
     if (!aspectRatio) throw err;
     arFallback = err?.message || String(err);
-    console.warn(`  ⚠ aspectRatio '${aspectRatio}' was rejected: ${arFallback}\n     retrying without it (image will be square).`);
-    response = await client.models.generateContent({ model: MODEL, contents });
+    console.warn(`  ⚠ aspectRatio '${aspectRatio}' was rejected: ${arFallback}\n     retrying without it.`);
+    response = await client.models.generateContent({ model: useModel, contents });
   }
 
   for (const candidate of response.candidates ?? []) {
@@ -198,7 +199,7 @@ app.post("/api/generate-image", async (req, res) => {
         ? await generateImageOpenAI(prompt, aspectRatio, req.body?.quality)
         : provider === "imagen"
         ? await generateImageImagen(prompt, aspectRatio)
-        : await generateImage(prompt, aspectRatio)
+        : await generateImage(prompt, aspectRatio, req.body?.model)
     );
   } catch (err) {
     console.error("generate-image failed:", err?.message || err);
