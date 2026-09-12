@@ -20,7 +20,14 @@ const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 const OPENAI_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 const OPENAI_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "high";
-const IMAGEN_MODEL = process.env.IMAGEN_MODEL || "imagen-4.0-generate-001";
+// Tried in order until one is available on this project/API version.
+const IMAGEN_MODELS = process.env.IMAGEN_MODEL
+  ? [process.env.IMAGEN_MODEL]
+  : [
+      "imagen-4.0-generate-preview-06-06",
+      "imagen-4.0-generate-001",
+      "imagen-3.0-generate-002",
+    ];
 const IMAGEN_SIZE = process.env.IMAGEN_SIZE || "2K";
 
 const hasKey = () =>
@@ -126,28 +133,33 @@ async function generateImageImagen(prompt, aspectRatio) {
     const [w, h] = String(aspectRatio).split(":").map(Number);
     if (w && h) ar = nearestImagenAspect(w / h);
   }
-  let resp;
-  try {
-    resp = await client.models.generateImages({
-      model: IMAGEN_MODEL,
-      prompt,
-      config: { numberOfImages: 1, aspectRatio: ar, imageSize: IMAGEN_SIZE },
-    });
-  } catch (err) {
-    // Some tiers/models reject imageSize — retry at the default resolution.
-    resp = await client.models.generateImages({
-      model: IMAGEN_MODEL,
-      prompt,
-      config: { numberOfImages: 1, aspectRatio: ar },
-    });
+  const configs = [
+    { numberOfImages: 1, aspectRatio: ar, imageSize: IMAGEN_SIZE },
+    { numberOfImages: 1, aspectRatio: ar }, // some models/tiers reject imageSize
+  ];
+  let lastErr = null;
+  for (const model of IMAGEN_MODELS) {
+    for (const config of configs) {
+      try {
+        const resp = await client.models.generateImages({ model, prompt, config });
+        const b64 = resp?.generatedImages?.[0]?.image?.imageBytes;
+        if (b64) {
+          console.log(`  ✓ Imagen used model ${model}`);
+          return { dataUrl: `data:image/png;base64,${b64}`, mimeType: "image/png" };
+        }
+        lastErr = new Error("Imagen returned no image (possibly filtered by safety).");
+      } catch (err) {
+        lastErr = err;
+        const msg = String(err?.message || err);
+        // Only move on for "model/arg not available" errors; surface real failures.
+        if (!/not found|not_found|404|imageSize|INVALID_ARGUMENT|is not supported/i.test(msg)) throw err;
+      }
+    }
   }
-  const b64 = resp?.generatedImages?.[0]?.image?.imageBytes;
-  if (!b64) {
-    throw new Error(
-      "Imagen returned no image. Make sure billing is enabled on your Google API project."
-    );
-  }
-  return { dataUrl: `data:image/png;base64,${b64}`, mimeType: "image/png" };
+  throw new Error(
+    "Imagen isn't available on your project yet: " + (lastErr?.message || "no model matched") +
+    ". Try again, or use the GPT / Gemini engine."
+  );
 }
 
 // --- Server -----------------------------------------------------------------
