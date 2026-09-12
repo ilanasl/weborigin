@@ -114,6 +114,7 @@ const TEMPLATES = [
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
+    composition:"A single cohesive wide scene. The people / main subject sit in the RIGHT third of the frame; the LEFT ~50% is a calm, softly-lit continuation of the same scene with room for a dark text panel. One continuous photo, no seams.",
     overlay:{desktop:{color:"#0e2a3f",opacity:.82,gradient:true,coverage:"left",hold:0},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
@@ -132,6 +133,7 @@ const TEMPLATES = [
     bgPos:{desktop:"center bottom", mobile:"center bottom"},
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
     defaultTopic:"a product photo with a smiling person, on a soft light background, subject in the lower half",
+    composition:"A single vertical scene. The product or smiling person fills the LOWER HALF of the frame; the TOP HALF is a soft, clean, light background with room for a headline and a button. One continuous image, no panels or collage.",
     // Light card across the top ~half; the product image shows in the bottom half.
     overlay:{desktop:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50},
              mobile:{color:"#ffffff",opacity:.96,gradient:true,coverage:"top",hold:50}},
@@ -151,6 +153,7 @@ const TEMPLATES = [
     buttonAuto:false, // popups usually use a fixed brand button color
     logo:{x:24,y:10,widthPct:30,anchor:"top-center", mobile:{x:24,y:8,widthPct:34,anchor:"top-center"}},
     defaultTopic:"stacked gold bars and coins, warm rich lighting, financial background",
+    composition:"A single clean shot filling the frame, subject centered on a warm even background, nothing important near the edges (only the RIGHT side shows inside the popup). One continuous image, no collage.",
     overlay:{desktop:{color:"#000000",opacity:0,gradient:false,coverage:"full",hold:0},
              mobile:{color:"#000000",opacity:0,gradient:false,coverage:"full",hold:0}},
     elements:[
@@ -171,6 +174,7 @@ const TEMPLATES = [
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:40}},
     logo:{x:22,y:10,widthPct:32,anchor:"top-center", mobile:{x:22,y:8,widthPct:36,anchor:"top-center"}},
     defaultTopic:"a happy family on a sunny beach, bright cheerful lighting",
+    composition:"A single cheerful scene. The people / main subject sit on the RIGHT side; the LEFT ~45% is a bright, simple, softly-lit background that can fade to white with room for text. One continuous photo, no seams.",
     elements:[
       {key:"headline",label:"Headline",val:"Beat The Heat Summer Sale!",size:22,weight:700,color:"#1a1a1a",align:"left",x:7,y:30,anchor:"top-left",maxW:38,lh:1.15,
        mobile:{size:15,maxW:44}},
@@ -188,6 +192,7 @@ const TEMPLATES = [
     sizes:{desktop:{w:1600,h:1100}, mobile:{w:390,h:1000}},
     bgPos:{desktop:"center", mobile:"center"},
     defaultTopic:"travel atmosphere, a small airplane on the far LEFT and a suitcase with travel items on the far RIGHT, bright open EMPTY center, soft blue-lavender gradient background, clean 3D render",
+    composition:"Two related thematic objects placed at the far LEFT and far RIGHT edges ONLY; the entire CENTER and lower-center stays OPEN, empty and calm (a comparison table sits there). Soft even gradient, balanced left-right, one continuous full background, no collage.",
     overlay:{desktop:{color:"#28306e",opacity:0.3,gradient:true,coverage:"top",hold:0},
              mobile:{color:"#28306e",opacity:0.4,gradient:true,coverage:"top",hold:0}},
     elements:[
@@ -206,6 +211,7 @@ const TEMPLATES = [
     // The whole colorway comes from the overlay color you pick: choose purple and
     // the background turns purple. Keep the image subjects at the sides.
     defaultTopic:"casino atmosphere, glowing chips on the LEFT and a roulette wheel on the RIGHT, dark open center, moody purple lighting",
+    composition:"Thematic objects arranged on the LEFT and RIGHT sides; the CENTER stays darker and open with room for a large headline. Cinematic, atmospheric, one continuous full-bleed scene, colorway matching the mood, no collage.",
     // Default: no wash (natural image colors). Raise Overlay strength and pick a
     // color to set the whole colorway (e.g. purple).
     overlay:{desktop:{color:"#3a1560",opacity:0,gradient:false,coverage:"full",hold:0},
@@ -345,7 +351,7 @@ function buildAIPrompt(tpl,st){
     topic+extra,
     `Create ONE single, cohesive, continuous photograph — ${shape} — to use as the background of a ${d.w}x${d.h} web banner.`,
     "It must be one unified scene. Do NOT make a collage, a grid, split panels, or several separate photos stitched together.",
-    safeZoneHint(tpl),
+    (tpl.composition&&tpl.composition.trim())||safeZoneHint(tpl),
     "Photorealistic, clean, soft even lighting on the open side. No text, letters, words, numbers, logos, watermarks or UI anywhere in the image."
   ].filter(Boolean).join(" ");
 }
