@@ -726,10 +726,11 @@ fetch('/api/health').then(r=>r.json()).then(h=>{
   const sel=document.getElementById('engine'), wrap=document.getElementById('engineWrap');
   if(sel&&(h.hasKey||h.hasOpenAI)){
     const opts=[];
-    if(h.hasOpenAI) opts.push(['openai','GPT (sharper)']);
-    if(h.hasKey) opts.push(['gemini','Gemini (cheaper)']);
+    if(h.hasKey) opts.push(['imagen','Imagen 4 (Google — sharp)']);
+    if(h.hasOpenAI) opts.push(['openai','GPT (sharp)']);
+    if(h.hasKey) opts.push(['gemini','Gemini Flash (fast/cheap)']);
     sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-    sel.value=h.hasOpenAI?'openai':'gemini'; // default to the sharper engine when available
+    sel.value=h.hasKey?'imagen':(h.hasOpenAI?'openai':'gemini'); // default to a sharp engine
     if(opts.length>1) wrap.hidden=false; // only show the picker when there's a choice
     const qWrap=document.getElementById('qualityWrap');
     const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };

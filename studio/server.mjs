@@ -20,6 +20,8 @@ const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 const OPENAI_MODEL = process.env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 const OPENAI_QUALITY = process.env.OPENAI_IMAGE_QUALITY || "high";
+const IMAGEN_MODEL = process.env.IMAGEN_MODEL || "imagen-4.0-generate-001";
+const IMAGEN_SIZE = process.env.IMAGEN_SIZE || "2K";
 
 const hasKey = () =>
   !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_key_here";
@@ -109,6 +111,45 @@ async function generateImageOpenAI(prompt, aspectRatio, quality) {
   return { dataUrl: `data:image/png;base64,${b64}`, mimeType: "image/png" };
 }
 
+// --- Imagen 4 image generation (uses the same Gemini key) -------------------
+function nearestImagenAspect(r) {
+  const opts = [["16:9", 16 / 9], ["4:3", 4 / 3], ["1:1", 1], ["3:4", 3 / 4], ["9:16", 9 / 16]];
+  let best = "16:9", bd = Infinity;
+  for (const [l, v] of opts) { const d = Math.abs(v - r); if (d < bd) { bd = d; best = l; } }
+  return best;
+}
+async function generateImageImagen(prompt, aspectRatio) {
+  if (!hasKey()) throw new Error("No Gemini key — Imagen uses the same GEMINI_API_KEY.");
+  if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  let ar = "16:9";
+  if (aspectRatio) {
+    const [w, h] = String(aspectRatio).split(":").map(Number);
+    if (w && h) ar = nearestImagenAspect(w / h);
+  }
+  let resp;
+  try {
+    resp = await client.models.generateImages({
+      model: IMAGEN_MODEL,
+      prompt,
+      config: { numberOfImages: 1, aspectRatio: ar, imageSize: IMAGEN_SIZE },
+    });
+  } catch (err) {
+    // Some tiers/models reject imageSize — retry at the default resolution.
+    resp = await client.models.generateImages({
+      model: IMAGEN_MODEL,
+      prompt,
+      config: { numberOfImages: 1, aspectRatio: ar },
+    });
+  }
+  const b64 = resp?.generatedImages?.[0]?.image?.imageBytes;
+  if (!b64) {
+    throw new Error(
+      "Imagen returned no image. Make sure billing is enabled on your Google API project."
+    );
+  }
+  return { dataUrl: `data:image/png;base64,${b64}`, mimeType: "image/png" };
+}
+
 // --- Server -----------------------------------------------------------------
 const app = express();
 app.use(express.json({ limit: "25mb" })); // banners with base64 images are large
@@ -126,6 +167,8 @@ app.post("/api/generate-image", async (req, res) => {
     res.json(
       provider === "openai"
         ? await generateImageOpenAI(prompt, aspectRatio, req.body?.quality)
+        : provider === "imagen"
+        ? await generateImageImagen(prompt, aspectRatio)
         : await generateImage(prompt, aspectRatio)
     );
   } catch (err) {
