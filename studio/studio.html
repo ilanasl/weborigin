@@ -639,22 +639,7 @@ async function saveBlob(blob,name){
 /* ---- Single-banner export (Download button) ---- */
 function browserDownload(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}},1500);}
 function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);return {fmt,kb:isNaN(kbRaw)?0:kbRaw,ext:fmt==="jpeg"?"jpg":fmt};}
-// Mild unsharp mask to counteract softness from upscaling AI images to banner size.
-function sharpenCanvas(canvas,amount){
-  const w=canvas.width,h=canvas.height,ctx=canvas.getContext("2d");
-  let src;try{src=ctx.getImageData(0,0,w,h);}catch(_){return;}
-  const s=src.data,out=ctx.createImageData(w,h),d=out.data,a=amount,center=1+4*a;
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const i=(y*w+x)*4;
-    for(let c=0;c<3;c++){
-      let v=s[i+c]*center - a*s[(y*w+(x>0?x-1:x))*4+c] - a*s[(y*w+(x<w-1?x+1:x))*4+c] - a*s[((y>0?y-1:y)*w+x)*4+c] - a*s[((y<h-1?y+1:y)*w+x)*4+c];
-      d[i+c]=v<0?0:v>255?255:v;
-    }
-    d[i+3]=s[i+3];
-  }
-  ctx.putImageData(out,0,0);
-}
-async function exportBanner(tpl,st,size,f){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);if(st.img)sharpenCanvas(canvas,0.5);const blob=await encode(canvas,f.fmt,f.fmt==="png"?0:f.kb);return {blob,name:`${tpl.id}-${size}.${f.ext}`};}
+async function exportBanner(tpl,st,size,f){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const blob=await encode(canvas,f.fmt,f.fmt==="png"?0:f.kb);return {blob,name:`${tpl.id}-${size}.${f.ext}`};}
 // Always a real browser download (into the Downloads folder), for one banner.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
@@ -684,7 +669,6 @@ document.getElementById("run").addEventListener("click",async()=>{
     const sizes=st.mobile?["desktop","mobile"]:["desktop"];
     for(const size of sizes){
       const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);
-      if(st.img)sharpenCanvas(canvas,0.5);
       const blob=await encode(canvas,fmt,fmt==="png"?0:kb);
       const name=`${tpl.id}-${size}.${ext}`;
       const r=await saveBlob(blob,name);
