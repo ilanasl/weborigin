@@ -135,11 +135,11 @@ const TEMPLATES = [
     id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins",
     sizes:{desktop:{w:300,h:600}, mobile:{w:300,h:600}},
     bgPos:{desktop:"center", mobile:"center"},
-    // Beige base + a same-colour beige gradient over the top half → no visible seam.
-    bgColor:"#ece4d6",
+    // matchBg samples the photo's own background colour so the solid top blends seamlessly.
+    bgColor:"#ece4d6", matchBg:true,
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
-    defaultTopic:"a smiling woman holding a slimming product, large in the lower half, plain beige background",
-    composition:"A tall vertical image. A smiling woman is shown LARGE, from about the waist up, filling the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless soft-beige (#ece4d6) studio background — nothing at all in the top half. She should be big and clearly visible. Photorealistic, bright even studio light, no text.",
+    defaultTopic:"a smiling woman holding a slimming product, large, waist-up, plain solid background",
+    composition:"A tall vertical image. A smiling woman shown LARGE and CLOSE, from about the waist up, filling most of the width in the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless studio background of ONE flat solid colour — nothing at all in the top half. Make her big and prominent, not small. Photorealistic, bright even studio light, no text.",
     overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72},
              mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72}},
     elements:[
@@ -276,6 +276,8 @@ function drawButton(ctx,el,text,W,H,accent,font){
   ctx.fillStyle=txt;ctx.textAlign="center";ctx.textBaseline="middle";
   ctx.fillText(label,x0+bw/2,y0+bh/2+1);ctx.textBaseline="alphabetic";
 }
+// Average colour of the image's top strip (its background) — for a seamless solid-to-photo blend.
+function sampleEdge(img){try{const c=document.createElement("canvas");c.width=20;c.height=20;const x=c.getContext("2d");x.drawImage(img,0,0,20,20);const d=x.getImageData(0,1,20,3).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}return"#"+[r/n,g/n,b/n].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");}catch(_){return null;}}
 function getAccent(img){try{const c=document.createElement("canvas");c.width=24;c.height=24;const x=c.getContext("2d");x.drawImage(img,0,0,24,24);const d=x.getImageData(0,0,24,24).data;let br=0,bg=0,bb=0,bs=-1,ar=0,ag=0,ab=0,cnt=0;for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2];ar+=r;ag+=g;ab+=b;cnt++;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);const v=mx/255,s=mx===0?0:(mx-mn)/mx;const score=s*(v>0.2&&v<0.95?1:0.25);if(score>bs){bs=score;br=r;bg=g;bb=b;}}if(bs<0.15){br=ar/cnt|0;bg=ag/cnt|0;bb=ab/cnt|0;}return"#"+[br,bg,bb].map(n=>n.toString(16).padStart(2,"0")).join("");}catch(_){return null;}}
 // A dark, on-hue version of a color — used to tint the overlay to match the image.
 function darken(hex,tv){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return null;const n=parseInt(m[1],16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const mx=Math.max(r,g,b)||1;const k=(tv||58)/mx;r=Math.min(255,r*k)|0;g=Math.min(255,g*k)|0;b=Math.min(255,b*k)|0;return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -288,12 +290,14 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
   const vy=(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:vertNum(tpl.bgPos[size]);
   const zoom=over.zoom||1;
-  if(tpl.bgColor){ctx.fillStyle=tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
+  // matchBg templates blend a solid top into the photo by sampling the image's own background colour.
+  const matchColor=(tpl.matchBg&&image)?sampleEdge(image):null;
+  if(matchColor||tpl.bgColor){ctx.fillStyle=matchColor||tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
   if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
-  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} drawOverlay(ctx,ovl,dim.w,dim.h); }
+  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
