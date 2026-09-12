@@ -114,7 +114,7 @@ const TEMPLATES = [
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
-    composition:"A single cohesive wide scene: a cheerful family or homeowner couple standing in front of a suburban house with a porch and garden, positioned in the RIGHT third. IMPORTANT — keep the people SMALL within the frame with generous empty space ABOVE their heads and BELOW, kept inside the central horizontal band, because the image is cropped to a very wide short strip; they must survive a central horizontal crop with NOTHING cut off (no cropped heads, arms or legs). The LEFT ~55% is a calm, softly-lit continuation of the same scene (house, lawn, plants) for a dark text panel. One continuous photo, no seams, no collage.",
+    composition:"A single cohesive wide scene: a cheerful family or homeowner couple standing in front of a suburban house with a porch and garden, positioned in the RIGHT third. IMPORTANT — keep the people SMALL within the frame with generous empty space ABOVE their heads and BELOW, kept inside the central horizontal band, because the image is cropped to a very wide short strip; they must survive a central horizontal crop with NOTHING cut off (no cropped heads, arms or legs). The LEFT ~55% is a calm continuation of the same scene (house, lawn, plants) for a dark text panel. Bright natural midday daylight, sunny, evenly and brightly lit faces, no heavy shadows. One continuous photo, no seams, no collage.",
     overlay:{desktop:{color:"#0a111c",opacity:.92,gradient:true,coverage:"left",hold:14,fade:66},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
@@ -287,7 +287,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
-  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold};} drawOverlay(ctx,ovl,dim.w,dim.h); }
+  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} drawOverlay(ctx,ovl,dim.w,dim.h); }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
@@ -312,7 +312,7 @@ const FONTS=["Open Sans","Montserrat","Poppins","Inter","Roboto","Lato","Oswald"
 const loadedFonts=new Set(["Inter","Open Sans","Montserrat","Poppins"]);
 function loadFont(f){if(loadedFonts.has(f))return;loadedFonts.add(f);const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f.replace(/\s+/g,"+")+":wght@400;500;600;700;800;900&display=swap";document.head.appendChild(l);}
 function initOverrides(tpl){
-  const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,auto:false};}
+  const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,fade:o.fade,auto:false};}
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
   return {font:tpl.font,overlay,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
