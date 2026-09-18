@@ -327,6 +327,20 @@ const TEMPLATES = [
       {key:"disclosure",label:"Disclosure",val:"18+ Advertising Disclosure",size:13,weight:400,color:"#cbb9e0",align:"left",x:60,y:33,anchor:"top-left",maxW:30,
        mobile:{size:11,x:6,y:40}}
     ]
+  },
+  {
+    id:"travel-overflow", name:"Travel Overflow", font:"Poppins",
+    // Full-width scenic banner that overflows onto the top of the partner list:
+    // the destination sits on the RIGHT, the LEFT/top stays light for the page's
+    // (HTML) headline, and the BOTTOM dissolves to WHITE (the "blur") over the list.
+    // Deliverable is a clean image (no baked text), so elements is empty.
+    sizes:{desktop:{w:1905,h:1037}, mobile:{w:1905,h:1037}},
+    bgPos:{desktop:"center", mobile:"center"},
+    defaultTopic:"a scenic Japanese temple and five-story pagoda under a bright airy sky, aspirational travel photo",
+    composition:"A bright, airy, aspirational travel photograph of the destination, with the main landmark / subject on the RIGHT side and a light, open, softly-lit sky filling the LEFT and TOP-LEFT (clear room for a dark headline). Keep the scene in the upper two-thirds; the BOTTOM third is simple, light, low-detail and hazy so it dissolves smoothly into white. Photorealistic, bright natural daylight, one continuous photo, no text, no collage.",
+    overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"bottom",hold:10,fade:48},
+             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"bottom",hold:10,fade:48}},
+    elements:[]
   }
 ];
 
@@ -506,6 +520,14 @@ const STARTERS={
     {topic:"grandparents and grandchildren spending time together in the garden beside a welcoming suburban house",prompt:""},
     {topic:"a welcoming suburban house exterior with a tidy green lawn in warm morning light",prompt:""},
     {topic:"a bright, clean, inviting modern kitchen with quality appliances, no people",prompt:"warm daylight"},
+  ],
+  "travel-overflow":[
+    {topic:"a scenic Japanese temple and five-story pagoda with cherry blossoms under a bright airy sky",prompt:""},
+    {topic:"a happy active senior couple enjoying a beautiful scenic coastal viewpoint together while traveling, on the right",prompt:""},
+    {topic:"a picturesque Santorini clifftop village with white-and-blue houses overlooking the bright blue Aegean sea (Europe)",prompt:""},
+    {topic:"a large luxury cruise ship sailing on calm bright turquoise ocean water under a clear sky",prompt:""},
+    {topic:"the ancient Chichen Itza pyramid in Mexico under a bright blue sky with palm trees",prompt:""},
+    {topic:"a thrilling extreme-sport scene — a paraglider soaring over dramatic green mountains and cliffs under a bright sky",prompt:""},
   ],
 };
 
