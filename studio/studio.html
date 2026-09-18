@@ -892,7 +892,7 @@ Promise.all([
       'A SINGLE photograph — one scene, one shot. Do NOT make a collage, grid, split-screen, montage or multiple photos in one image.',
       'Realistic and believable: natural human anatomy and body proportions, everyday realistic scale and sizes. No exaggerated, oversized, cartoonish, distorted or impossible objects or bodies. Authentic candid stock photography.',
       neg?('Do NOT include: '+neg+'.'):'',
-      'No text, letters, words, numbers, logos or watermark anywhere.' ].filter(Boolean).join(' ');
+      'A plain natural photograph only — NO text, letters, words, numbers, logos, watermark, arrows, drawn graphics, diagrams, callouts, illustrations or overlays of any kind.' ].filter(Boolean).join(' ');
   }
   function ideasList(){ return $('im-ideas').value.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
   function engineBody(prompt,w,h){
