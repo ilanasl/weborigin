@@ -290,8 +290,11 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
   const vy=(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:vertNum(tpl.bgPos[size]);
   const zoom=over.zoom||1;
-  // matchBg templates blend a solid top into the photo by sampling the image's own background colour.
-  const matchColor=(tpl.matchBg&&image)?sampleEdge(image):null;
+  // matchBg blends a solid top into the photo by sampling the image's own background colour —
+  // but a colour the user set by hand (or auto-tint) wins over the auto-match.
+  const ovs=over.overlay&&over.overlay[size];
+  const userSetColor=!!(ovs&&(ovs.userColor||ovs.auto));
+  const matchColor=(tpl.matchBg&&image&&!userSetColor)?sampleEdge(image):null;
   if(matchColor||tpl.bgColor){ctx.fillStyle=matchColor||tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
   if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
@@ -642,8 +645,8 @@ function openEditor(tpl,st,onClose){
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
   q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;q(".e-ovmanual").style.display=e.target.checked?"none":"";draw();});
-  q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
-  q(".e-ovh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay[size].color=v;q(".e-ovc").value=v;draw();}});
+  q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;o.overlay[size].userColor=true;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
+  q(".e-ovh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay[size].color=v;o.overlay[size].userColor=true;q(".e-ovc").value=v;draw();}});
   q(".e-ovo").addEventListener("input",e=>{o.overlay[size].opacity=+e.target.value;q(".e-ovov").textContent=Math.round(o.overlay[size].opacity*100)+"%";draw();});
   q(".e-ovhold").addEventListener("input",e=>{o.overlay[size].hold=+e.target.value;q(".e-ovhv").textContent=Math.round(o.overlay[size].hold)+"%";draw();});
   if(hasBtn){
