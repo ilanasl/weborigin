@@ -142,8 +142,8 @@
         <div class="e-inline"><input type="text" id="im-topic" placeholder="e.g. weight loss"><select id="im-saved" style="flex:0 0 160px"><option value="">↩ Saved topics…</option></select></div></label>
       <label class="f"><span>What must NOT appear</span>
         <input type="text" id="im-neg" placeholder="e.g. no needles, no injections, no before/after"></label>
-      <label class="f"><span>Extra description (optional)</span>
-        <input type="text" id="im-desc" placeholder="e.g. bright, diverse women, healthy lifestyle"></label>
+      <label class="f"><span>Overall style / emphasis — applies to EVERY image (keep it short)</span>
+        <textarea id="im-desc" rows="2" placeholder="e.g. women of diverse ages, bright, positive, aspirational stock-photo style"></textarea></label>
       <div class="f"><span>Sizes to produce (add one or more)</span>
         <div id="im-sizes" class="im-sizes"></div>
         <div class="e-inline" style="margin-top:6px;flex-wrap:wrap">
@@ -165,8 +165,8 @@
         <button class="btn" id="im-run">✨ Generate all</button>
         <span class="muted" id="im-stat"></span>
       </div>
-      <label class="f"><span>Ideas — one per line (edit or add your own; leave empty to just use the topic)</span>
-        <textarea id="im-ideas" rows="5" placeholder="Click “Suggest ideas”, or type your own concepts here, one per line."></textarea></label>
+      <label class="f"><span>Ideas — one per line; <b>each line becomes ONE separate image</b>. Put your different scenes here.</span>
+        <textarea id="im-ideas" rows="6" placeholder="One concept per line — e.g.&#10;a woman eating a colorful healthy salad&#10;a woman jogging in a park at sunrise&#10;a woman holding out her slightly loose old jeans"></textarea></label>
     </div>
     <div class="im-resultsbar" id="im-resultsbar" hidden>
       <button class="ghost" id="im-selall">Select all</button>
