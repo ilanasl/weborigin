@@ -889,6 +889,7 @@ Promise.all([
     return [ idea||topic||'a clean advertising photo',
       desc?desc+'.':'',
       'Photorealistic professional advertising stock photo'+(topic?' about '+topic:'')+'.',
+      'A SINGLE photograph — one scene, one shot. Do NOT make a collage, grid, split-screen, montage or multiple photos in one image.',
       neg?('Do NOT include: '+neg+'.'):'',
       'No text, letters, words, numbers, logos or watermark anywhere.' ].filter(Boolean).join(' ');
   }
