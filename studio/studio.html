@@ -908,8 +908,10 @@ Promise.all([
       desc?desc+'.':'',
       'Photorealistic professional advertising stock photo'+(topic?' about '+topic:'')+'.',
       'A SINGLE photograph — one scene, one shot. Do NOT make a collage, grid, split-screen, montage or multiple photos in one image.',
-      'Realistic and believable: natural human anatomy and body proportions, everyday realistic scale and sizes. No exaggerated, oversized, cartoonish, distorted or impossible objects or bodies. Authentic candid stock photography.',
-      'If a person is shown, keep them fully in frame with the whole head visible and a little space above it — NEVER crop or cut off the top of the head or the face.',
+      'Realistic and believable: natural human anatomy and correct body proportions for every person (women AND men). Every object, food item, plate, bowl, cup and prop is shown at its TRUE real-world size and proportion — a salad bowl is a normal bowl, not oversized. No exaggerated, oversized, cartoonish, distorted or impossible objects or bodies. Authentic candid stock photography.',
+      'Natural, relaxed, believable facial expressions — a soft genuine smile at most, NEVER an exaggerated, forced, over-wide or unnatural grin.',
+      'Clean, uncluttered composition: keep the main subject clear and unobstructed. No mirror frames, door frames, poles, furniture edges, plants or other objects crowding, blocking, cutting across, or awkwardly touching the subject or the edges of the frame.',
+      'If a person is shown, compose the shot with clear empty space above the head so the ENTIRE head, hair and face stay inside the frame with margin on all sides. The top of the head must never touch, cross or get cut off by the top edge — never crop or cut off the top of the head or the face.',
       neg?('Do NOT include: '+neg+'.'):'',
       wantsGraphic?'':'A plain natural photograph only — NO text, letters, words, numbers, logos, watermark, arrows, drawn graphics, diagrams, callouts, illustrations or overlays of any kind.' ].filter(Boolean).join(' ');
   }
