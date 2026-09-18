@@ -102,6 +102,11 @@
   .im-meta{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px}
   .im-meta .sz{color:var(--muted);font-variant-numeric:tabular-nums}
   .im-meta .re{margin-left:auto;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px}
+  .im-meta .re+.re{margin-left:0}
+  .nb-tab{position:fixed;right:0;top:38%;writing-mode:vertical-rl;background:var(--accent);color:var(--accent-ink);border:0;border-radius:9px 0 0 9px;padding:14px 9px;font-weight:700;font-size:13px;letter-spacing:.4px;cursor:pointer;z-index:40;box-shadow:-2px 2px 12px rgba(0,0,0,.25)}
+  .nb-panel{position:fixed;right:0;top:0;height:100vh;width:min(420px,92vw);background:var(--panel);border-left:1px solid var(--border);box-shadow:-6px 0 28px rgba(0,0,0,.35);z-index:41;display:flex;flex-direction:column;gap:10px;padding:16px}
+  .nb-head{display:flex;align-items:center;justify-content:space-between}
+  .nb-panel textarea{flex:1;resize:none;font:13px/1.5 var(--ui)}
 </style>
 
 <div class="top">
@@ -167,8 +172,6 @@
       </div>
       <label class="f"><span>Ideas — one per line; <b>each line becomes ONE separate image</b>. Put your different scenes here.</span>
         <textarea id="im-ideas" rows="6" placeholder="One concept per line — e.g.&#10;a woman eating a colorful healthy salad&#10;a woman jogging in a park at sunrise&#10;a woman holding out her slightly loose old jeans"></textarea></label>
-      <label class="f"><span>📝 Prompt notebook — keep prompts that worked and copy them next time (saved automatically on this computer)</span>
-        <textarea id="im-notebook" rows="4" placeholder="Your winning prompts live here. Use 📌 on a result to add its prompt, or paste your own — then copy any line into Ideas next time."></textarea></label>
     </div>
     <div class="im-resultsbar" id="im-resultsbar" hidden>
       <button class="ghost" id="im-selall">Select all</button>
@@ -178,6 +181,12 @@
       <span class="muted" id="im-dlstat"></span>
     </div>
     <div class="im-grid" id="im-results"></div>
+  </div>
+  <button id="nb-tab" class="nb-tab" title="Prompt notebook">📝 Prompts</button>
+  <div id="nb-panel" class="nb-panel" hidden>
+    <div class="nb-head"><b>📝 Prompt notebook</b><button id="nb-close" class="tiny">✕ close</button></div>
+    <div class="muted" style="font-size:12px">Prompts that worked — saved on this computer. Use 📌 on a result to add one, or paste your own; copy a line into Ideas next time.</div>
+    <textarea id="im-notebook" placeholder="Your winning prompts live here…"></textarea>
   </div>
 </div>
 
@@ -998,6 +1007,8 @@ Promise.all([
     $('im-selnone').addEventListener('click',()=>{results.forEach(r=>r.sel=false);renderResults();});
     $('im-clearresults').addEventListener('click',()=>{results=[];renderResults();$('im-stat').textContent='';});
     const nb=$('im-notebook'); if(nb){ try{nb.value=localStorage.getItem(NBKEY)||'';}catch(_){}; nb.addEventListener('input',()=>{try{localStorage.setItem(NBKEY,nb.value);}catch(_){}} ); }
+    $('nb-tab').addEventListener('click',()=>{$('nb-panel').hidden=false;$('nb-tab').hidden=true;});
+    $('nb-close').addEventListener('click',()=>{$('nb-panel').hidden=true;$('nb-tab').hidden=false;});
   }
 })();
 </script>
