@@ -186,7 +186,8 @@ const DOMAIN_BRIEFS = [
       "a woman comfortably active outdoors (a relaxed walk, light jog, yoga, stretching in the morning light); " +
       "a woman smiling while holding out the loose waistband of her old jeans to hint at progress WITHOUT any before/after split; " +
       "a woman measuring her waist with a soft tape in a bright bathroom; a candid moment of a woman enjoying life — laughing with a friend over a healthy brunch, choosing fresh produce at a market, relaxed on a couch feeling good in her body; " +
-      "warm, bright, natural light, clean modern homes and kitchens, soft neutral palettes, plenty of empty space for a headline. " +
+      "warm, bright, natural light, clean modern homes and kitchens, soft neutral palettes. " +
+      "These are clean standalone ad images — the woman or subject should fill the frame naturally; do NOT compose for a headline or leave large empty background areas for text. " +
       "Ad-policy critical: this is medical/health advertising, so NEVER show needles, syringes, injection pens, injecting, vials, pills close-up, scales with numbers, a woman pinching or grabbing fat, distressed or shamed expressions, or literal before/after comparison panels. No dramatic transformation claims — keep it gentle, healthy and lifestyle-led.",
   },
 ];
