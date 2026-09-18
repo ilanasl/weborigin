@@ -170,7 +170,8 @@
     </div>
     <div class="im-resultsbar" id="im-resultsbar" hidden>
       <button class="ghost" id="im-selall">Select all</button>
-      <button class="ghost" id="im-selnone">Clear</button>
+      <button class="ghost" id="im-selnone">Deselect</button>
+      <button class="ghost" id="im-clearresults">🗑 Clear results</button>
       <button class="btn" id="im-download">⬇ Download selected</button>
       <span class="muted" id="im-dlstat"></span>
     </div>
@@ -916,9 +917,10 @@ Promise.all([
       if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);}
       else thumb.innerHTML='<span class="spin">…</span>';
       const meta=document.createElement('div');meta.className='im-meta';
-      meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re">↻</button>`;
+      meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re rm" title="remove">✕</button><button class="re">↻</button>`;
       meta.querySelector('input').addEventListener('change',e=>{r.sel=e.target.checked;card.classList.toggle('sel',r.sel);});
-      meta.querySelector('.re').addEventListener('click',async()=>{try{meta.querySelector('.re').textContent='…';r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h);renderResults();}catch(err){alert(err.message||'failed');meta.querySelector('.re').textContent='↻';}});
+      meta.querySelector('.rm').addEventListener('click',()=>{results.splice(i,1);renderResults();});
+      meta.querySelector('.re:not(.rm)').addEventListener('click',async(ev)=>{const btn=ev.currentTarget;try{btn.textContent='…';r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h);renderResults();}catch(err){alert(err.message||'failed');btn.textContent='↻';}});
       card.appendChild(thumb);card.appendChild(meta);grid.appendChild(card);
     });
   }
@@ -977,6 +979,7 @@ Promise.all([
     $('im-download').addEventListener('click',download);
     $('im-selall').addEventListener('click',()=>{results.forEach(r=>r.sel=true);renderResults();});
     $('im-selnone').addEventListener('click',()=>{results.forEach(r=>r.sel=false);renderResults();});
+    $('im-clearresults').addEventListener('click',()=>{results=[];renderResults();$('im-stat').textContent='';});
   }
 })();
 </script>
