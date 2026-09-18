@@ -504,8 +504,6 @@ const STARTERS={
     {topic:"a couple having coffee on the porch while their kids play on the lawn of a suburban house",prompt:""},
     {topic:"a dad and his kids playing happily on the front lawn with their suburban house behind them",prompt:""},
     {topic:"grandparents and grandchildren spending time together in the garden beside a welcoming suburban house",prompt:""},
-    {topic:"a friendly uniformed technician smiling while checking a home air-conditioning unit outside a house",prompt:""},
-    {topic:"a friendly technician shaking hands with a happy homeowner at the front door of a bright home",prompt:""},
     {topic:"a welcoming suburban house exterior with a tidy green lawn in warm morning light",prompt:""},
     {topic:"a bright, clean, inviting modern kitchen with quality appliances, no people",prompt:"warm daylight"},
   ],
@@ -573,7 +571,7 @@ TEMPLATES.forEach(tpl=>{
       <input type="text" class="c-topic" placeholder="${tpl.defaultTopic}"></label>
     <label class="f"><span>Specific prompt (optional)</span>
       <input type="text" class="c-prompt" placeholder="e.g. warm daylight, no text on boxes"></label>
-    <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button></div>
+    <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button><button class="tiny c-deltopic" title="Delete the loaded saved topic" hidden>🗑</button></div>
     <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
     <div class="card-foot">
       <label class="chk"><input type="checkbox" class="c-mob"> Mobile (${m.w}×${m.h})</label>
@@ -629,7 +627,9 @@ TEMPLATES.forEach(tpl=>{
   const savedSel=card.querySelector(".c-saved"), saveBtn=card.querySelector(".c-savetopic");
   savedSel.dataset.tid=tpl.id;
   saveBtn.addEventListener("click",()=>{ if(!(st.topic||"").trim()){saveBtn.textContent="type a topic";setTimeout(()=>saveBtn.textContent="💾 Save",1200);return;} addSavedTopic(st.topic,st.customPrompt); saveBtn.textContent="✓ Saved"; setTimeout(()=>saveBtn.textContent="💾 Save",1200); });
-  savedSel.addEventListener("change",()=>{ const v=savedSel.value; savedSel.value=""; if(v==="")return; const e=(v.slice(0,2)==="s:")?(STARTERS[tpl.id]||[])[+v.slice(2)]:loadSavedTopics()[+v]; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; topicEl.title=st.topic; promptEl.title=st.customPrompt; });
+  const delBtn=card.querySelector(".c-deltopic"); let loadedSavedIdx=-1;
+  savedSel.addEventListener("change",()=>{ const v=savedSel.value; savedSel.value=""; if(v==="")return; const isStarter=v.slice(0,2)==="s:"; const e=isStarter?(STARTERS[tpl.id]||[])[+v.slice(2)]:loadSavedTopics()[+v]; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; topicEl.title=st.topic; promptEl.title=st.customPrompt; loadedSavedIdx=isStarter?-1:+v; delBtn.hidden=isStarter; });
+  delBtn.addEventListener("click",()=>{ if(loadedSavedIdx<0)return; const list=loadSavedTopics(); list.splice(loadedSavedIdx,1); persistSavedTopics(list); refreshSavedSelects(); loadedSavedIdx=-1; delBtn.textContent="✓"; setTimeout(()=>{delBtn.textContent="🗑";delBtn.hidden=true;},900); });
   if(LOCAL.on){ card.querySelector(".c-airow").hidden=false; card.querySelector(".c-ailbl").textContent="(AI)"; }
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
@@ -639,6 +639,8 @@ TEMPLATES.forEach(tpl=>{
     genBtn.disabled=false;
   });
 });
+// remove exact-duplicate saved topics (same topic + prompt) once at startup
+(function dedupeSavedTopics(){const l=loadSavedTopics();const seen=new Set();const out=[];for(const e of l){const k=(e.topic||"")+" "+(e.prompt||"");if(!seen.has(k)){seen.add(k);out.push(e);}}if(out.length!==l.length)persistSavedTopics(out);})();
 refreshSavedSelects();
 
 function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
