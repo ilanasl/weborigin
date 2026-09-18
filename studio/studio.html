@@ -167,6 +167,8 @@
       </div>
       <label class="f"><span>Ideas — one per line; <b>each line becomes ONE separate image</b>. Put your different scenes here.</span>
         <textarea id="im-ideas" rows="6" placeholder="One concept per line — e.g.&#10;a woman eating a colorful healthy salad&#10;a woman jogging in a park at sunrise&#10;a woman holding out her slightly loose old jeans"></textarea></label>
+      <label class="f"><span>📝 Prompt notebook — keep prompts that worked and copy them next time (saved automatically on this computer)</span>
+        <textarea id="im-notebook" rows="4" placeholder="Your winning prompts live here. Use 📌 on a result to add its prompt, or paste your own — then copy any line into Ideas next time."></textarea></label>
     </div>
     <div class="im-resultsbar" id="im-resultsbar" hidden>
       <button class="ghost" id="im-selall">Select all</button>
@@ -839,7 +841,7 @@ Promise.all([
 /* ================= Ad Images mode ================= */
 (function(){
   const $=id=>document.getElementById(id);
-  const TKEY='bs_image_topics', SKEY='bs_image_sizes';
+  const TKEY='bs_image_topics', SKEY='bs_image_sizes', NBKEY='bs_image_notebook';
   const ls={get(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(_){return [];}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(_){}}};
   let sizes=[];           // [{w,h,count}]
   let results=[];         // [{canvas,w,h,idea,sel}]
@@ -913,6 +915,7 @@ Promise.all([
     return c;
   }
 
+  function noteAdd(text){const nb=$('im-notebook');if(!nb||!text)return;nb.value=(nb.value.trim()?nb.value.replace(/\s*$/,'')+'\n':'')+text;try{localStorage.setItem(NBKEY,nb.value);}catch(_){}}
   function openLightbox(r){
     if(!r||!r.canvas) return;
     const back=document.createElement('div');back.className='backdrop';back.style.cursor='zoom-out';
@@ -930,10 +933,11 @@ Promise.all([
       if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);thumb.style.cursor='zoom-in';thumb.title='click to enlarge';thumb.addEventListener('click',()=>openLightbox(r));}
       else thumb.innerHTML='<span class="spin">…</span>';
       const meta=document.createElement('div');meta.className='im-meta';
-      meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re rm" title="remove">✕</button><button class="re">↻</button>`;
+      meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re pin" title="save this prompt to your notebook">📌</button><button class="re rm" title="remove">✕</button><button class="re regen" title="regenerate">↻</button>`;
       meta.querySelector('input').addEventListener('change',e=>{r.sel=e.target.checked;card.classList.toggle('sel',r.sel);});
+      meta.querySelector('.pin').addEventListener('click',()=>{noteAdd(r.idea);const b=meta.querySelector('.pin');b.textContent='✓';setTimeout(()=>b.textContent='📌',1000);});
       meta.querySelector('.rm').addEventListener('click',()=>{results.splice(i,1);renderResults();});
-      meta.querySelector('.re:not(.rm)').addEventListener('click',async(ev)=>{const btn=ev.currentTarget;try{btn.textContent='…';r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h);renderResults();}catch(err){alert(err.message||'failed');btn.textContent='↻';}});
+      meta.querySelector('.regen').addEventListener('click',async(ev)=>{const btn=ev.currentTarget;try{btn.textContent='…';r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h);renderResults();}catch(err){alert(err.message||'failed');btn.textContent='↻';}});
       card.appendChild(thumb);card.appendChild(meta);grid.appendChild(card);
     });
   }
@@ -993,6 +997,7 @@ Promise.all([
     $('im-selall').addEventListener('click',()=>{results.forEach(r=>r.sel=true);renderResults();});
     $('im-selnone').addEventListener('click',()=>{results.forEach(r=>r.sel=false);renderResults();});
     $('im-clearresults').addEventListener('click',()=>{results=[];renderResults();$('im-stat').textContent='';});
+    const nb=$('im-notebook'); if(nb){ try{nb.value=localStorage.getItem(NBKEY)||'';}catch(_){}; nb.addEventListener('input',()=>{try{localStorage.setItem(NBKEY,nb.value);}catch(_){}} ); }
   }
 })();
 </script>
