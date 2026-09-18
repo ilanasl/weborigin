@@ -106,7 +106,16 @@
   .nb-tab{position:fixed;right:0;top:38%;writing-mode:vertical-rl;background:var(--accent);color:var(--accent-ink);border:0;border-radius:9px 0 0 9px;padding:14px 9px;font-weight:700;font-size:13px;letter-spacing:.4px;cursor:pointer;z-index:40;box-shadow:-2px 2px 12px rgba(0,0,0,.25)}
   .nb-panel{position:fixed;right:0;top:0;height:100vh;width:min(420px,92vw);background:var(--panel);border-left:1px solid var(--border);box-shadow:-6px 0 28px rgba(0,0,0,.35);z-index:41;display:flex;flex-direction:column;gap:10px;padding:16px}
   .nb-head{display:flex;align-items:center;justify-content:space-between}
-  .nb-panel textarea{flex:1;resize:none;font:13px/1.5 var(--ui)}
+  .nb-list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px}
+  .nb-item{background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:10px 10px 8px}
+  .nb-item p{margin:0 0 8px;font:13px/1.55 var(--ui);white-space:pre-wrap;word-break:break-word}
+  .nb-item .row{display:flex;gap:6px;justify-content:flex-end}
+  .nb-item .row button{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:12px}
+  .nb-empty{color:var(--muted);font-size:12px;text-align:center;padding:18px 6px}
+  .nb-add{display:flex;gap:6px;align-items:flex-end}
+  .nb-add textarea{flex:1;resize:vertical;min-height:46px;font:13px/1.5 var(--ui)}
+  .nb-add button{white-space:nowrap}
+  #im-count{width:56px}
   .hint{display:block;font-size:11px;color:var(--muted);margin-top:3px}
   .hint b{color:var(--accent)}
 </style>
@@ -169,6 +178,7 @@
       </div>
       <div class="im-actions">
         <button class="ghost" id="im-suggest">💡 Suggest ideas</button>
+        <span class="muted" style="display:inline-flex;align-items:center;gap:5px">how many: <input type="number" id="im-count" min="1" max="30" value="10" title="how many ideas to suggest — can be more than the number of images"></span>
         <button class="btn" id="im-run">✨ Generate all</button>
         <span class="muted" id="im-stat"></span>
       </div>
@@ -187,8 +197,9 @@
   <button id="nb-tab" class="nb-tab" title="Prompt notebook">📝 Prompts</button>
   <div id="nb-panel" class="nb-panel" hidden>
     <div class="nb-head"><b>📝 Prompt notebook</b><button id="nb-close" class="tiny">✕ close</button></div>
-    <div class="muted" style="font-size:12px">Prompts that worked — saved on this computer. Use 📌 on a result to add one, or paste your own; copy a line into Ideas next time.</div>
-    <textarea id="im-notebook" placeholder="Your winning prompts live here…"></textarea>
+    <div class="muted" style="font-size:12px">Prompts that worked — saved on this computer. Use 📌 on a result to add one, or paste your own below. Hit <b>Copy</b> on any card to grab it for Ideas.</div>
+    <div id="nb-list" class="nb-list"></div>
+    <div class="nb-add"><textarea id="nb-input" rows="2" placeholder="Paste your own prompt…"></textarea><button class="ghost" id="nb-addbtn">+ Add</button></div>
   </div>
 </div>
 
@@ -931,7 +942,36 @@ Promise.all([
     return c;
   }
 
-  function noteAdd(text){const nb=$('im-notebook');if(!nb||!text)return;nb.value=(nb.value.trim()?nb.value.replace(/\s*$/,'')+'\n':'')+text;try{localStorage.setItem(NBKEY,nb.value);}catch(_){}}
+  // ---- prompt notebook (list of cards, each with a Copy button) ----
+  let notes=[];
+  function loadNotes(){
+    let raw=''; try{raw=localStorage.getItem(NBKEY)||'';}catch(_){}
+    try{const p=JSON.parse(raw); if(Array.isArray(p)){notes=p.filter(s=>typeof s==='string'&&s.trim());return;}}catch(_){}
+    // migrate an older plain-text notebook: one prompt per (non-empty) line
+    notes=raw.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    saveNotes();
+  }
+  function saveNotes(){try{localStorage.setItem(NBKEY,JSON.stringify(notes));}catch(_){}}
+  async function copyText(text,btn){
+    try{ if(navigator.clipboard&&window.isSecureContext){ await navigator.clipboard.writeText(text); }
+      else{ const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove(); }
+      if(btn){const o=btn.textContent;btn.textContent='✓ copied';setTimeout(()=>btn.textContent=o,1200);}
+    }catch(_){ if(btn){const o=btn.textContent;btn.textContent='select & copy';setTimeout(()=>btn.textContent=o,1400);} }
+  }
+  function renderNotes(){
+    const box=$('nb-list'); if(!box) return; box.innerHTML='';
+    if(!notes.length){box.innerHTML='<div class="nb-empty">No saved prompts yet. 📌 a result or paste one below.</div>';return;}
+    notes.forEach((text,i)=>{
+      const card=document.createElement('div');card.className='nb-item';
+      const p=document.createElement('p');p.textContent=text;
+      const row=document.createElement('div');row.className='row';
+      const cp=document.createElement('button');cp.textContent='📋 Copy';cp.title='copy this prompt';cp.addEventListener('click',()=>copyText(text,cp));
+      const rm=document.createElement('button');rm.textContent='✕';rm.title='remove';rm.addEventListener('click',()=>{notes.splice(i,1);saveNotes();renderNotes();});
+      row.appendChild(cp);row.appendChild(rm);
+      card.appendChild(p);card.appendChild(row);box.appendChild(card);
+    });
+  }
+  function noteAdd(text){text=(text||'').trim();if(!text)return;if(notes.some(n=>n.toLowerCase()===text.toLowerCase()))return;notes.unshift(text);saveNotes();renderNotes();}
   function openLightbox(r){
     if(!r||!r.canvas) return;
     const back=document.createElement('div');back.className='backdrop';back.style.cursor='zoom-out';
@@ -979,9 +1019,10 @@ Promise.all([
     const topic=$('im-topic').value.trim(); if(!topic){$('im-stat').textContent='type a topic first';return;}
     saveTopic();
     const total=sizes.reduce((a,s)=>a+s.count,0)||5;
+    const want=Math.min(30,Math.max(1,parseInt(($('im-count')||{}).value,10)|| Math.max(total,5)));
     $('im-suggest').disabled=true;$('im-stat').textContent='thinking of ideas…';
     try{
-      const res=await fetch('/api/ideas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim(),count:Math.max(total,5)})});
+      const res=await fetch('/api/ideas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim(),count:want})});
       const j=await res.json().catch(()=>({})); if(!res.ok) throw new Error(j.error||'failed');
       const ideas=(j.ideas||[]).filter(Boolean);
       if(!ideas.length) throw new Error('no ideas returned');
@@ -1037,7 +1078,8 @@ Promise.all([
     $('im-selall').addEventListener('click',()=>{results.forEach(r=>r.sel=true);renderResults();});
     $('im-selnone').addEventListener('click',()=>{results.forEach(r=>r.sel=false);renderResults();});
     $('im-clearresults').addEventListener('click',()=>{results=[];renderResults();$('im-stat').textContent='';});
-    const nb=$('im-notebook'); if(nb){ try{nb.value=localStorage.getItem(NBKEY)||'';}catch(_){}; nb.addEventListener('input',()=>{try{localStorage.setItem(NBKEY,nb.value);}catch(_){}} ); }
+    loadNotes(); renderNotes();
+    const addBtn=$('nb-addbtn'); if(addBtn) addBtn.addEventListener('click',()=>{const inp=$('nb-input');if(!inp)return;noteAdd(inp.value);inp.value='';});
     $('nb-tab').addEventListener('click',()=>{$('nb-panel').hidden=false;$('nb-tab').hidden=true;});
     $('nb-close').addEventListener('click',()=>{$('nb-panel').hidden=true;$('nb-tab').hidden=false;});
   }
