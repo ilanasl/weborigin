@@ -909,13 +909,21 @@ Promise.all([
     return c;
   }
 
+  function openLightbox(r){
+    if(!r||!r.canvas) return;
+    const back=document.createElement('div');back.className='backdrop';back.style.cursor='zoom-out';
+    const img=new Image();img.src=r.canvas.toDataURL();img.style.cssText='max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 12px 48px rgba(0,0,0,.55)';
+    back.appendChild(img);back.addEventListener('click',()=>back.remove());
+    document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){back.remove();document.removeEventListener('keydown',esc);}});
+    document.body.appendChild(back);
+  }
   function renderResults(){
     const grid=$('im-results'); grid.innerHTML='';
     $('im-resultsbar').hidden=results.length===0;
     results.forEach((r,i)=>{
       const card=document.createElement('div');card.className='im-card'+(r.sel?' sel':'');
       const thumb=document.createElement('div');thumb.className='im-thumb';thumb.style.aspectRatio=r.w+'/'+r.h;
-      if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);}
+      if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);thumb.style.cursor='zoom-in';thumb.title='click to enlarge';thumb.addEventListener('click',()=>openLightbox(r));}
       else thumb.innerHTML='<span class="spin">…</span>';
       const meta=document.createElement('div');meta.className='im-meta';
       meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re rm" title="remove">✕</button><button class="re">↻</button>`;
