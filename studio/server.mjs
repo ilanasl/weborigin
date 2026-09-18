@@ -29,6 +29,10 @@ const IMAGEN_MODELS = process.env.IMAGEN_MODEL
       "imagen-3.0-generate-002",
     ];
 const IMAGEN_SIZE = process.env.IMAGEN_SIZE || "2K";
+// Text models tried (in order) for the ad-image idea generator.
+const IDEAS_MODELS = process.env.IDEAS_MODEL
+  ? [process.env.IDEAS_MODEL]
+  : ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"];
 
 const hasKey = () =>
   !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_key_here";
@@ -163,6 +167,42 @@ async function generateImageImagen(prompt, aspectRatio) {
   );
 }
 
+// --- Ad-image idea generator (text) -----------------------------------------
+async function generateIdeas(topic, negative, description, count) {
+  if (!hasKey()) throw new Error("No Gemini key — the idea generator uses GEMINI_API_KEY.");
+  if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const prompt =
+    `I am creating stock advertising photographs for the topic: "${topic}".` +
+    (description ? ` Extra direction: ${description}.` : "") +
+    (negative ? ` The images must NOT contain: ${negative}.` : "") +
+    `\nGive me ${count} distinct, concrete photo concepts. Each concept is ONE short English sentence describing a single realistic photograph (subject, setting, mood). No numbering and no extra commentary.` +
+    ` Return ONLY a JSON array of exactly ${count} strings.`;
+  let lastErr = null;
+  for (const model of IDEAS_MODELS) {
+    try {
+      const resp = await client.models.generateContent({
+        model,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+      const text = (resp.text || "").trim();
+      let ideas = [];
+      try {
+        const m = text.match(/\[[\s\S]*\]/);
+        ideas = JSON.parse(m ? m[0] : text);
+      } catch (_) {
+        ideas = text.split(/\n+/).map((s) => s.replace(/^[-*\d.\)\s]+/, "").trim()).filter(Boolean);
+      }
+      ideas = ideas.filter((s) => typeof s === "string" && s.trim()).slice(0, count);
+      if (ideas.length) { console.log(`  ✓ ideas via ${model}`); return ideas; }
+    } catch (err) {
+      lastErr = err;
+      const msg = String(err?.message || err);
+      if (!/not found|not_found|404|is not supported/i.test(msg)) throw err;
+    }
+  }
+  throw new Error("Could not generate ideas: " + (lastErr?.message || "no text model available"));
+}
+
 // --- Server -----------------------------------------------------------------
 const app = express();
 app.use(express.json({ limit: "25mb" })); // banners with base64 images are large
@@ -204,6 +244,21 @@ app.post("/api/generate-image", async (req, res) => {
   } catch (err) {
     console.error("generate-image failed:", err?.message || err);
     res.status(500).json({ error: err?.message || "Image generation failed." });
+  }
+});
+
+// POST /api/ideas  { topic, negative?, description?, count? } -> { ideas: string[] }
+app.post("/api/ideas", async (req, res) => {
+  try {
+    const topic = String(req.body?.topic || "").trim();
+    if (!topic) return res.status(400).json({ error: "Missing 'topic'." });
+    const negative = String(req.body?.negative || "").trim();
+    const description = String(req.body?.description || "").trim();
+    const count = Math.min(30, Math.max(1, parseInt(req.body?.count, 10) || 8));
+    res.json({ ideas: await generateIdeas(topic, negative, description, count) });
+  } catch (err) {
+    console.error("ideas failed:", err?.message || err);
+    res.status(500).json({ error: err?.message || "Idea generation failed." });
   }
 });
 

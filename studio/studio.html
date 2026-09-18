@@ -80,15 +80,39 @@
   .e-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:6px}
   .cwhite{color:var(--text)}
   @media (max-width:760px){.editor-body{flex-direction:column}.editor-controls{flex:none;width:100%}.editor-preview{position:static;width:100%}}
+  .modeseg{margin-left:4px}
+  .im-wrap{padding:18px;max-width:1100px;margin:0 auto}
+  .im-note{color:var(--muted);font-size:13px;margin-bottom:14px}
+  .im-form{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+  .im-form textarea{min-height:96px}
+  .im-row{display:flex;gap:14px;flex-wrap:wrap}
+  .im-row .f{flex:1;min-width:150px}
+  .im-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .im-sizes{display:flex;flex-direction:column;gap:6px}
+  .im-sizerow{display:flex;align-items:center;gap:8px;font-size:13px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:5px 10px}
+  .im-sizerow b{font-variant-numeric:tabular-nums}
+  .im-sizerow .x{margin-left:auto;cursor:pointer;color:var(--muted);border:0;background:none;font-size:15px}
+  .im-resultsbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 8px}
+  .im-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+  .im-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .im-card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .im-thumb{background:repeating-conic-gradient(#20242e 0% 25%,#191d25 0% 50%) 50%/16px 16px;aspect-ratio:1;display:flex;align-items:center;justify-content:center;position:relative}
+  .im-thumb canvas{max-width:100%;max-height:100%;display:block}
+  .im-thumb .spin{color:var(--muted);font-size:12px}
+  .im-meta{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px}
+  .im-meta .sz{color:var(--muted);font-variant-numeric:tabular-nums}
+  .im-meta .re{margin-left:auto;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;font-size:12px}
 </style>
 
 <div class="top">
   <div class="brand">Banner<b>Studio</b></div>
+  <div class="e-seg modeseg"><button data-mode="banners" class="on">Banners</button><button data-mode="images">Ad Images</button></div>
   <span class="muted" id="count"></span>
   <span style="flex:1"></span>
   <button class="ghost" id="theme">◐</button>
 </div>
 
+<div id="bannersView">
 <div class="run-panel">
   <span class="note">Set each banner's image (upload your own here — AI-from-topic runs in the local app), tick the ones to make, then Run.</span>
   <label class="f" id="engineWrap" hidden><span>AI engine</span>
@@ -108,26 +132,70 @@
 
 <div class="grid" id="grid"></div>
 <div class="log" id="log" hidden></div>
+</div>
+
+<div id="imagesView" hidden>
+  <div class="im-wrap">
+    <div class="im-note" id="im-note">Clean AI images (no banner layout). Set a topic, what to avoid, and one or more sizes — then generate a batch and download the ones you like.</div>
+    <div class="im-form">
+      <label class="f"><span>Topic (English)</span>
+        <div class="e-inline"><input type="text" id="im-topic" placeholder="e.g. weight loss"><select id="im-saved" style="flex:0 0 160px"><option value="">↩ Saved topics…</option></select></div></label>
+      <label class="f"><span>What must NOT appear</span>
+        <input type="text" id="im-neg" placeholder="e.g. no needles, no injections, no before/after"></label>
+      <label class="f"><span>Extra description (optional)</span>
+        <input type="text" id="im-desc" placeholder="e.g. bright, diverse women, healthy lifestyle"></label>
+      <div class="f"><span>Sizes to produce (add one or more)</span>
+        <div id="im-sizes" class="im-sizes"></div>
+        <div class="e-inline" style="margin-top:6px;flex-wrap:wrap">
+          <input type="number" id="im-w" style="width:74px" value="1024"><span class="pxl">×</span>
+          <input type="number" id="im-h" style="width:74px" value="1024"><span class="pxl">×</span>
+          <input type="number" id="im-c" style="width:60px" value="3" title="how many images"><span class="pxl">imgs</span>
+          <button class="tiny" id="im-addsize">+ Add size</button>
+          <select id="im-savedsize" style="flex:1;min-width:120px"><option value="">↩ Saved sizes…</option></select>
+        </div>
+      </div>
+      <div class="im-row">
+        <label class="f"><span>AI engine</span><select id="im-engine"></select></label>
+        <label class="f im-qwrap" hidden><span>GPT quality</span><select id="im-quality"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label>
+        <label class="f"><span>Download as</span><select id="im-fmt"><option value="png" selected>PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select></label>
+      </div>
+      <div class="im-actions">
+        <button class="ghost" id="im-suggest">💡 Suggest ideas</button>
+        <button class="btn" id="im-run">✨ Generate all</button>
+        <span class="muted" id="im-stat"></span>
+      </div>
+      <label class="f"><span>Ideas — one per line (edit or add your own; leave empty to just use the topic)</span>
+        <textarea id="im-ideas" rows="5" placeholder="Click “Suggest ideas”, or type your own concepts here, one per line."></textarea></label>
+    </div>
+    <div class="im-resultsbar" id="im-resultsbar" hidden>
+      <button class="ghost" id="im-selall">Select all</button>
+      <button class="ghost" id="im-selnone">Clear</button>
+      <button class="btn" id="im-download">⬇ Download selected</button>
+      <span class="muted" id="im-dlstat"></span>
+    </div>
+    <div class="im-grid" id="im-results"></div>
+  </div>
+</div>
 
 <script>
 /* ---------------- Templates (each = one banner type) ---------------- */
 const TEMPLATES = [
   {
     id:"top-home-warranty", name:"Home Warranty Hero", font:"Poppins",
-    sizes:{desktop:{w:1920,h:340}, mobile:{w:375,h:280}},
+    sizes:{desktop:{w:1920,h:340}, mobile:{w:650,h:325}},
     bgPos:{desktop:"right", mobile:"center"},
-    logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:6,y:7,widthPct:34}},
+    logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:5,y:9,widthPct:24}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
     composition:"A wide ESTABLISHING photo of a suburban house with a happy family standing together on the RIGHT, shot at a NATURAL MEDIUM DISTANCE (a wide / medium shot — absolutely NOT a close-up, faces are small in the frame). The whole group is small-to-moderate and fully visible, all faces at a similar height, nobody positioned low or near an edge. The people, framed head-to-waist, sit in the vertical MIDDLE of the frame with calm house and sky above and lawn below (the top and bottom will be cropped away for a short wide banner). The LEFT ~55% is the calm house facade for a dark text panel. Photorealistic, bright natural daylight, one continuous photo, no collage.",
     overlay:{desktop:{color:"#0a111c",opacity:.92,gradient:true,coverage:"left",hold:14,fade:66},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:52}},
     elements:[
       {key:"headline",label:"Headline",val:"Top Home Warranty Companies 2026",size:46,weight:800,color:"#ffffff",align:"left",x:15.5,y:26,anchor:"top-left",maxW:52,lh:1.05,
-       mobile:{size:25,x:6,y:14,maxW:60,lh:1.12,color:"#16324a"}},
+       mobile:{size:30,x:5,y:24,maxW:46,lh:1.1,color:"#16324a"}},
       {key:"subtitle",label:"Subtitle",val:"Be prepared for the unexpected and avoid unnecessary expenses.",size:21,weight:400,color:"#e8eef4",align:"left",x:15.5,y:48,anchor:"top-left",maxW:47,lh:1.3,
-       mobile:{size:15,x:6,y:56,maxW:56,color:"#c15a1e"}},
+       mobile:{size:15,x:5,y:56,maxW:44,color:"#c15a1e"}},
       {key:"updated",label:"Last updated",val:"✓ Last Updated: September 2026",size:16,weight:400,color:"#ffffff",align:"left",x:15.5,y:86,anchor:"top-left",maxW:60,
-       mobile:{size:12.5,x:6,y:84,color:"#16324a"}},
+       mobile:{size:13,x:5,y:82,maxW:46,color:"#16324a"}},
       {key:"disc",label:"Advertising disclosure",val:"Advertising Disclosure",size:13,weight:400,color:"#d7dee6",align:"right",x:98,y:92,anchor:"bottom-right",maxW:40,hiddenMobile:true}
     ]
   },
@@ -742,8 +810,7 @@ Promise.all([
 ]).then(([h,m])=>{
   if(!h||!h.ok) return;
   if(h.hasKey||h.hasOpenAI){ LOCAL.on=true; enableLocalMode(); }
-  const sel=document.getElementById('engine'), wrap=document.getElementById('engineWrap');
-  if(!sel||!(h.hasKey||h.hasOpenAI)) return;
+  if(!(h.hasKey||h.hasOpenAI)) return;
   const opts=[];
   if(h.hasKey){
     const avail=((m&&m.imageModels)||[]).map(x=>String(x.name).replace(/^models\//,''));
@@ -753,11 +820,161 @@ Promise.all([
     if(!opts.length) opts.push(['gemini-2.5-flash-image','Gemini 2.5 Flash']);
   }
   if(h.hasOpenAI) opts.push(['openai','GPT (sharp)']);
-  sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  sel.value=opts[0][0]; // default to the sharpest available
-  if(opts.length>1) wrap.hidden=false;
-  const qWrap=document.getElementById('qualityWrap');
-  const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
-  sel.addEventListener('change',syncQ); syncQ();
+  function fillEngine(selId,wrapId,qWrapId){
+    const sel=document.getElementById(selId); if(!sel) return;
+    sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+    sel.value=opts[0][0];
+    const wrap=document.getElementById(wrapId); if(wrap&&opts.length>1) wrap.hidden=false;
+    const qWrap=document.getElementById(qWrapId);
+    const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
+    sel.addEventListener('change',syncQ); syncQ();
+  }
+  fillEngine('engine','engineWrap','qualityWrap');       // banners
+  fillEngine('im-engine',null,'im-qwrap');               // ad images
+  if(window.AdImages) window.AdImages.onReady();
 }).catch(()=>{});
+
+/* ================= Ad Images mode ================= */
+(function(){
+  const $=id=>document.getElementById(id);
+  const TKEY='bs_image_topics', SKEY='bs_image_sizes';
+  const ls={get(k){try{return JSON.parse(localStorage.getItem(k)||'[]');}catch(_){return [];}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(_){}}};
+  let sizes=[];           // [{w,h,count}]
+  let results=[];         // [{canvas,w,h,idea,sel}]
+
+  // ---- mode toggle ----
+  document.querySelectorAll('.modeseg button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.modeseg button').forEach(x=>x.classList.toggle('on',x===b));
+    const images=b.dataset.mode==='images';
+    $('bannersView').hidden=images; $('imagesView').hidden=!images;
+    document.getElementById('count').textContent=images?'clean AI images':(TEMPLATES.length+' banner types');
+  }));
+
+  // ---- saved topics (topic + negative + description) ----
+  function refreshSavedTopics(){
+    const list=ls.get(TKEY), sel=$('im-saved'); if(!sel) return;
+    sel.innerHTML='<option value="">↩ Saved topics…</option>'+list.map((e,i)=>`<option value="${i}">${(e.topic||'').slice(0,40).replace(/</g,'&lt;')}</option>`).join('');
+  }
+  function saveTopic(){
+    const topic=$('im-topic').value.trim(); if(!topic) return;
+    const list=ls.get(TKEY); const idx=list.findIndex(e=>e.topic.toLowerCase()===topic.toLowerCase());
+    const entry={topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim()};
+    if(idx>=0) list[idx]=entry; else list.unshift(entry);
+    ls.set(TKEY,list.slice(0,60)); refreshSavedTopics();
+  }
+
+  // ---- sizes ----
+  function refreshSizes(){
+    const box=$('im-sizes'); box.innerHTML='';
+    sizes.forEach((s,i)=>{const r=document.createElement('div');r.className='im-sizerow';
+      r.innerHTML=`<b>${s.w}×${s.h}</b> · ${s.count} image${s.count>1?'s':''}<button class="x" title="remove">✕</button>`;
+      r.querySelector('.x').addEventListener('click',()=>{sizes.splice(i,1);refreshSizes();});
+      box.appendChild(r);});
+  }
+  function refreshSavedSizes(){
+    const list=ls.get(SKEY), sel=$('im-savedsize'); if(!sel) return;
+    sel.innerHTML='<option value="">↩ Saved sizes…</option>'+list.map((s,i)=>`<option value="${i}">${s.w}×${s.h}</option>`).join('');
+  }
+  function addSize(){
+    const w=parseInt($('im-w').value,10), h=parseInt($('im-h').value,10), c=Math.max(1,parseInt($('im-c').value,10)||1);
+    if(!w||!h) return;
+    sizes.push({w,h,count:c}); refreshSizes();
+    const list=ls.get(SKEY); if(!list.some(s=>s.w===w&&s.h===h)){list.unshift({w,h});ls.set(SKEY,list.slice(0,30));refreshSavedSizes();}
+  }
+
+  function cleanPrompt(idea){
+    const topic=$('im-topic').value.trim(), desc=$('im-desc').value.trim(), neg=$('im-neg').value.trim();
+    return [ idea||topic||'a clean advertising photo',
+      desc?desc+'.':'',
+      'Photorealistic professional advertising stock photo'+(topic?' about '+topic:'')+'.',
+      neg?('Do NOT include: '+neg+'.'):'',
+      'No text, letters, words, numbers, logos or watermark anywhere.' ].filter(Boolean).join(' ');
+  }
+  function ideasList(){ return $('im-ideas').value.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
+  function engineBody(prompt,w,h){
+    const eng=($('im-engine')||{}).value||'gemini-2.5-flash-image', isGpt=eng==='openai';
+    const b={prompt,aspectRatio:nearestAspect(w,h),provider:isGpt?'openai':'gemini'};
+    if(isGpt) b.quality=($('im-quality')||{}).value||'medium'; else b.model=eng;
+    return b;
+  }
+  async function genImage(prompt,w,h){
+    const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(engineBody(prompt,w,h))});
+    const j=await res.json().catch(()=>({})); if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+    const img=await loadImage(j.dataUrl);
+    const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+    x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';drawCover(x,img,w,h,50,50,1);
+    return c;
+  }
+
+  function renderResults(){
+    const grid=$('im-results'); grid.innerHTML='';
+    $('im-resultsbar').hidden=results.length===0;
+    results.forEach((r,i)=>{
+      const card=document.createElement('div');card.className='im-card'+(r.sel?' sel':'');
+      const thumb=document.createElement('div');thumb.className='im-thumb';thumb.style.aspectRatio=r.w+'/'+r.h;
+      if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);}
+      else thumb.innerHTML='<span class="spin">…</span>';
+      const meta=document.createElement('div');meta.className='im-meta';
+      meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re">↻</button>`;
+      meta.querySelector('input').addEventListener('change',e=>{r.sel=e.target.checked;card.classList.toggle('sel',r.sel);});
+      meta.querySelector('.re').addEventListener('click',async()=>{try{meta.querySelector('.re').textContent='…';r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h);renderResults();}catch(err){alert(err.message||'failed');meta.querySelector('.re').textContent='↻';}});
+      card.appendChild(thumb);card.appendChild(meta);grid.appendChild(card);
+    });
+  }
+
+  async function suggest(){
+    const topic=$('im-topic').value.trim(); if(!topic){$('im-stat').textContent='type a topic first';return;}
+    saveTopic();
+    const total=sizes.reduce((a,s)=>a+s.count,0)||5;
+    $('im-suggest').disabled=true;$('im-stat').textContent='thinking of ideas…';
+    try{
+      const res=await fetch('/api/ideas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim(),count:Math.max(total,5)})});
+      const j=await res.json().catch(()=>({})); if(!res.ok) throw new Error(j.error||'failed');
+      $('im-ideas').value=(j.ideas||[]).join('\n');$('im-stat').textContent=`${(j.ideas||[]).length} ideas — edit freely, then Generate`;
+    }catch(e){$('im-stat').textContent='✗ '+(e.message||'ideas failed')+' — you can type ideas manually';}
+    $('im-suggest').disabled=false;
+  }
+
+  async function run(){
+    saveTopic();
+    if(!sizes.length){$('im-stat').textContent='add at least one size';return;}
+    let ideas=ideasList(); if(!ideas.length) ideas=[$('im-topic').value.trim()||'clean photo'];
+    const jobs=[]; sizes.forEach(s=>{for(let i=0;i<s.count;i++)jobs.push({w:s.w,h:s.h,idea:ideas[jobs.length%ideas.length]});});
+    results=jobs.map(j=>({w:j.w,h:j.h,idea:j.idea,sel:true,canvas:null})); renderResults();
+    $('im-run').disabled=true;
+    let done=0;
+    for(const r of results){
+      $('im-stat').textContent=`generating ${done+1}/${results.length}…`;
+      try{ r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h); }catch(e){ r.error=e.message; }
+      done++; renderResults();
+    }
+    $('im-stat').textContent=`done — ${results.filter(r=>r.canvas).length}/${results.length} created. Tick the ones to keep and download.`;
+    $('im-run').disabled=false;
+  }
+
+  async function download(){
+    const keep=results.filter(r=>r.sel&&r.canvas); if(!keep.length){$('im-dlstat').textContent='nothing selected';return;}
+    const fmt=($('im-fmt')||{}).value||'png', ext=fmt==='jpeg'?'jpg':fmt;
+    let n=0;
+    for(const r of keep){const blob=await encode(r.canvas,fmt,0);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${++n}.${ext}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
+    $('im-dlstat').textContent=`downloaded ${keep.length}`;
+  }
+
+  window.AdImages={ onReady(){ /* engine filled by health block */ } };
+  // wire up
+  document.addEventListener('DOMContentLoaded',init); init();
+  function init(){
+    if(!$('im-topic')||$('im-topic').dataset.wired) return; $('im-topic').dataset.wired='1';
+    addSize(); // seed with the default 1024×1024 ×3
+    refreshSavedTopics(); refreshSavedSizes();
+    $('im-addsize').addEventListener('click',addSize);
+    $('im-savedsize').addEventListener('change',e=>{const s=ls.get(SKEY)[+e.target.value];if(s){$('im-w').value=s.w;$('im-h').value=s.h;}e.target.value='';});
+    $('im-saved').addEventListener('change',e=>{const t=ls.get(TKEY)[+e.target.value];if(t){$('im-topic').value=t.topic;$('im-neg').value=t.negative||'';$('im-desc').value=t.description||'';}e.target.value='';});
+    $('im-suggest').addEventListener('click',suggest);
+    $('im-run').addEventListener('click',run);
+    $('im-download').addEventListener('click',download);
+    $('im-selall').addEventListener('click',()=>{results.forEach(r=>r.sel=true);renderResults();});
+    $('im-selnone').addEventListener('click',()=>{results.forEach(r=>r.sel=false);renderResults();});
+  }
+})();
 </script>
