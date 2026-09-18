@@ -334,12 +334,14 @@ const TEMPLATES = [
     // the destination sits on the RIGHT, the LEFT/top stays light for the page's
     // (HTML) headline, and the BOTTOM dissolves to WHITE (the "blur") over the list.
     // Deliverable is a clean image (no baked text), so elements is empty.
-    sizes:{desktop:{w:1905,h:1037}, mobile:{w:1905,h:1037}},
+    // Desktop = overflow with a white bottom fade; mobile = same ratio (1.84:1),
+    // FULL image with no white fade (the site adds its own text scrim on mobile).
+    sizes:{desktop:{w:1905,h:1037}, mobile:{w:952,h:518}},
     bgPos:{desktop:"center", mobile:"center"},
     defaultTopic:"a scenic Japanese temple and five-story pagoda under a bright airy sky, aspirational travel photo",
     composition:"A bright, airy, aspirational travel photograph of the destination, with the main landmark / subject on the RIGHT side and a light, open, softly-lit sky filling the LEFT and TOP-LEFT (clear room for a dark headline). Keep the scene in the upper two-thirds; the BOTTOM third is simple, light, low-detail and hazy so it dissolves smoothly into white. Photorealistic, bright natural daylight, one continuous photo, no text, no collage.",
     overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"bottom",hold:10,fade:48},
-             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"bottom",hold:10,fade:48}},
+             mobile:{color:"#ffffff",opacity:0,gradient:false,coverage:"bottom",hold:0}},
     elements:[]
   }
 ];
