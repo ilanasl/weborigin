@@ -449,6 +449,13 @@ function safeZoneHint(tpl){
   if(cov==="bottom") return "Compose so the main subject sits in the UPPER part of the frame; keep the BOTTOM calm, simple and open.";
   return "";
 }
+// Marketing tone per vertical — layered onto the banner background prompt so a
+// matching topic comes out on-brand automatically (composition stays template-driven).
+const BANNER_BRIEFS=[
+  {match:/home warranty|home service plan|appliance (repair|coverage|protection)|home protection plan|hvac|water heater/i,
+   brief:"Marketing tone: warm, trustworthy and reassuring — a well-kept, happy home with nothing to worry about. Bright, inviting and professional. Any people look relaxed, confident and genuinely happy; any service technician looks friendly, clean and competent."},
+];
+function bannerBriefFor(topic,extra){const hay=(topic+" "+(extra||""));return (BANNER_BRIEFS.find(d=>d.match.test(hay))||{}).brief||"";}
 function buildAIPrompt(tpl,st){
   const topic=((st.topic&&st.topic.trim())||tpl.defaultTopic||"clean background").replace(/\.?\s*$/,".");
   const extra=(st.customPrompt&&st.customPrompt.trim())?(" "+st.customPrompt.trim().replace(/\.?\s*$/,".")):"";
@@ -456,8 +463,10 @@ function buildAIPrompt(tpl,st){
   const shape=ar>=2.2?"a wide panoramic horizontal composition":(ar<=0.8?"a tall vertical composition":"a balanced composition");
   return [
     topic+extra,
+    bannerBriefFor(st.topic||tpl.defaultTopic,st.customPrompt),
     `Create ONE single, cohesive, continuous photograph — ${shape} — to use as the background of a ${d.w}x${d.h} web banner.`,
     "It must be one unified scene. Do NOT make a collage, a grid, split panels, or several separate photos stitched together.",
+    "Realistic and believable: natural human anatomy and correct body proportions, objects at true real-world size, natural relaxed expressions. Never crop or cut off the top of anyone's head.",
     (tpl.composition&&tpl.composition.trim())||safeZoneHint(tpl),
     "Photorealistic, clean, soft even lighting on the open side. No text, letters, words, numbers, logos, watermarks or UI anywhere in the image."
   ].filter(Boolean).join(" ");
@@ -482,6 +491,22 @@ function enableLocalMode(){
   if(n)n.textContent='AI is active. Type a topic per banner and click Generate — or Run selected to generate + save all to your output folder.';
 }
 
+/* ---- Starter topic pools (curated, marketing-ready) per template ---- */
+// Ready-made "Image topic" ideas that fit each banner's exact layout. They show
+// under a ✨ Starters group in the Load dropdown and don't touch your own saved bank.
+const STARTERS={
+  "top-home-warranty":[
+    {topic:"a happy family standing together in front of their bright suburban home, natural daylight, medium shot",prompt:""},
+    {topic:"a relaxed happy couple smiling in their bright modern living room",prompt:"warm inviting light"},
+    {topic:"a friendly uniformed technician smiling while checking a home air-conditioning unit outside a house",prompt:""},
+    {topic:"a friendly technician shaking hands with a happy homeowner at the front door of a bright home",prompt:""},
+    {topic:"a smiling technician repairing a modern kitchen appliance in a bright clean kitchen",prompt:""},
+    {topic:"a welcoming suburban house exterior with a tidy green lawn in warm morning light",prompt:""},
+    {topic:"a cheerful mature homeowner relaxing confidently on the porch of a well-kept home",prompt:""},
+    {topic:"a bright, clean, inviting modern kitchen with quality appliances, no people",prompt:"warm daylight"},
+  ],
+};
+
 /* ---- Saved topics bank (kept in this browser) ---- */
 const TOPICS_KEY="bs_saved_topics";
 function loadSavedTopics(){try{return JSON.parse(localStorage.getItem(TOPICS_KEY)||"[]");}catch(_){return [];}}
@@ -497,11 +522,12 @@ function addSavedTopic(topic,prompt){
 }
 function refreshSavedSelects(){
   const list=loadSavedTopics();
+  const fmt=t=>(t.length>44?t.slice(0,44)+"…":t).replace(/</g,"&lt;");
   document.querySelectorAll(".c-saved").forEach(sel=>{
-    sel.innerHTML='<option value="">↩ Load a saved topic…</option>'+list.map((e,i)=>{
-      const label=(e.topic.length>44?e.topic.slice(0,44)+"…":e.topic).replace(/</g,"&lt;");
-      return `<option value="${i}">${label}</option>`;
-    }).join("");
+    const starters=STARTERS[sel.dataset.tid]||[];
+    const starterHtml=starters.length?('<optgroup label="✨ Starters">'+starters.map((e,i)=>`<option value="s:${i}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
+    const savedHtml=list.length?('<optgroup label="💾 Your saved">'+list.map((e,i)=>`<option value="${i}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
+    sel.innerHTML='<option value="">↩ Load a saved topic…</option>'+starterHtml+savedHtml;
   });
 }
 
@@ -595,8 +621,9 @@ TEMPLATES.forEach(tpl=>{
   topicEl.addEventListener("input",()=>{st.topic=topicEl.value;});
   promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;});
   const savedSel=card.querySelector(".c-saved"), saveBtn=card.querySelector(".c-savetopic");
+  savedSel.dataset.tid=tpl.id;
   saveBtn.addEventListener("click",()=>{ if(!(st.topic||"").trim()){saveBtn.textContent="type a topic";setTimeout(()=>saveBtn.textContent="💾 Save",1200);return;} addSavedTopic(st.topic,st.customPrompt); saveBtn.textContent="✓ Saved"; setTimeout(()=>saveBtn.textContent="💾 Save",1200); });
-  savedSel.addEventListener("change",()=>{ if(savedSel.value==="")return; const e=loadSavedTopics()[+savedSel.value]; savedSel.value=""; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; });
+  savedSel.addEventListener("change",()=>{ const v=savedSel.value; savedSel.value=""; if(v==="")return; const e=(v.slice(0,2)==="s:")?(STARTERS[tpl.id]||[])[+v.slice(2)]:loadSavedTopics()[+v]; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; });
   if(LOCAL.on){ card.querySelector(".c-airow").hidden=false; card.querySelector(".c-ailbl").textContent="(AI)"; }
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
