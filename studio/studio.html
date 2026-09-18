@@ -523,10 +523,11 @@ function addSavedTopic(topic,prompt){
 function refreshSavedSelects(){
   const list=loadSavedTopics();
   const fmt=t=>(t.length>44?t.slice(0,44)+"…":t).replace(/</g,"&lt;");
+  const escAttr=t=>String(t).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
   document.querySelectorAll(".c-saved").forEach(sel=>{
     const starters=STARTERS[sel.dataset.tid]||[];
-    const starterHtml=starters.length?('<optgroup label="✨ Starters">'+starters.map((e,i)=>`<option value="s:${i}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
-    const savedHtml=list.length?('<optgroup label="💾 Your saved">'+list.map((e,i)=>`<option value="${i}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
+    const starterHtml=starters.length?('<optgroup label="✨ Starters">'+starters.map((e,i)=>`<option value="s:${i}" title="${escAttr(e.topic)}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
+    const savedHtml=list.length?('<optgroup label="💾 Your saved">'+list.map((e,i)=>`<option value="${i}" title="${escAttr(e.topic)}">${fmt(e.topic)}</option>`).join("")+'</optgroup>'):"";
     sel.innerHTML='<option value="">↩ Load a saved topic…</option>'+starterHtml+savedHtml;
   });
 }
@@ -618,12 +619,13 @@ TEMPLATES.forEach(tpl=>{
   // topic / prompt / AI generate
   const topicEl=card.querySelector(".c-topic"), promptEl=card.querySelector(".c-prompt");
   topicEl.value=st.topic||""; promptEl.value=st.customPrompt||"";
-  topicEl.addEventListener("input",()=>{st.topic=topicEl.value;});
-  promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;});
+  topicEl.title=st.topic||""; promptEl.title=st.customPrompt||"";
+  topicEl.addEventListener("input",()=>{st.topic=topicEl.value;topicEl.title=topicEl.value;});
+  promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;promptEl.title=promptEl.value;});
   const savedSel=card.querySelector(".c-saved"), saveBtn=card.querySelector(".c-savetopic");
   savedSel.dataset.tid=tpl.id;
   saveBtn.addEventListener("click",()=>{ if(!(st.topic||"").trim()){saveBtn.textContent="type a topic";setTimeout(()=>saveBtn.textContent="💾 Save",1200);return;} addSavedTopic(st.topic,st.customPrompt); saveBtn.textContent="✓ Saved"; setTimeout(()=>saveBtn.textContent="💾 Save",1200); });
-  savedSel.addEventListener("change",()=>{ const v=savedSel.value; savedSel.value=""; if(v==="")return; const e=(v.slice(0,2)==="s:")?(STARTERS[tpl.id]||[])[+v.slice(2)]:loadSavedTopics()[+v]; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; });
+  savedSel.addEventListener("change",()=>{ const v=savedSel.value; savedSel.value=""; if(v==="")return; const e=(v.slice(0,2)==="s:")?(STARTERS[tpl.id]||[])[+v.slice(2)]:loadSavedTopics()[+v]; if(!e)return; st.topic=e.topic; st.customPrompt=e.prompt||""; topicEl.value=st.topic; promptEl.value=st.customPrompt; topicEl.title=st.topic; promptEl.title=st.customPrompt; });
   if(LOCAL.on){ card.querySelector(".c-airow").hidden=false; card.querySelector(".c-ailbl").textContent="(AI)"; }
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
