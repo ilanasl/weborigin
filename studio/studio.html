@@ -158,6 +158,7 @@
         <label class="f"><span>AI engine</span><select id="im-engine"></select></label>
         <label class="f im-qwrap" hidden><span>GPT quality</span><select id="im-quality"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label>
         <label class="f"><span>Download as</span><select id="im-fmt"><option value="png" selected>PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select></label>
+        <label class="f"><span>Max weight (KB)</span><input type="number" id="im-kb" placeholder="off"></label>
       </div>
       <div class="im-actions">
         <button class="ghost" id="im-suggest">💡 Suggest ideas</button>
@@ -955,8 +956,9 @@ Promise.all([
   async function download(){
     const keep=results.filter(r=>r.sel&&r.canvas); if(!keep.length){$('im-dlstat').textContent='nothing selected';return;}
     const fmt=($('im-fmt')||{}).value||'png', ext=fmt==='jpeg'?'jpg':fmt;
+    const kbRaw=parseInt(($('im-kb')||{}).value,10), kb=isNaN(kbRaw)?0:kbRaw;
     let n=0;
-    for(const r of keep){const blob=await encode(r.canvas,fmt,0);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${++n}.${ext}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
+    for(const r of keep){const blob=await encode(r.canvas,fmt,fmt==='png'?0:kb);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${++n}.${ext}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
     $('im-dlstat').textContent=`downloaded ${keep.length}`;
   }
 
