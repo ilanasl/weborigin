@@ -181,12 +181,9 @@ const DOMAIN_BRIEFS = [
       "comparison brand (think TrimRx, Ro, Noom, Hers, MEDVi). These banners sit above a " +
       "'best weight-loss providers' comparison table and must feel aspirational, warm, clinical-clean " +
       "and trustworthy — the promise is an easier, healthier body, not a hard sell. " +
-      "Lead with real, relatable women (mostly 30s–50s, diverse), radiating quiet confidence and everyday joy. " +
-      "Winning visual themes: a woman happily preparing or eating colorful healthy food (salads, fruit, lean protein, water); " +
-      "a woman comfortably active outdoors (a relaxed walk, light jog, yoga, stretching in the morning light); " +
-      "a woman smiling while holding out the loose waistband of her old jeans to hint at progress WITHOUT any before/after split; " +
-      "a woman measuring her waist with a soft tape in a bright bathroom; a candid moment of a woman enjoying life — laughing with a friend over a healthy brunch, choosing fresh produce at a market, relaxed on a couch feeling good in her body; " +
-      "warm, bright, natural light, clean modern homes and kitchens, soft neutral palettes. " +
+      "The primary audience is women, so lead with real, relatable women (diverse in age 30s–60s and in ethnicity), radiating quiet confidence and everyday joy — but for variety you MAY also include some men, couples, or friends together in roughly 15% of the concepts (about one in seven — clearly a minority; the rest are women). " +
+      "Draw from a WIDE pool of on-brand scenes and mix them up — do not lean on the same few every time. Examples: preparing or enjoying colorful healthy food (salad, fruit, smoothie, lean protein, a balanced plate, meal-prep containers, a glass of water); cooking together in a bright kitchen; grocery or farmers-market shopping for fresh produce; a relaxed walk, light jog, hike, bike ride, morning stretch or yoga; dancing or playing actively with kids or grandkids; gardening; trying on clothes that now fit better or holding out a loose waistband to hint at progress WITHOUT any before/after split; measuring the waist with a soft tape; checking a health or step app on a phone; a calm telehealth video chat with a doctor on a laptop; journaling or planning meals; laughing with friends over a healthy brunch; feeling good and comfortable at home, at the beach, or getting dressed for a night out. " +
+      "Warm, bright, natural light, clean modern homes and kitchens, parks and cafes, soft neutral palettes. " +
       "These are clean standalone ad images — the woman or subject should fill the frame naturally; do NOT compose for a headline or leave large empty background areas for text. " +
       "Ad-policy critical: this is medical/health advertising, so NEVER show needles, syringes, injection pens, injecting, vials, pills close-up, scales with numbers, a woman pinching or grabbing fat, distressed or shamed expressions, or literal before/after comparison panels. No dramatic transformation claims — keep it gentle, healthy and lifestyle-led.",
   },
@@ -201,6 +198,16 @@ async function generateIdeas(topic, negative, description, count) {
   if (!hasKey()) throw new Error("No Gemini key — the idea generator uses GEMINI_API_KEY.");
   if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const brief = domainBriefFor(topic, description);
+  // Nudge each run toward a different corner of the idea space so repeated
+  // clicks give a genuinely fresh, varied set (not the same 5 every time).
+  const ANGLES = [
+    "food & cooking", "outdoor activity & movement", "everyday confidence at home",
+    "shopping for fresh food", "social moments with friends or family",
+    "getting dressed / clothes fitting better", "self-care & healthy routines",
+    "being active with kids or a partner",
+  ];
+  const shuffled = ANGLES.map((a) => [Math.random(), a]).sort((x, y) => x[0] - y[0]).map((p) => p[1]);
+  const nonce = Math.random().toString(36).slice(2, 8);
   const prompt =
     (brief ? brief + "\n\n" : "") +
     `I am creating stock advertising photographs for the topic: "${topic}".` +
@@ -209,14 +216,19 @@ async function generateIdeas(topic, negative, description, count) {
     `\nGive me ${count} distinct, concrete photo concepts` +
     (brief ? ` that a smart marketer in this vertical would actually run` : "") +
     `. Each concept is ONE short English sentence describing a single realistic photograph (subject, setting, mood).` +
+    ` IMPORTANT — maximize VARIETY: every concept must be a clearly different scene, setting, activity, and person` +
+    (brief ? ` (vary age, ethnicity, and gender across the set)` : ``) +
+    `. Do NOT repeat the same few ideas you would normally give; surprise me with fresh but on-brand concepts.` +
+    (brief ? ` For this batch especially, spread the concepts across these different angles: ${shuffled.slice(0, Math.min(count, shuffled.length)).join("; ")}.` : ``) +
     ` Every concept must respect every "never show" / "must NOT contain" rule above.` +
     ` No numbering and no extra commentary.` +
-    ` Return ONLY a JSON array of exactly ${count} strings.`;
+    ` Return ONLY a JSON array of exactly ${count} strings. (variety token ${nonce})`;
   let lastErr = null;
   for (const model of IDEAS_MODELS) {
     try {
       const resp = await client.models.generateContent({
         model,
+        config: { temperature: 1.15 },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
       const text = (resp.text || "").trim();
