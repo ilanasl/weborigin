@@ -873,7 +873,10 @@ Promise.all([
   function saveTopic(){
     const topic=$('im-topic').value.trim(); if(!topic) return;
     const list=ls.get(TKEY); const idx=list.findIndex(e=>e.topic.toLowerCase()===topic.toLowerCase());
+    const ideas=$('im-ideas').value.trim();
     const entry={topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim()};
+    // keep previously-remembered ideas if the box is currently empty
+    entry.ideas = ideas || (idx>=0 ? (list[idx].ideas||'') : '');
     if(idx>=0) list[idx]=entry; else list.unshift(entry);
     ls.set(TKEY,list.slice(0,60)); refreshSavedTopics();
   }
@@ -953,6 +956,23 @@ Promise.all([
     });
   }
 
+  // Curated, ad-policy-safe seed ideas per marketing vertical — an instant
+  // fallback (and starting point) when the AI idea call is unavailable.
+  const DOMAIN_IDEAS=[{
+    match:/weight[\s-]?loss|weight[\s-]?management|slim|diet|glp[\s-]?1|semaglutide|ozempic|wegovy|obesity|fat[\s-]?loss|הרזי|רזי|משקל|דיאט/i,
+    ideas:[
+      'a happy woman in her 40s preparing a colorful fresh salad in a bright modern kitchen',
+      'a confident woman smiling as she holds out the loose waistband of her old jeans',
+      'a woman enjoying a relaxed morning walk on a tree-lined path in soft sunlight',
+      'a woman laughing with a friend over a healthy brunch at a sunny cafe',
+      'a woman choosing fresh fruit and vegetables at a farmers market',
+      'a calm woman drinking a glass of water after a light yoga session at home',
+      'a woman gently measuring her waist with a soft tape in a bright bathroom',
+      'a woman feeling comfortable and content in casual clothes on a cozy couch'
+    ]
+  }];
+  function curatedIdeas(topic,desc){const hay=(topic+' '+(desc||''));const d=DOMAIN_IDEAS.find(x=>x.match.test(hay));return d?d.ideas.slice():[];}
+
   async function suggest(){
     const topic=$('im-topic').value.trim(); if(!topic){$('im-stat').textContent='type a topic first';return;}
     saveTopic();
@@ -961,8 +981,15 @@ Promise.all([
     try{
       const res=await fetch('/api/ideas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,negative:$('im-neg').value.trim(),description:$('im-desc').value.trim(),count:Math.max(total,5)})});
       const j=await res.json().catch(()=>({})); if(!res.ok) throw new Error(j.error||'failed');
-      $('im-ideas').value=(j.ideas||[]).join('\n');$('im-stat').textContent=`${(j.ideas||[]).length} ideas — edit freely, then Generate`;
-    }catch(e){$('im-stat').textContent='✗ '+(e.message||'ideas failed')+' — you can type ideas manually';}
+      const ideas=(j.ideas||[]).filter(Boolean);
+      if(!ideas.length) throw new Error('no ideas returned');
+      $('im-ideas').value=ideas.join('\n');$('im-stat').textContent=`${ideas.length} ideas — edit freely, then Generate`;
+      saveTopic(); // remember these ideas for this topic next time
+    }catch(e){
+      const seed=curatedIdeas(topic,$('im-desc').value.trim());
+      if(seed.length){$('im-ideas').value=seed.join('\n');$('im-stat').textContent=`${seed.length} ready-made ideas for this topic — edit freely, then Generate`;saveTopic();}
+      else $('im-stat').textContent='✗ '+(e.message||'ideas failed')+' — you can type ideas manually';
+    }
     $('im-suggest').disabled=false;
   }
 
@@ -1001,7 +1028,7 @@ Promise.all([
     refreshSavedTopics(); refreshSavedSizes();
     $('im-addsize').addEventListener('click',addSize);
     $('im-savedsize').addEventListener('change',e=>{const s=ls.get(SKEY)[+e.target.value];if(s){$('im-w').value=s.w;$('im-h').value=s.h;}e.target.value='';});
-    $('im-saved').addEventListener('change',e=>{const t=ls.get(TKEY)[+e.target.value];if(t){$('im-topic').value=t.topic;$('im-neg').value=t.negative||'';$('im-desc').value=t.description||'';}e.target.value='';});
+    $('im-saved').addEventListener('change',e=>{const t=ls.get(TKEY)[+e.target.value];if(t){$('im-topic').value=t.topic;$('im-neg').value=t.negative||'';$('im-desc').value=t.description||'';if(t.ideas){$('im-ideas').value=t.ideas;$('im-stat').textContent='remembered ideas for this topic — edit freely, then Generate';}}e.target.value='';});
     $('im-suggest').addEventListener('click',suggest);
     $('im-run').addEventListener('click',run);
     $('im-download').addEventListener('click',download);

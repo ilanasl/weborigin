@@ -167,15 +167,49 @@ async function generateImageImagen(prompt, aspectRatio) {
   );
 }
 
+// --- Domain marketing briefs ------------------------------------------------
+// Tailor the idea generator to a marketing vertical so the SUGGESTED prompts
+// read like a performance marketer wrote them — not generic stock ideas.
+// Each brief: match (regex on the topic), plus a marketer persona + the visual
+// themes that convert for that vertical + hard "never show" guardrails.
+const DOMAIN_BRIEFS = [
+  {
+    id: "weightloss",
+    match: /weight[\s-]?loss|weight[\s-]?management|slim|diet|glp[\s-]?1|semaglutide|ozempic|wegovy|obesity|fat[\s-]?loss|הרזי|רזי|משקל|דיאט/i,
+    brief:
+      "You are a senior performance marketer for a weight-loss / GLP-1 medication " +
+      "comparison brand (think TrimRx, Ro, Noom, Hers, MEDVi). These banners sit above a " +
+      "'best weight-loss providers' comparison table and must feel aspirational, warm, clinical-clean " +
+      "and trustworthy — the promise is an easier, healthier body, not a hard sell. " +
+      "Lead with real, relatable women (mostly 30s–50s, diverse), radiating quiet confidence and everyday joy. " +
+      "Winning visual themes: a woman happily preparing or eating colorful healthy food (salads, fruit, lean protein, water); " +
+      "a woman comfortably active outdoors (a relaxed walk, light jog, yoga, stretching in the morning light); " +
+      "a woman smiling while holding out the loose waistband of her old jeans to hint at progress WITHOUT any before/after split; " +
+      "a woman measuring her waist with a soft tape in a bright bathroom; a candid moment of a woman enjoying life — laughing with a friend over a healthy brunch, choosing fresh produce at a market, relaxed on a couch feeling good in her body; " +
+      "warm, bright, natural light, clean modern homes and kitchens, soft neutral palettes, plenty of empty space for a headline. " +
+      "Ad-policy critical: this is medical/health advertising, so NEVER show needles, syringes, injection pens, injecting, vials, pills close-up, scales with numbers, a woman pinching or grabbing fat, distressed or shamed expressions, or literal before/after comparison panels. No dramatic transformation claims — keep it gentle, healthy and lifestyle-led.",
+  },
+];
+function domainBriefFor(topic, description) {
+  const hay = `${topic} ${description || ""}`;
+  return (DOMAIN_BRIEFS.find((d) => d.match.test(hay)) || {}).brief || "";
+}
+
 // --- Ad-image idea generator (text) -----------------------------------------
 async function generateIdeas(topic, negative, description, count) {
   if (!hasKey()) throw new Error("No Gemini key — the idea generator uses GEMINI_API_KEY.");
   if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const brief = domainBriefFor(topic, description);
   const prompt =
+    (brief ? brief + "\n\n" : "") +
     `I am creating stock advertising photographs for the topic: "${topic}".` +
     (description ? ` Extra direction: ${description}.` : "") +
-    (negative ? ` The images must NOT contain: ${negative}.` : "") +
-    `\nGive me ${count} distinct, concrete photo concepts. Each concept is ONE short English sentence describing a single realistic photograph (subject, setting, mood). No numbering and no extra commentary.` +
+    (negative ? ` On top of any rule above, the images must NOT contain: ${negative}.` : "") +
+    `\nGive me ${count} distinct, concrete photo concepts` +
+    (brief ? ` that a smart marketer in this vertical would actually run` : "") +
+    `. Each concept is ONE short English sentence describing a single realistic photograph (subject, setting, mood).` +
+    ` Every concept must respect every "never show" / "must NOT contain" rule above.` +
+    ` No numbering and no extra commentary.` +
     ` Return ONLY a JSON array of exactly ${count} strings.`;
   let lastErr = null;
   for (const model of IDEAS_MODELS) {
