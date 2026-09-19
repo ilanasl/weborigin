@@ -496,9 +496,9 @@ async function aiGenerate(tpl,st){
   // When the image is confined to a box, match the AI aspect ratio to the box.
   const box=tpl.imageBox, arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
   const engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
-  const isGpt=engine==='openai';
+  const isGpt=engine==='openai'||engine.startsWith('openai:');
   const body={prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(arW,arH),provider:isGpt?'openai':'gemini'};
-  if(isGpt) body.quality=(document.getElementById('quality')||{}).value||'medium'; else body.model=engine;
+  if(isGpt){ body.quality=(document.getElementById('quality')||{}).value||'medium'; if(engine.startsWith('openai:'))body.model=engine.slice(7); } else body.model=engine;
   const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
@@ -911,14 +911,20 @@ Promise.all([
     for(const id of ordered) opts.push([id, geminiLabel(id)]);
     if(!opts.length) opts.push(['gemini-2.5-flash-image','Gemini 2.5 Flash']);
   }
-  if(h.hasOpenAI) opts.push(['openai','GPT (sharp)']);
+  if(h.hasOpenAI){
+    const gpt=((m&&m.openaiImageModels)||[]);
+    if(gpt.includes('gpt-image-2.5-sunburst')||!gpt.length) opts.push(['openai:gpt-image-2.5-sunburst','GPT 2.5 Sunburst (most natural)']);
+    if(gpt.includes('gpt-image-2.5-flare')||!gpt.length) opts.push(['openai:gpt-image-2.5-flare','GPT 2.5 Flare (faster)']);
+    opts.push(['openai','GPT-Image-1 (basic)']);
+  }
+  const isGptVal=v=>v==='openai'||String(v).startsWith('openai:');
   function fillEngine(selId,wrapId,qWrapId){
     const sel=document.getElementById(selId); if(!sel) return;
     sel.innerHTML=opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
     sel.value=opts[0][0];
     const wrap=document.getElementById(wrapId); if(wrap&&opts.length>1) wrap.hidden=false;
     const qWrap=document.getElementById(qWrapId);
-    const syncQ=()=>{ if(qWrap) qWrap.hidden=(sel.value!=='openai'); };
+    const syncQ=()=>{ if(qWrap) qWrap.hidden=!isGptVal(sel.value); };
     sel.addEventListener('change',syncQ); syncQ();
   }
   fillEngine('engine','engineWrap','qualityWrap');       // banners
@@ -994,9 +1000,9 @@ Promise.all([
   }
   function ideasList(){ return $('im-ideas').value.split(/\n+/).map(s=>s.trim()).filter(Boolean); }
   function engineBody(prompt,w,h){
-    const eng=($('im-engine')||{}).value||'gemini-2.5-flash-image', isGpt=eng==='openai';
+    const eng=($('im-engine')||{}).value||'gemini-2.5-flash-image', isGpt=eng==='openai'||eng.startsWith('openai:');
     const b={prompt,aspectRatio:nearestAspect(w,h),provider:isGpt?'openai':'gemini'};
-    if(isGpt) b.quality=($('im-quality')||{}).value||'medium'; else b.model=eng;
+    if(isGpt){ b.quality=($('im-quality')||{}).value||'medium'; if(eng.startsWith('openai:'))b.model=eng.slice(7); } else b.model=eng;
     return b;
   }
   async function genImage(prompt,w,h){
