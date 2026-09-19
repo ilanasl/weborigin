@@ -258,6 +258,25 @@ app.get("/api/health", (_req, res) =>
   res.json({ ok: true, hasKey: hasKey(), hasOpenAI: hasOpenAI() })
 );
 
+// Diagnostic: which models does this OpenAI key actually have? (image ones highlighted)
+app.get("/api/openai-models", async (_req, res) => {
+  try {
+    if (!hasOpenAI()) return res.status(400).json({ error: "No OpenAI key in .env." });
+    const r = await fetch("https://api.openai.com/v1/models", {
+      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    });
+    const j = await r.json();
+    if (!r.ok) return res.status(r.status).json({ error: j?.error?.message || `HTTP ${r.status}` });
+    const all = (j.data || []).map((m) => m.id).sort();
+    const image = all.filter((id) => /image|dall/i.test(id));
+    console.log("\n  OpenAI image models on your key:\n   " +
+      (image.join("\n   ") || "(none found)") + "\n");
+    res.json({ imageModels: image, totalModels: all.length, allModels: all });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || String(e) });
+  }
+});
+
 // Diagnostic: which image-capable models does this Gemini key actually have?
 app.get("/api/models", async (_req, res) => {
   try {
