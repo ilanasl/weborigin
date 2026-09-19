@@ -116,6 +116,10 @@
   .nb-add textarea{flex:1;resize:vertical;min-height:46px;font:13px/1.5 var(--ui)}
   .nb-add button{white-space:nowrap}
   #im-count{width:56px}
+  .c-preview{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+  .c-preview .c-pv{background:var(--panel-2);border:0;border-right:1px solid var(--border);padding:4px 10px;cursor:pointer;font-size:12px;color:var(--text)}
+  .c-preview .c-pv:last-child{border-right:0}
+  .c-preview .c-pv.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
   .hint{display:block;font-size:11px;color:var(--muted);margin-top:3px}
   .hint b{color:var(--accent)}
 </style>
@@ -443,7 +447,7 @@ function initOverrides(tpl){
 
 /* ---------------- State ---------------- */
 const state = {}; // id -> {selected,mobile,topic,customPrompt,uploaded,img,accent,logo,logoImg,over,text}
-for(const t of TEMPLATES) state[t.id]={selected:false,mobile:false,topic:"",customPrompt:"",uploaded:null,img:null,accent:null,tint:null,logo:null,logoImg:null,over:initOverrides(t),text:{enabled:false,texts:{}}};
+for(const t of TEMPLATES) state[t.id]={selected:false,mobile:false,previewSize:"desktop",topic:"",customPrompt:"",uploaded:null,img:null,accent:null,tint:null,logo:null,logoImg:null,over:initOverrides(t),text:{enabled:false,texts:{}}};
 
 const fontsReady = (async()=>{try{await Promise.all(TEMPLATES.map(t=>document.fonts.load(`800 20px "${t.font}"`)));await document.fonts.ready;}catch(_){}} )();
 
@@ -565,7 +569,7 @@ function drawThumb(canvasEl,tpl,st){
   // Thumbnail always shows the (default) text so you can see how it sits on the
   // image. Whether text is actually baked into the exported file is controlled
   // by the "Text" toggle and applied only at Run.
-  const render=()=>{const c=renderBanner(tpl,"desktop",st.img,st.text.texts,true,st.logoImg,st.accent,st.over,st.tint);canvasEl.width=c.width;canvasEl.height=c.height;canvasEl.getContext("2d").drawImage(c,0,0);};
+  const render=()=>{const c=renderBanner(tpl,st.previewSize||"desktop",st.img,st.text.texts,true,st.logoImg,st.accent,st.over,st.tint);canvasEl.width=c.width;canvasEl.height=c.height;canvasEl.getContext("2d").drawImage(c,0,0);};
   render();fontsReady.then(render);
 }
 
@@ -598,9 +602,9 @@ TEMPLATES.forEach(tpl=>{
     <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button><button class="tiny c-deltopic" title="Delete the loaded saved topic" hidden>🗑</button></div>
     <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
     <div class="card-foot">
-      <label class="chk"><input type="checkbox" class="c-mob"> Mobile (${m.w}×${m.h})</label>
+      <div class="c-preview" title="Preview desktop or mobile — both are always downloaded"><button class="c-pv on" data-s="desktop">🖥 Desktop</button><button class="c-pv" data-s="mobile">📱 ${m.w}×${m.h}</button></div>
       <div class="card-btns">
-        <button class="tiny c-dl">⬇ Download</button>
+        <button class="tiny c-dl" title="Downloads both desktop + mobile">⬇ Both</button>
         <button class="tiny c-edit">Edit</button>
         <button class="tiny c-text">Text</button>
         <button class="tiny c-reset">Reset</button>
@@ -613,12 +617,13 @@ TEMPLATES.forEach(tpl=>{
         fileEl=card.querySelector(".c-file"), clearImg=card.querySelector(".c-clearimg"),
         logoLab=card.querySelector(".c-logolab"), logoFile=card.querySelector(".c-logofile"),
         clearLogo=card.querySelector(".c-clearlogo"),
-        mobEl=card.querySelector(".c-mob"), textBtn=card.querySelector(".c-text"),
+        textBtn=card.querySelector(".c-text"),
         resetBtn=card.querySelector(".c-reset"), tintChk=card.querySelector(".c-tint");
 
   function refresh(){
     card.classList.toggle("sel",st.selected);
-    selEl.checked=st.selected; mobEl.checked=st.mobile;
+    selEl.checked=st.selected;
+    card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x.dataset.s===(st.previewSize||"desktop")));
     srcLab.textContent=st.uploaded?"your upload":"upload needed";
     clearImg.hidden=!st.uploaded;
     logoLab.textContent=st.logo?"added":"none";
@@ -632,13 +637,13 @@ TEMPLATES.forEach(tpl=>{
   tintChk.addEventListener("change",()=>{st.over.overlay.desktop.auto=tintChk.checked;st.over.overlay.mobile.auto=tintChk.checked;refresh();});
   selEl.addEventListener("change",()=>{st.selected=selEl.checked;refresh();});
   card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,refresh));
-  mobEl.addEventListener("change",()=>{st.mobile=mobEl.checked;});
+  card.querySelectorAll(".c-pv").forEach(b=>b.addEventListener("click",()=>{st.previewSize=b.dataset.s;card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x===b));drawThumb(canvasEl,tpl,st);}));
   fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();});
   clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();});
   logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
   clearLogo.addEventListener("click",()=>{st.logo=null;st.logoImg=null;refresh();});
   card.querySelector(".c-logosz").addEventListener("input",e=>{st.over.logoScale=+e.target.value;drawThumb(canvasEl,tpl,st);});
-  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();});
+  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();});
   textBtn.addEventListener("click",()=>openTextModal(tpl,st,refresh));
   card.querySelector(".c-edit").addEventListener("click",e=>{e.stopPropagation();openEditor(tpl,st,refresh);});
   card.querySelector(".c-dl").addEventListener("click",()=>downloadOne(tpl,st));
@@ -841,13 +846,15 @@ async function saveBlob(blob,name){
 /* ---- Single-banner export (Download button) ---- */
 function browserDownload(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}},1500);}
 function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);return {fmt,kb:isNaN(kbRaw)?0:kbRaw,ext:fmt==="jpeg"?"jpg":fmt};}
-async function exportBanner(tpl,st,size,f){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const blob=await encode(canvas,f.fmt,f.fmt==="png"?0:f.kb);return {blob,name:`${tpl.id}-${size}.${f.ext}`};}
-// Always a real browser download (into the Downloads folder), for one banner.
+// A short unique stamp (MMDD-HHMMSS-xx) so downloaded files never overwrite each other.
+function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2,4)}`;}
+async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const blob=await encode(canvas,f.fmt,f.fmt==="png"?0:f.kb);return {blob,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${f.ext}`};}
+// Always a real browser download (into the Downloads folder). Defaults to BOTH sizes.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
-  await fontsReady;const f=currentFmt();
-  for(const size of (sizes||(st.mobile?["desktop","mobile"]:["desktop"]))){
-    const {blob,name}=await exportBanner(tpl,st,size,f);browserDownload(blob,name);
+  await fontsReady;const f=currentFmt();const sfx=stamp();
+  for(const size of (sizes||["desktop","mobile"])){
+    const {blob,name}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
     log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${(f.kb&&f.fmt!=="png")?` (target ≤${f.kb}KB)`:""}`);
   }
 }
@@ -868,11 +875,11 @@ document.getElementById("run").addEventListener("click",async()=>{
       if(LOCAL.on){ try{ log(`✨ ${tpl.name} — generating with AI…`); await aiGenerate(tpl,st); const cc=document.querySelector(`.card[data-id="${tpl.id}"]`); }catch(e){ log(`✗ ${tpl.name}: ${e.message||"AI failed"}`); continue; } }
       else { log(`⚠ ${tpl.name}: no image — upload one, or run the local app for AI. Skipped.`); continue; }
     }
-    const sizes=st.mobile?["desktop","mobile"]:["desktop"];
-    for(const size of sizes){
+    const sfx=stamp();
+    for(const size of ["desktop","mobile"]){
       const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);
       const blob=await encode(canvas,fmt,fmt==="png"?0:kb);
-      const name=`${tpl.id}-${size}.${ext}`;
+      const name=`${tpl.id}-${size}-${sfx}.${ext}`;
       const r=await saveBlob(blob,name);
       log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})`);
     }
