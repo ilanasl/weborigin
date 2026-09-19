@@ -116,10 +116,11 @@
   .nb-add textarea{flex:1;resize:vertical;min-height:46px;font:13px/1.5 var(--ui)}
   .nb-add button{white-space:nowrap}
   #im-count{width:56px}
-  .c-preview{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:7px;overflow:hidden}
-  .c-preview .c-pv{background:var(--panel-2);border:0;border-right:1px solid var(--border);padding:4px 10px;cursor:pointer;font-size:12px;color:var(--text)}
+  .thumb{position:relative}
+  .c-preview{display:inline-flex;gap:0;border-radius:7px;overflow:hidden;position:absolute;top:7px;right:7px;z-index:2;box-shadow:0 1px 5px rgba(0,0,0,.3)}
+  .c-preview .c-pv{background:rgba(255,255,255,.86);border:0;border-right:1px solid rgba(0,0,0,.12);padding:3px 8px;cursor:pointer;font-size:13px;line-height:1;color:#111}
   .c-preview .c-pv:last-child{border-right:0}
-  .c-preview .c-pv.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
+  .c-preview .c-pv.on{background:var(--accent);color:var(--accent-ink)}
   .hint{display:block;font-size:11px;color:var(--muted);margin-top:3px}
   .hint b{color:var(--accent)}
 </style>
@@ -582,7 +583,7 @@ TEMPLATES.forEach(tpl=>{
       <span class="card-title">${d.w}×${d.h}</span>
       <span class="card-name">${tpl.name}</span>
     </div>
-    <div class="thumb"><canvas></canvas></div>
+    <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
     <div class="src">
       <span class="lab">Image: <b class="c-srclab">upload needed</b></span>
       <label class="mini">Upload<input type="file" class="c-file" accept="image/*"></label>
@@ -602,9 +603,8 @@ TEMPLATES.forEach(tpl=>{
     <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button><button class="tiny c-deltopic" title="Delete the loaded saved topic" hidden>🗑</button></div>
     <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
     <div class="card-foot">
-      <div class="c-preview" title="Preview desktop or mobile — both are always downloaded"><button class="c-pv on" data-s="desktop">🖥 Desktop</button><button class="c-pv" data-s="mobile">📱 ${m.w}×${m.h}</button></div>
       <div class="card-btns">
-        <button class="tiny c-dl" title="Downloads both desktop + mobile">⬇ Both</button>
+        <button class="tiny c-dl" title="Downloads both desktop + mobile in one click">⬇ Download</button>
         <button class="tiny c-edit">Edit</button>
         <button class="tiny c-text">Text</button>
         <button class="tiny c-reset">Reset</button>
@@ -637,7 +637,7 @@ TEMPLATES.forEach(tpl=>{
   tintChk.addEventListener("change",()=>{st.over.overlay.desktop.auto=tintChk.checked;st.over.overlay.mobile.auto=tintChk.checked;refresh();});
   selEl.addEventListener("change",()=>{st.selected=selEl.checked;refresh();});
   card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,refresh));
-  card.querySelectorAll(".c-pv").forEach(b=>b.addEventListener("click",()=>{st.previewSize=b.dataset.s;card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x===b));drawThumb(canvasEl,tpl,st);}));
+  card.querySelectorAll(".c-pv").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();st.previewSize=b.dataset.s;card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x===b));drawThumb(canvasEl,tpl,st);}));
   fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();});
   clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();});
   logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
