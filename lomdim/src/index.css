@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens (ported from the prototype) ── */
+:root{
+  --bg:#F5F5F8; --surface:#FFFFFF; --surface-2:#F5F5F8;
+  --ink:#1B1C1F; --muted:#6C7080; --line:#EAEAF0;
+  --primary:#2F6BFF; --primary-soft:#EAF0FF;
+  --accent:#B4823A; --accent-soft:#F5ECDC;
+  --good:#159B6E; --good-soft:#E3F4EC;
+  --bad:#DB5A5A; --bad-soft:#FBE9E9;
+  --btn:#1B1E26; --btn-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(20,22,28,.04), 0 6px 22px -12px rgba(20,22,28,.14);
+}
+:root:not([data-theme="light"]){ @media (prefers-color-scheme: dark){
+  --bg:#0F1115; --surface:#181B21; --surface-2:#1F232B;
+  --ink:#ECEEF2; --muted:#98A0AE; --line:#2A2F38;
+  --primary:#6C9BFF; --primary-soft:#1B2740;
+  --accent:#D2A968; --accent-soft:#332a1c;
+  --good:#4FC08C; --good-soft:#173628;
+  --bad:#EC7C7C; --bad-soft:#3a2323;
+  --btn:#ECEEF2; --btn-ink:#14161B;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.65);
+}}
+:root[data-theme="dark"]{
+  --bg:#0F1115; --surface:#181B21; --surface-2:#1F232B;
+  --ink:#ECEEF2; --muted:#98A0AE; --line:#2A2F38;
+  --primary:#6C9BFF; --primary-soft:#1B2740;
+  --accent:#D2A968; --accent-soft:#332a1c;
+  --good:#4FC08C; --good-soft:#173628;
+  --bad:#EC7C7C; --bad-soft:#3a2323;
+  --btn:#ECEEF2; --btn-ink:#14161B;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 30px -16px rgba(0,0,0,.65);
+}
+
+html,body,#root{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Assistant',system-ui,sans-serif; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  padding-top:env(safe-area-inset-top,0); padding-bottom:env(safe-area-inset-bottom,0);
+}
+h1,h2,h3{font-family:'Heebo',system-ui,sans-serif; margin:0; letter-spacing:-.02em; text-wrap:balance}
+button{font-family:inherit; cursor:pointer}
+.tnum{font-variant-numeric:tabular-nums}
+
+@layer components{
+  .app-shell{ @apply mx-auto w-full max-w-[760px] px-4 pb-12; }
+  .card{ @apply bg-surface border border-line rounded-xl2 p-4 shadow-soft; }
+  .btn{ @apply inline-flex items-center justify-center gap-2 rounded-[14px] border border-line
+         bg-surface text-ink font-semibold text-[14.5px] px-4 py-3 transition
+         hover:border-primary; }
+  .btn-primary{ @apply border-transparent text-[color:var(--btn-ink)] hover:brightness-110;
+                background:var(--btn); }
+  .btn-wide{ @apply w-full; }
+  .field{ @apply w-full rounded-[12px] border-[1.5px] border-line bg-surface text-ink
+          text-[14.5px] px-3 py-[10px] outline-none focus:border-primary; }
+  .bar{ @apply h-2 rounded-full bg-surface2 border border-line overflow-hidden; }
+  .bar>i{ @apply block h-full rounded-full; background:var(--primary); }
+  .pill{ @apply text-[12px] font-bold rounded-full px-3 py-[3px]; }
+}
