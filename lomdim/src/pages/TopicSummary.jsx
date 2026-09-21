@@ -59,7 +59,7 @@ export default function TopicSummary({ nav, params }) {
 
       <div className="action-row mt-3">
         <button className="btn" onClick={generate} disabled={busy}>
-          {busy ? 'מכין…' : summary ? '✨ רענן סיכום' : '✨ צור סיכום עיוני'}
+          {busy ? 'מכין…' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
         </button>
         <button className="btn btn-primary" disabled={qCount === 0}
           onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
