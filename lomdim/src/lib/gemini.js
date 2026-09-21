@@ -196,6 +196,17 @@ export const topicSummary = async ({ subjectName, topicName, learner }) => {
   return { summary_md: answer }
 }
 
+// הבאת טקסט מקור מלא (שיר / פסוקים בתנ"ך) מהידע — לא מהצילום
+export const fetchSourceText = async ({ subjectName, reference }) => {
+  const q =
+    `החזר/י אך ורק את הטקסט המלא והמדויק של: "${reference}"${subjectName ? ` (מקצוע ${subjectName})` : ''}. ` +
+    `אם זה שיר — כל השורות והבתים במדויק ובשורות המקוריות. אם אלה פסוקים מהתנ"ך — הפסוקים המבוקשים במדויק לפי נוסח המסורה, עם מספרי הפסוקים. ` +
+    `בלי פרשנות, בלי הקדמה ובלי הסבר — רק הטקסט עצמו. ` +
+    `אם אינך בטוח/ה בנוסח המדויק, פתח/י בשורה "⚠️ ייתכן שהנוסח אינו מדויק — כדאי לוודא מול המקור" ואז תן/י את הנוסח הטוב ביותר הידוע לך.`
+  const { answer } = await explain({ subjectName, question: q })
+  return { source_text: answer }
+}
+
 // וריאציות תרגול על אותו רעיון/טעות — לגיוון ולחיזוק ממוקד
 export const generateVariations = ({ subjectName, topicName, concept, learner, count = 5 }) => {
   const src = `צור/י ${count} שאלות שונות זו מזו שמתרגלות בדיוק את אותו רעיון/טעות: "${concept}". ` +
