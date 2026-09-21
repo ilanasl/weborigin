@@ -4,8 +4,8 @@ import { explain } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
-const QUIZ = '🎯 תבחן אותי'
-const SUGGESTIONS = ['תסביר לי בפשטות', 'תן דוגמה', 'למה זה ככה?', QUIZ]
+// תגובות-המשך — מופיעות רק אחרי שהמורה ענה (לא בשיחה חדשה ריקה)
+const FOLLOWUPS = ['עדיין לא הבנתי', 'תן דוגמה', 'תסביר יותר פשוט']
 
 export default function Explain({ nav, params }) {
   const { subjectId, subjectName, context } = params
@@ -57,6 +57,17 @@ export default function Explain({ nav, params }) {
   function openChat(c) { setChatId(c.id); setMsgs(c.messages || [intro]); setShowHist(false) }
   function newChat() { setChatId(null); setMsgs([intro]); setShowHist(false) }
 
+  async function deleteChat(e, c) {
+    e.stopPropagation()
+    if (!window.confirm('למחוק את השיחה הזו? אי אפשר לשחזר.')) return
+    await supabase.from('chats').delete().eq('id', c.id)
+    if (chatId === c.id) newChat()
+    loadHistory()
+  }
+
+  // תגובות-המשך מופיעות רק כשכבר יש חילופי דברים והמורה ענה אחרון
+  const showFollowups = msgs.length > 1 && msgs[msgs.length - 1].who === 'ai' && !busy
+
   return (
     <div className="pt-2">
       <div className="flex items-center gap-2 mb-1">
@@ -75,14 +86,17 @@ export default function Explain({ nav, params }) {
           {showHist && (
             <div className="card mb-3">
               {history.map((c) => (
-                <button key={c.id} onClick={() => openChat(c)}
-                  className="flex items-center gap-3 w-full text-start py-2.5 border-b border-line last:border-0">
-                  <div className="flex-1 min-w-0">
+                <div key={c.id}
+                  className="flex items-center gap-2 w-full py-2.5 border-b border-line last:border-0">
+                  <button onClick={() => openChat(c)} className="flex-1 min-w-0 text-start">
                     <div className="text-[14.5px] font-semibold truncate">{c.title || 'שיחה'}</div>
                     <div className="text-[12px] text-muted">{new Date(c.updated_at).toLocaleDateString('he-IL')}</div>
-                  </div>
-                  <span className="text-muted text-[13px]">פתח ›</span>
-                </button>
+                  </button>
+                  <button onClick={() => openChat(c)} className="text-muted text-[13px]">פתח ›</button>
+                  <button onClick={(e) => deleteChat(e, c)} title="מחק שיחה"
+                    className="w-8 h-8 rounded-[9px] grid place-items-center text-[15px]"
+                    style={{ color: 'var(--bad)' }}>🗑</button>
+                </div>
               ))}
             </div>
           )}
@@ -100,14 +114,13 @@ export default function Explain({ nav, params }) {
         <div ref={endRef} />
       </div>
 
-      <div className="chips">
-        {SUGGESTIONS.map((s) => (
-          <button key={s} className="chip" disabled={busy}
-            onClick={() => s === QUIZ
-              ? nav.go('practicePicker', { subjectId, subjectName, mode: 'practice' })
-              : send(s)}>{s}</button>
-        ))}
-      </div>
+      {showFollowups && (
+        <div className="chips">
+          {FOLLOWUPS.map((s) => (
+            <button key={s} className="chip" onClick={() => send(s)}>{s}</button>
+          ))}
+        </div>
+      )}
 
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send() }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="כתבו כאן שאלה חופשית…" />
