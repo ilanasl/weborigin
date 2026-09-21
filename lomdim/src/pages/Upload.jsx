@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { analyzeMaterial, fileHash } from '../lib/gemini'
 import Markdown from '../components/Markdown'
+import { useAuth } from '../context/AuthContext'
 
 const MAX_MB = 12 // מעל זה קריאת Gemini אחת נכשלת/יקרה — עדיף לפצל
 
@@ -21,6 +22,7 @@ const isWord = (f) => /\.(docx?|rtf)$/i.test(f.name) ||
 
 export default function Upload({ nav, params }) {
   const { subjectId, subjectName } = params
+  const { profile } = useAuth()
   const [file, setFile] = useState(null)
   const [hash, setHash] = useState(null)
   const [lastYear, setLastYear] = useState(false)
@@ -61,10 +63,10 @@ export default function Upload({ nav, params }) {
       const knownTopics = (tp || []).map((t) => t.name)
       let out
       if (isText(file)) {
-        out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics })
+        out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, learner: profile })
       } else {
         out = await analyzeMaterial({
-          imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, knownTopics,
+          imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, knownTopics, learner: profile,
         })
       }
       setResult(out)

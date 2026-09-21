@@ -1,13 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { explain } from '../lib/gemini'
 import Markdown from '../components/Markdown'
+import { useAuth } from '../context/AuthContext'
 
 const SUGGESTIONS = ['תסביר לי בפשטות', 'תן דוגמה', 'למה זה ככה?', 'תבחן אותי בשאלה']
 
 export default function Explain({ params }) {
   const { subjectName, context } = params
+  const { profile } = useAuth()
+  const hi = profile?.name ? `שלום ${profile.name}!` : 'שלום!'
   const [msgs, setMsgs] = useState([
-    { who: 'ai', text: `שלום! אני כאן לעזור ב${subjectName}. מה לא ברור? אפשר לכתוב הכול במילים שלך.` },
+    { who: 'ai', text: `${hi} אני כאן לעזור ב${subjectName}. מה לא ברור? אפשר לכתוב הכול במילים שלך.` },
   ])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -20,7 +23,7 @@ export default function Explain({ params }) {
     if (!q || busy) return
     setInput(''); setMsgs((m) => [...m, { who: 'me', text: q }]); setBusy(true)
     try {
-      const { answer } = await explain({ subjectName, context, question: q })
+      const { answer } = await explain({ subjectName, context, question: q, learner: profile })
       setMsgs((m) => [...m, { who: 'ai', text: answer || 'לא הצלחתי לענות, נסו לנסח אחרת.' }])
     } catch {
       setMsgs((m) => [...m, { who: 'ai', text: 'משהו השתבש בחיבור. נסו שוב עוד רגע.' }])

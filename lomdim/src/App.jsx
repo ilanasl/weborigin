@@ -10,6 +10,7 @@ import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
 import CheckExercise from './pages/CheckExercise'
 import Soon from './pages/Soon'
+import Settings from './pages/Settings'
 
 function ConfigNeeded() {
   return (
@@ -30,6 +31,7 @@ function ConfigNeeded() {
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, soon: Soon,
+  settings: Settings,
 }
 
 function Shell() {
@@ -65,6 +67,7 @@ function Shell() {
           <span className="font-disp font-extrabold text-lg">לומדים <span className="text-primary">ביחד</span></span>
         )}
         <div className="flex-1" />
+        <button onClick={() => go('settings')} title="הגדרות" className="w-9 h-9 rounded-[11px] border border-line bg-surface grid place-items-center">⚙︎</button>
         <button onClick={toggleTheme} className="w-9 h-9 rounded-[11px] border border-line bg-surface grid place-items-center">◐</button>
         <button onClick={signOut} className="text-muted text-sm font-semibold hover:text-primary">יציאה</button>
       </header>
