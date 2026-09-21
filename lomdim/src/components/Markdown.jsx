@@ -70,7 +70,7 @@ export default function Markdown({ text, className = '' }) {
         if (b.type === 'list') {
           const Tag = b.ordered ? 'ol' : 'ul'
           return (
-            <Tag key={i} className={`my-1.5 pe-5 space-y-[5px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
+            <Tag key={i} className={`my-1.5 ps-5 space-y-[5px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
               {b.items.map((it, j) => <li key={j}><Inline text={it} /></li>)}
             </Tag>
           )
