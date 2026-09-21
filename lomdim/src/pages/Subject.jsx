@@ -52,6 +52,9 @@ export default function Subject({ nav, params }) {
   const ready = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null
   const strong = topics.filter((t) => t.m.pct != null && t.m.pct >= 75)
   const weak = topics.filter((t) => t.m.pct != null && t.m.pct < 50)
+  // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
+  const hasExam = examDays != null && examDays >= 0
+  const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
 
   const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
 
@@ -96,6 +99,16 @@ export default function Subject({ nav, params }) {
         </div>
       </div>
 
+      {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
+      {needsMaterial && (
+        <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
+          className="w-full text-start rounded-[16px] p-3.5 mb-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
+          style={{ background: 'var(--accent-soft)', color: 'color-mix(in srgb,var(--accent) 80%,#7a4b00)' }}>
+          <span className="text-[17px] leading-none">📤</span>
+          <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו ›</span>
+        </button>
+      )}
+
       {/* מודולים */}
       <div className="action-row">
         {fcCount > 0 && (
@@ -107,7 +120,7 @@ export default function Subject({ nav, params }) {
           📓 לחיזוק{rvCount > 0 ? ` (${rvCount})` : ''}
         </button>
         <button className="btn" onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}>
-          📅 מתכנן המבחן
+          📅 מתכנן המבחן{needsMaterial ? ' ●' : ''}
         </button>
         <button className="btn" onClick={() => nav.go('pastExams', { subjectId: id, subjectName: name })}>
           🗂️ מבחנים שעברו
