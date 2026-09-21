@@ -39,8 +39,11 @@ create table if not exists materials (
   storage_path text,            -- נתיב בבאקט 'materials'
   origin text default 'השנה',
   summary_md text,              -- הסיכום שנוצר
+  content_hash text,            -- חתימת SHA-256 של הקובץ — לזיהוי כפילויות
   created_at timestamptz default now()
 );
+-- אם הטבלה כבר קיימת מהרצה קודמת — מוסיף את העמודה בלי לשבור כלום:
+alter table materials add column if not exists content_hash text;
 
 -- ── שאלות תרגול ──
 create table if not exists questions (

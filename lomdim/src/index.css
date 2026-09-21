@@ -45,6 +45,14 @@ h1,h2,h3{font-family:'Heebo',system-ui,sans-serif; margin:0; letter-spacing:-.02
 button{font-family:inherit; cursor:pointer}
 .tnum{font-variant-numeric:tabular-nums}
 
+/* בדסקטופ — הגדלה כללית של הטקסט והמרכיבים, בלי לפגוע במובייל */
+@media (min-width:768px){
+  .app-shell{ zoom:1.12; }
+}
+@media (min-width:1200px){
+  .app-shell{ zoom:1.2; }
+}
+
 @layer components{
   .app-shell{ @apply mx-auto w-full max-w-[760px] px-4 pb-12; }
   .card{ @apply bg-surface border border-line rounded-xl2 p-4 shadow-soft; }

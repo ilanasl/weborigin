@@ -23,17 +23,34 @@ function json(body: unknown, status = 200) {
   })
 }
 
+const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר להשתמש באנגלית רק כשהיא חלק מהמקצוע. אסור להשתמש באותיות משפות אחרות (למשל גאורגית, רוסית, יוונית).'
+const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומים — לא תמיד האפשרות הראשונה.'
+
 // חילוץ JSON מתשובת המודל (מסיר ```json גדרות אם יש)
 function parseJson(text: string) {
-  const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim()
-  const start = cleaned.indexOf('{')
-  const arrStart = cleaned.indexOf('[')
+  const c = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+  const start = c.indexOf('{')
+  const arrStart = c.indexOf('[')
   const from = start === -1 ? arrStart : arrStart === -1 ? start : Math.min(start, arrStart)
-  try {
-    return JSON.parse(from >= 0 ? cleaned.slice(from) : cleaned)
-  } catch {
-    return null
-  }
+  if (from < 0) return null
+  const close = c[from] === '{' ? '}' : ']'
+  try { return JSON.parse(c.slice(from)) } catch { /* try trimmed */ }
+  const last = c.lastIndexOf(close)
+  if (last > from) { try { return JSON.parse(c.slice(from, last + 1)) } catch { /* fallthrough */ } }
+  return null
+}
+
+// deno-lint-ignore no-explicit-any
+function shuffleQuestions(list: any) {
+  if (!Array.isArray(list)) return list
+  return list.map((q) => {
+    if (!Array.isArray(q?.choices) || typeof q.answer !== 'number') return q
+    const correct = q.choices[q.answer]
+    const order = q.choices.map((_: unknown, i: number) => i)
+    for (let i = order.length - 1; i > 0; i--) { const k = (Math.random() * (i + 1)) | 0;[order[i], order[k]] = [order[k], order[i]] }
+    const choices = order.map((i: number) => q.choices[i])
+    return { ...q, choices, answer: choices.indexOf(correct) }
+  })
 }
 
 async function gemini(parts: unknown[], wantJson: boolean) {
@@ -74,13 +91,15 @@ Deno.serve(async (req) => {
         `{"topic": "שם הנושא הקצר", "summary_md": "סיכום קצר וברור ב-Markdown עם כותרות ונקודות", ` +
         `"questions": [{"q":"שאלה","choices":["א","ב","ג","ד"],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"הסבר קצר למה זו התשובה","hint":"רמז שלא מגלה את התשובה"}], ` +
         `"flashcards": [{"front":"מושג","back":"הגדרה קצרה"}]}\n` +
-        `צור 5 שאלות אמריקאיות (4 מסיחים כל אחת, מגוון קושי) ו-4 כרטיסיות. בעברית תקינה.`
+        `צור 5 שאלות אמריקאיות (4 מסיחים כל אחת, מגוון קושי) ו-4 כרטיסיות. ` + HEB_RULE + ' ' + VARY_RULE +
+        ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').`
       const parts: unknown[] = [{ text: prompt }]
       if (text) parts.push({ text: `\nהטקסט:\n${text}` })
       if (imageBase64) parts.push(imagePart(imageBase64, mimeType))
       const out = await gemini(parts, true)
       const parsed = parseJson(out)
       if (!parsed) return json({ error: 'parse_failed', raw: out }, 502)
+      parsed.questions = shuffleQuestions(parsed.questions)
       return json(parsed)
     }
 
@@ -90,10 +109,12 @@ Deno.serve(async (req) => {
         `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}` +
         `${difficulty ? `, ברמת קושי ${difficulty}` : ''}. בסגנון מבחנים אמיתיים. ` +
         `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
+        HEB_RULE + ' ' + VARY_RULE + ' ' +
         (sourceText ? `בהתבסס על החומר:\n${sourceText}` : '')
       const out = await gemini([{ text: prompt }], true)
       const parsed = parseJson(out)
       if (!parsed) return json({ error: 'parse_failed', raw: out }, 502)
+      parsed.questions = shuffleQuestions(parsed.questions)
       return json(parsed)
     }
 

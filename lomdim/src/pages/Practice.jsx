@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import Markdown from '../components/Markdown'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 
@@ -93,7 +94,7 @@ export default function Practice({ nav, params }) {
       {answered && (
         <div className={`mt-4 rounded-[14px] p-4 text-[14px] ${picked === q.answer ? 'bg-good-soft' : 'bg-bad-soft'}`}>
           <div className="font-disp font-bold mb-1">{picked === q.answer ? '✅ יפה מאוד!' : '💡 כמעט — בוא נבין'}</div>
-          <div>{q.explain}</div>
+          <Markdown text={q.explain} />
         </div>
       )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
+import Markdown from '../components/Markdown'
 
 export default function Subject({ nav, params }) {
   const { id } = params
@@ -78,7 +79,7 @@ export default function Subject({ nav, params }) {
       {summary && (
         <>
           <div className="text-[14px] font-bold text-muted mt-5 mb-[10px]">הסיכום שלי</div>
-          <div className="card whitespace-pre-line text-[14.5px] leading-relaxed">{summary.summary_md}</div>
+          <div className="card text-[15px] md:text-[16.5px]"><Markdown text={summary.summary_md} /></div>
         </>
       )}
 

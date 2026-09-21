@@ -70,7 +70,7 @@ export default function Home({ nav }) {
             <button key={s.id} onClick={() => nav.go('subject', { id: s.id })}
               className="text-start rounded-xl3 p-[17px] shadow-soft min-h-[132px] flex flex-col gap-2 transition hover:-translate-y-[3px]"
               style={{ background: s.bg, color: '#1B1C1F' }}>
-              <h3 className="text-[20px] font-black" style={{ color: '#1B1C1F' }}>{s.name}</h3>
+              <h3 className="text-[21px] font-black" style={{ color: '#1B1C1F' }}>{s.name}</h3>
               <div className="flex-1" />
               {s.ready == null ? (
                 <div className="text-[12.5px] italic" style={{ color: 'rgba(20,20,25,.55)' }}>אוספים נתונים…</div>
@@ -84,6 +84,11 @@ export default function Home({ nav }) {
               )}
             </button>
           ))}
+          <button onClick={addSubject}
+            className="rounded-xl3 p-[17px] min-h-[132px] flex flex-col items-center justify-center gap-1 border-2 border-dashed border-line text-muted hover:border-primary hover:text-primary transition">
+            <span className="text-[30px] leading-none font-black">+</span>
+            <span className="text-[14px] font-bold">הוסף מקצוע</span>
+          </button>
         </div>
       )}
     </div>

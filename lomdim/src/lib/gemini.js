@@ -12,6 +12,10 @@ const FN_URL =
   import.meta.env.VITE_GEMINI_FN_URL ||
   (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/gemini` : '')
 
+// כללים שחוזרים בכמה משימות
+const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר להשתמש באנגלית רק כשהיא חלק מהמקצוע. אסור להשתמש באותיות משפות אחרות (למשל גאורגית, רוסית, יוונית) — אם הזדהו כאלה, התעלם מהן.'
+const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומים — לא תמיד האפשרות הראשונה.'
+
 // ── בניית הפרומפט לכל משימה (משותף לשני המצבים) ──
 function buildParts(payload) {
   const { task } = payload
@@ -25,7 +29,9 @@ function buildParts(payload) {
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום ב-Markdown עם כותרות ונקודות",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
-      `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. עברית תקינה.` })
+      `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
+      HEB_RULE + ` ` + VARY_RULE +
+      ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
@@ -35,6 +41,7 @@ function buildParts(payload) {
     parts.push({ text:
       `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}${difficulty ? `, קושי ${difficulty}` : ''}. ` +
       `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
+      HEB_RULE + ` ` + VARY_RULE + ` ` +
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
@@ -60,7 +67,27 @@ function parseJson(text) {
   const c = String(text).replace(/```json/gi, '').replace(/```/g, '').trim()
   const i = c.indexOf('{'); const j = c.indexOf('[')
   const from = i === -1 ? j : j === -1 ? i : Math.min(i, j)
-  try { return JSON.parse(from >= 0 ? c.slice(from) : c) } catch { return null }
+  if (from < 0) return null
+  const open = c[from]
+  const close = open === '{' ? '}' : ']'
+  // ניסיון 1: מהסוגר הראשון עד הסוף
+  try { return JSON.parse(c.slice(from)) } catch { /* ננסה לגזור עד הסוגר התואם האחרון */ }
+  const last = c.lastIndexOf(close)
+  if (last > from) { try { return JSON.parse(c.slice(from, last + 1)) } catch { /* fallthrough */ } }
+  return null
+}
+
+// ערבוב מסיחים כדי שהתשובה הנכונה לא תהיה תמיד באותו מקום
+function shuffleQuestions(list) {
+  if (!Array.isArray(list)) return list
+  return list.map((q) => {
+    if (!Array.isArray(q?.choices) || typeof q.answer !== 'number') return q
+    const correct = q.choices[q.answer]
+    const order = q.choices.map((_, i) => i)
+    for (let i = order.length - 1; i > 0; i--) { const k = Math.random() * (i + 1) | 0;[order[i], order[k]] = [order[k], order[i]] }
+    const choices = order.map((i) => q.choices[i])
+    return { ...q, choices, answer: choices.indexOf(correct) }
+  })
 }
 
 async function callDirect(payload) {
@@ -96,7 +123,22 @@ async function callFn(payload) {
 
 const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
 
-export const analyzeMaterial = (p) => call({ task: 'analyze_material', ...p })
-export const generateQuestions = (p) => call({ task: 'generate_questions', ...p })
+export const analyzeMaterial = async (p) => {
+  const out = await call({ task: 'analyze_material', ...p })
+  return { ...out, questions: shuffleQuestions(out.questions) }
+}
+export const generateQuestions = async (p) => {
+  const out = await call({ task: 'generate_questions', ...p })
+  return { ...out, questions: shuffleQuestions(out.questions) }
+}
 export const explain = (p) => call({ task: 'explain', ...p })
 export const checkExercise = (p) => call({ task: 'check_exercise', ...p })
+
+// חתימת תוכן של קובץ (SHA-256) — לזיהוי קובץ שכבר הועלה
+export async function fileHash(file) {
+  try {
+    const buf = await file.arrayBuffer()
+    const digest = await crypto.subtle.digest('SHA-256', buf)
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch { return null }
+}

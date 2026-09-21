@@ -50,7 +50,10 @@ function Shell() {
       <header className="sticky top-[env(safe-area-inset-top,0)] z-20 flex items-center gap-2 py-3 backdrop-blur"
         style={{ background: 'color-mix(in srgb, var(--bg) 88%, transparent)' }}>
         {nav.canBack ? (
-          <button onClick={back} className="text-muted font-semibold text-sm hover:text-primary">→ חזרה</button>
+          <>
+            <button onClick={back} className="text-muted font-semibold text-sm hover:text-primary">→ חזרה</button>
+            <button onClick={() => reset('home')} className="text-muted font-semibold text-sm hover:text-primary">בית</button>
+          </>
         ) : (
           <span className="font-disp font-extrabold text-lg">לומדים <span className="text-primary">ביחד</span></span>
         )}
