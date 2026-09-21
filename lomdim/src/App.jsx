@@ -7,6 +7,7 @@ import Subject from './pages/Subject'
 import Upload from './pages/Upload'
 import Practice from './pages/Practice'
 import PracticePicker from './pages/PracticePicker'
+import TopicSummary from './pages/TopicSummary'
 import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
 import CheckExercise from './pages/CheckExercise'
@@ -31,7 +32,7 @@ function ConfigNeeded() {
 
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
-  practicePicker: PracticePicker,
+  practicePicker: PracticePicker, topicSummary: TopicSummary,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, soon: Soon,
   settings: Settings,
 }

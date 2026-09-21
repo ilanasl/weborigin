@@ -47,7 +47,7 @@ function buildParts(payload) {
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
-      `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום ב-Markdown עם כותרות ונקודות",` +
+      `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
       HEB_RULE + ` ` + VARY_RULE + learnerRule(learner) +
@@ -155,6 +155,17 @@ export const generateQuestions = async (p) => {
 }
 export const explain = async (p) => deepClean(await call({ task: 'explain', ...p }))
 export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
+
+// סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
+export const topicSummary = async ({ subjectName, topicName, learner }) => {
+  const question =
+    `כתוב סיכום עיוני מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ט'. ` +
+    `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא. (2) לכל מושג מרכזי — מה זה, על איזו שאלה הוא עונה, ודוגמה. ` +
+    `(3) דגשים וטעויות נפוצות למבחן. (4) כשמשווים כמה מושגים דומים — השתמש בטבלת Markdown עם העמודות: מושג | מה זה | על איזו שאלה עונה | דוגמה. ` +
+    `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות), בלי הקדמות ובלי סיומת.`
+  const { answer } = await explain({ subjectName, question, learner })
+  return { summary_md: answer }
+}
 
 // חתימת תוכן של קובץ (SHA-256) — לזיהוי קובץ שכבר הועלה
 export async function fileHash(file) {

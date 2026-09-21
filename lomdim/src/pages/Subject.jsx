@@ -110,7 +110,8 @@ export default function Subject({ nav, params }) {
         {topics.length === 0 ? (
           <div className="text-muted text-sm">עדיין אין נושאים — העלו חומר כדי שהמערכת תזהה נושאים.</div>
         ) : topics.map((t) => (
-          <div key={t.id} className="topic">
+          <button key={t.id} className="topic w-full text-start"
+            onClick={() => nav.go('topicSummary', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name })}>
             <div className="info">
               <div className="nm">
                 {t.name}
@@ -126,7 +127,8 @@ export default function Subject({ nav, params }) {
                 </div>
               )}
             </div>
-          </div>
+            <span className="text-muted text-[13px]">📖 ›</span>
+          </button>
         ))}
       </div>
 
