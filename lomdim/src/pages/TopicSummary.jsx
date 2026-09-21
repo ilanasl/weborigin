@@ -18,6 +18,8 @@ export default function TopicSummary({ nav, params }) {
   const [fetching, setFetching] = useState(false)
   const [pasteMode, setPasteMode] = useState(false)
   const [pasteVal, setPasteVal] = useState('')
+  const [showManual, setShowManual] = useState(false)
+  const [fetchedSources, setFetchedSources] = useState([])
 
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // קישורים למקורות אמינים — ממולאים מראש עם שם השיר/המקור
@@ -70,13 +72,14 @@ export default function TopicSummary({ nav, params }) {
   async function fetchSource() {
     setFetching(true); setErr('')
     try {
-      const { source_text } = await fetchSourceText({ subjectName, reference: ref.trim() || topicName })
+      const { source_text, sources } = await fetchSourceText({ subjectName, reference: ref.trim() || topicName })
+      setFetchedSources(sources || [])
       await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור (טיוטה AI)', source_text,
+        subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור (מהרשת)', source_text,
       })
       await load(); setShowSource(true)
     } catch (e) {
-      setErr('הבאת הטקסט נכשלה. נסו שוב. ' + String(e))
+      setErr('הבאת הטקסט נכשלה. אפשר לנסות שוב, או להביא מהמקורות למטה. ' + String(e))
     } finally { setFetching(false) }
   }
 
@@ -109,49 +112,68 @@ export default function TopicSummary({ nav, params }) {
           {showSource && (
             <div className="card mb-3">
               <div className="whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
-              <button className="text-muted text-[12.5px] font-semibold mt-3 hover:text-primary"
-                onClick={() => { setPasteVal(sourceText); setPasteMode(true) }}>✏️ ערוך / החלף בטקסט מהמקור</button>
+              {fetchedSources.length > 0 && (
+                <div className="text-[12px] text-muted mt-3">
+                  📖 נמצא מהמקור: {fetchedSources.slice(0, 2).map((u, i) => (
+                    <a key={i} href={u} target="_blank" rel="noreferrer" className="text-primary underline break-all">{new URL(u).hostname.replace('www.', '')}</a>
+                  )).reduce((a, b) => [a, ' · ', b])}
+                </div>
+              )}
+              <div className="flex gap-3 mt-3">
+                <button className="text-muted text-[12.5px] font-semibold hover:text-primary"
+                  onClick={fetchSource} disabled={fetching}>{fetching ? 'מביא…' : '🔄 הבא שוב מהרשת'}</button>
+                <button className="text-muted text-[12.5px] font-semibold hover:text-primary"
+                  onClick={() => { setPasteVal(sourceText); setPasteMode(true) }}>✏️ ערוך / החלף ידנית</button>
+              </div>
             </div>
           )}
         </>
       ) : (
         <div className="card mb-3">
-          <div className="text-[14px] font-semibold mb-1">📜 טקסט מקור מלא ({isBible ? 'פסוקים' : 'שיר'})</div>
+          <div className="text-[14px] font-semibold mb-1">📜 הבא את הטקסט המלא ({isBible ? 'פסוקים' : 'שיר'})</div>
           <div className="text-muted text-[12.5px] mb-2 leading-relaxed">
-            לטקסט מדויק מילה-במילה — פִּתחו מקור אמין, העתיקו את הנוסח, והדביקו כאן (זה נשמר מדויק ב-100%):
+            כתבו את שם {isBible ? 'הפרק/הפסוקים' : 'השיר'} — והמערכת תחפש ותביא אותו מהרשת ממקור אמין, עם קישור למקור.
           </div>
           <input className="field mb-2" value={ref} onChange={(e) => setRef(e.target.value)}
             placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : 'השיר'} — ${topicName}`} />
-          <div className="flex flex-wrap gap-2 mb-3">
-            {SOURCES.map((s) => (
-              <a key={s.label} href={s.url} target="_blank" rel="noreferrer"
-                className="text-[13px] font-semibold text-primary border border-line rounded-[10px] px-2.5 py-1.5 hover:border-primary">
-                {s.label} ↗
-              </a>
-            ))}
-          </div>
+          {!pasteMode && (
+            <button className="btn btn-primary btn-wide" onClick={fetchSource} disabled={fetching}>
+              {fetching ? 'מחפש ומביא מהרשת…' : '📥 הבא טקסט מלא מהרשת'}
+            </button>
+          )}
+          {err && <div className="text-bad text-[12.5px] mt-2">{err}</div>}
 
-          {pasteMode ? (
-            <>
-              <textarea className="field mb-2" style={{ minHeight: 160 }} value={pasteVal}
-                onChange={(e) => setPasteVal(e.target.value)}
-                placeholder="הדביקו כאן את הטקסט המלא מהמקור…" />
-              <div className="action-row">
-                <button className="btn" onClick={() => { setPasteMode(false); setPasteVal('') }} disabled={busy}>ביטול</button>
-                <button className="btn btn-primary" onClick={savePasted} disabled={busy || !pasteVal.trim()}>
-                  {busy ? 'שומר…' : '💾 שמור טקסט מדויק'}
-                </button>
+          {/* גיבוי ידני — מקורות + הדבקה */}
+          <button className="text-muted text-[12.5px] font-semibold mt-3 hover:text-primary w-full text-start"
+            onClick={() => setShowManual((v) => !v)}>
+            {showManual ? 'הסתר ▲' : 'לא נמצא / לא מדויק? מקורות והדבקה ידנית ▼'}
+          </button>
+          {(showManual || pasteMode) && (
+            <div className="mt-2">
+              <div className="flex flex-wrap gap-2 mb-3">
+                {SOURCES.map((s) => (
+                  <a key={s.label} href={s.url} target="_blank" rel="noreferrer"
+                    className="text-[13px] font-semibold text-primary border border-line rounded-[10px] px-2.5 py-1.5 hover:border-primary">
+                    {s.label} ↗
+                  </a>
+                ))}
               </div>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-wide mb-2" onClick={() => setPasteMode(true)}>
-                📋 הדבק טקסט מהמקור
-              </button>
-              <button className="btn btn-wide" onClick={fetchSource} disabled={fetching}>
-                {fetching ? 'מנסה…' : '🤖 ניסיון אוטומטי (טיוטה — לא תמיד מדויק)'}
-              </button>
-            </>
+              {pasteMode ? (
+                <>
+                  <textarea className="field mb-2" style={{ minHeight: 160 }} value={pasteVal}
+                    onChange={(e) => setPasteVal(e.target.value)}
+                    placeholder="הדביקו כאן את הטקסט המלא מהמקור…" />
+                  <div className="action-row">
+                    <button className="btn" onClick={() => { setPasteMode(false); setPasteVal('') }} disabled={busy}>ביטול</button>
+                    <button className="btn btn-primary" onClick={savePasted} disabled={busy || !pasteVal.trim()}>
+                      {busy ? 'שומר…' : '💾 שמור טקסט מדויק'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button className="btn btn-wide" onClick={() => setPasteMode(true)}>📋 הדבק טקסט מהמקור</button>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -111,6 +111,15 @@ function buildParts(payload) {
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: false }
   }
+  if (task === 'fetch_source') {
+    const { subjectName, reference } = payload
+    parts.push({ text:
+      `חפש/י ברשת והבא/י את הנוסח המדויק והמלא של: "${reference}"${subjectName ? ` (מקצוע ${subjectName})` : ''}. ` +
+      `אם זה שיר — כל השורות והבתים במדויק ובשורות המקוריות, ממקור אמין (פרויקט בן־יהודה / ויקיטקסט). ` +
+      `אם אלה פסוקים מהתנ"ך — במדויק, עם ניקוד ומספרי פסוקים (ספריא / ויקיטקסט / נוסח המסורה). ` +
+      `החזר/י אך ורק את הטקסט עצמו — בלי פרשנות, בלי הקדמה, בלי הסבר ובלי "שלום". ` + HEB_RULE })
+    return { parts, wantJson: false }
+  }
   return { parts: [{ text: 'unknown task' }], wantJson: false }
 }
 
@@ -143,19 +152,24 @@ function shuffleQuestions(list) {
 
 async function callDirect(payload) {
   const { parts, wantJson } = buildParts(payload)
+  const grounded = !!payload.grounded
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${DIRECT_KEY}`
+  const reqBody = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: wantJson && !grounded ? { temperature: 0.4, responseMimeType: 'application/json' } : { temperature: grounded ? 0.2 : 0.6 },
+  }
+  if (grounded) reqBody.tools = [{ google_search: {} }]
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
-      generationConfig: wantJson ? { temperature: 0.4, responseMimeType: 'application/json' } : { temperature: 0.6 },
-    }),
+    body: JSON.stringify(reqBody),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(JSON.stringify(data))
-  const out = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  if (!wantJson) return { answer: out }
+  const cand = data?.candidates?.[0]
+  const out = (cand?.content?.parts || []).map((p) => p.text || '').join('')
+  const sources = (cand?.groundingMetadata?.groundingChunks || []).map((c) => c?.web?.uri).filter(Boolean)
+  if (!wantJson) return { answer: out, sources }
   const parsed = parseJson(out)
   if (!parsed) throw new Error('parse_failed')
   return parsed
@@ -166,15 +180,17 @@ async function callDirect(payload) {
 async function callFn(payload) {
   if (!FN_URL) throw new Error('Gemini function URL is not configured')
   const { parts, wantJson } = buildParts(payload)
+  const grounded = !!payload.grounded
   const res = await fetch(FN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON || ''}` },
-    body: JSON.stringify({ parts, wantJson }),
+    body: JSON.stringify({ parts, wantJson, grounded }),
   })
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => '')}`)
   const data = await res.json()
   const out = data?.text ?? ''
-  if (!wantJson) return { answer: out }
+  const sources = data?.sources || []
+  if (!wantJson) return { answer: out, sources }
   const parsed = parseJson(out)
   if (!parsed) throw new Error('parse_failed')
   return parsed
@@ -207,15 +223,10 @@ export const topicSummary = async ({ subjectName, topicName, learner }) => {
   return { summary_md: answer }
 }
 
-// הבאת טקסט מקור מלא (שיר / פסוקים בתנ"ך) מהידע — לא מהצילום
+// הבאת טקסט מקור מלא (שיר / פסוקים) מהרשת עם חיפוש אמיתי (grounding) + קישור למקור
 export const fetchSourceText = async ({ subjectName, reference }) => {
-  const q =
-    `החזר/י אך ורק את הטקסט המלא והמדויק של: "${reference}"${subjectName ? ` (מקצוע ${subjectName})` : ''}. ` +
-    `אם זה שיר — כל השורות והבתים במדויק ובשורות המקוריות. אם אלה פסוקים מהתנ"ך — הפסוקים המבוקשים במדויק לפי נוסח המסורה, עם מספרי הפסוקים. ` +
-    `בלי פרשנות, בלי הקדמה ובלי הסבר — רק הטקסט עצמו. ` +
-    `אם אינך בטוח/ה בנוסח המדויק, פתח/י בשורה "⚠️ ייתכן שהנוסח אינו מדויק — כדאי לוודא מול המקור" ואז תן/י את הנוסח הטוב ביותר הידוע לך.`
-  const { answer } = await explain({ subjectName, question: q })
-  return { source_text: answer }
+  const out = deepClean(await call({ task: 'fetch_source', subjectName, reference, grounded: true }))
+  return { source_text: out.answer, sources: out.sources || [] }
 }
 
 // וריאציות תרגול על אותו רעיון/טעות — לגיוון ולחיזוק ממוקד
