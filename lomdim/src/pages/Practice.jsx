@@ -5,7 +5,7 @@ import Markdown from '../components/Markdown'
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 
 export default function Practice({ nav, params }) {
-  const { subjectId } = params
+  const { subjectId, topicId, topicName } = params
   const examMode = params.mode === 'exam'
   const [queue, setQueue] = useState([])
   const [idx, setIdx] = useState(0)
@@ -17,11 +17,13 @@ export default function Practice({ nav, params }) {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('questions').select('*').eq('subject_id', subjectId).limit(30)
-      setQueue(shuffle(data || []).slice(0, 10))
+      let q = supabase.from('questions').select('*').eq('subject_id', subjectId)
+      if (topicId) q = q.eq('topic_id', topicId)
+      const { data } = await q.limit(40)
+      setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10))
       setLoading(false)
     })()
-  }, [subjectId])
+  }, [subjectId, topicId])
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
   if (!queue.length) return (
@@ -66,7 +68,7 @@ export default function Practice({ nav, params }) {
     <div className="pt-2">
       <div className="flex items-center gap-2 mb-1">
         <div className="flex-1 text-[13px] text-muted font-semibold tnum">
-          {examMode ? 'מבחן · ' : ''}שאלה {idx + 1} מתוך {queue.length}
+          {examMode ? 'מבחן · ' : ''}{topicName ? `${topicName} · ` : ''}שאלה {idx + 1} מתוך {queue.length}
         </div>
         <span className={`pill ${badge}`}>{q.difficulty}</span>
       </div>

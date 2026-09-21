@@ -88,7 +88,8 @@ export default function Subject({ nav, params }) {
           </>
         )}
         <div className="action-row" style={{ margin: '16px 0 0' }}>
-          <button className="btn btn-primary" disabled={qCount === 0} onClick={() => goPractice('practice')}>🎯 תרגול</button>
+          <button className="btn btn-primary" disabled={qCount === 0}
+            onClick={() => nav.go('practicePicker', { subjectId: id, subjectName: name, mode: 'practice' })}>🎯 תרגול</button>
           <button className="btn" disabled={qCount === 0} onClick={() => goPractice('exam')}>📝 {examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</button>
         </div>
       </div>
