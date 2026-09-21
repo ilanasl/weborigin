@@ -12,6 +12,7 @@ export default function Subject({ nav, params }) {
   const [qCount, setQCount] = useState(0)
   const [fcCount, setFcCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [showMats, setShowMats] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -131,13 +132,16 @@ export default function Subject({ nav, params }) {
         ))}
       </div>
 
-      {/* חומרים — ציר זמן */}
-      <div className="list-title">החומרים שהעליתי</div>
+      {/* חומרים — מכווץ כברירת מחדל */}
+      <button className="list-title flex items-center gap-2 w-full" onClick={() => setShowMats((v) => !v)}>
+        <span className="flex-1 text-start">החומרים שהעליתי ({materials.length})</span>
+        <span className="text-[12px] font-bold">{showMats ? 'הסתר ▲' : 'הצג ▼'}</span>
+      </button>
       <div className="card">
-        {materials.length === 0 ? (
-          <div className="text-muted text-sm">עדיין לא הועלה חומר.</div>
+        {showMats && (materials.length === 0 ? (
+          <div className="text-muted text-sm mb-3">עדיין לא הועלה חומר.</div>
         ) : (
-          <div className="timeline">
+          <div className="timeline mb-3">
             {materials.map((m) => (
               <div key={m.id} className="tl-item">
                 <div className="d">{new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</div>
@@ -149,8 +153,8 @@ export default function Subject({ nav, params }) {
               </div>
             ))}
           </div>
-        )}
-        <button className="btn mt-3.5 w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+        ))}
+        <button className="btn w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
           ➕ העלה חומר חדש
         </button>
       </div>
