@@ -4,6 +4,8 @@ import { mastery } from '../lib/mastery'
 import { scanScope } from '../lib/gemini'
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+// ברירת מחדל: כמה ימים לפני מתחילים ללמוד — מבדק קצר יותר, מבחן מסכם ארוך יותר
+const LEAD_DEFAULT = { 'מבדק': 4, 'מבחן מסכם': 8 }
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -20,6 +22,7 @@ export default function Planner({ nav, params }) {
   const [subject, setSubject] = useState(null)
   const [topics, setTopics] = useState([])
   const [kind, setKind] = useState('מבחן מסכם')
+  const [leadDays, setLeadDays] = useState(LEAD_DEFAULT['מבחן מסכם'])
   const [date, setDate] = useState('')
   const [scope, setScope] = useState('')
   const [scopeFile, setScopeFile] = useState(null)
@@ -41,7 +44,9 @@ export default function Planner({ nav, params }) {
       ;(byTopic[a.topic_id] ||= []).push({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })
     }
     setSubject(s)
-    setKind(s?.exam_kind || 'מבחן מסכם')
+    const k = s?.exam_kind || 'מבחן מסכם'
+    setKind(k)
+    setLeadDays(LEAD_DEFAULT[k])
     setDate(s?.exam_date || '')
     setScope(s?.exam_scope_text || '')
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
@@ -92,26 +97,30 @@ export default function Planner({ nav, params }) {
   const examDays = daysUntil(date)
   // נושאים חלשים קודם (null = אמצע)
   const ordered = [...topics].sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
+  const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + d); return dt }
 
-  // בניית תוכנית יומית: מהיום עד המבחן, נושאים חלשים קודם, יום לפני = חזרה כללית
+  // בניית תוכנית: מתחילים ללמוד רק בחלון (leadDays לפני המבחן), נושאים חלשים קודם,
+  // יום לפני = חזרה כללית, יום המבחן מסומן. אם המבחן עוד רחוק — startsInDays אומר בעוד כמה ימים מתחילים.
   function buildPlan() {
-    if (examDays == null || examDays < 1 || ordered.length === 0) return []
-    const plan = []
-    const studyDays = Math.max(1, examDays - 1)
-    const perDay = Math.max(1, Math.ceil(ordered.length / studyDays))
+    if (examDays == null || examDays < 1) return { days: [], startsInDays: null }
+    const startIn = Math.max(1, examDays - leadDays)     // היום הראשון של הלמידה (הסחה מהיום)
+    const studyOffsets = []
+    for (let d = startIn; d <= examDays - 2; d++) studyOffsets.push(d)
+    const days = []
+    const n = studyOffsets.length
+    const perDay = n > 0 ? Math.max(1, Math.ceil(ordered.length / n)) : 0
     let ti = 0
-    for (let d = 1; d <= examDays; d++) {
-      const dt = new Date(); dt.setDate(dt.getDate() + d)
-      if (d === examDays) { plan.push({ dt, exam: true }); continue }
-      if (d === examDays - 1) { plan.push({ dt, review: true }); continue }
+    studyOffsets.forEach((d, idx) => {
       const day = []
       for (let k = 0; k < perDay && ti < ordered.length; k++) day.push(ordered[ti++])
-      if (day.length === 0 && ordered.length) day.push(ordered[(d - 1) % ordered.length])
-      plan.push({ dt, topics: day })
-    }
-    return plan
+      if (day.length === 0 && ordered.length) day.push(ordered[idx % ordered.length])
+      days.push({ dt: addDays(d), topics: day })
+    })
+    if (examDays >= 2) days.push({ dt: addDays(examDays - 1), review: true })
+    days.push({ dt: addDays(examDays), exam: true })
+    return { days, startsInDays: startIn > 1 ? startIn : null }
   }
-  const plan = buildPlan()
+  const { days: plan, startsInDays } = buildPlan()
 
   return (
     <div className="pt-2">
@@ -123,16 +132,26 @@ export default function Planner({ nav, params }) {
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">סוג</label>
           <div className="flex gap-2">
             {['מבחן מסכם', 'מבדק'].map((k) => (
-              <button key={k} onClick={() => setKind(k)}
+              <button key={k} onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }}
                 className={`flex-1 rounded-[12px] border-[1.5px] py-2.5 text-[14.5px] font-semibold transition ${
                   kind === k ? 'border-primary text-primary' : 'border-line text-ink'}`}
                 style={kind === k ? { background: 'var(--primary-soft)' } : {}}>{k}</button>
             ))}
           </div>
         </div>
-        <div>
-          <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך המבחן</label>
-          <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך המבחן</label>
+            <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="w-[130px]">
+            <label className="block text-[13.5px] font-bold text-muted mb-1.5">מתחילים ללמוד</label>
+            <div className="flex items-center gap-1.5">
+              <input type="number" min="1" max="30" className="field text-center" style={{ width: 60 }}
+                value={leadDays} onChange={(e) => setLeadDays(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+              <span className="text-[12.5px] text-muted">ימים לפני</span>
+            </div>
+          </div>
         </div>
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">מיקוד החומר (חופשי)</label>
@@ -162,6 +181,13 @@ export default function Planner({ nav, params }) {
             <div className="ready-pct tnum">{examDays === 0 ? 'היום' : examDays}</div>
           </div>
           {examDays > 0 && <div className="text-muted text-[12.5px] mt-1">ימים</div>}
+        </div>
+      )}
+
+      {startsInDays != null && (
+        <div className="card mt-3 text-[13.5px] leading-relaxed" style={{ background: 'var(--primary-soft)' }}>
+          📅 המבחן עוד רחוק — אין צורך להתחיל עכשיו. לפי ההגדרה, הלמידה ל{kind} תתחיל <b>בעוד {startsInDays} ימים</b>.
+          עד אז אפשר להתמקד במבחנים קרובים יותר. (אפשר לשנות ב"מתחילים ללמוד".)
         </div>
       )}
 
