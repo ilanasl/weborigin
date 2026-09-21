@@ -20,8 +20,12 @@ export default function TopicSummary({ nav, params }) {
   const [pasteVal, setPasteVal] = useState('')
   const [showManual, setShowManual] = useState(false)
   const [fetchedSources, setFetchedSources] = useState([])
+  const [wantSource, setWantSource] = useState(false)
 
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
+  // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
+  const isLiterary = isBible || /ספרות|שיר|פזמון|יצירה|בלדה|סיפור|פרוזה/.test(subjectName || '')
+  const srcKind = isBible ? 'פסוקים' : isLiterary ? 'שיר' : 'טקסט מקור'
   // קישורים למקורות אמינים — ממולאים מראש עם שם השיר/המקור
   const q = encodeURIComponent((ref.trim() || topicName || '').trim())
   // חיפוש גוגל ממוקד לאתר — הכי אמין להגיע לעמוד הנכון (בלי לנחש נתיבי חיפוש פנימיים)
@@ -128,14 +132,19 @@ export default function TopicSummary({ nav, params }) {
             </div>
           )}
         </>
+      ) : !(isLiterary || wantSource) ? (
+        <button className="text-muted text-[12.5px] font-semibold mb-3 hover:text-primary"
+          onClick={() => setWantSource(true)}>
+          📜 יש לנושא הזה טקסט מקור (שיר / פסוקים)? הבא אותו ›
+        </button>
       ) : (
         <div className="card mb-3">
-          <div className="text-[14px] font-semibold mb-1">📜 הבא את הטקסט המלא ({isBible ? 'פסוקים' : 'שיר'})</div>
+          <div className="text-[14px] font-semibold mb-1">📜 הבא את הטקסט המלא ({srcKind})</div>
           <div className="text-muted text-[12.5px] mb-2 leading-relaxed">
-            כתבו את שם {isBible ? 'הפרק/הפסוקים' : 'השיר'} — והמערכת תחפש ותביא אותו מהרשת ממקור אמין, עם קישור למקור.
+            כתבו את שם {isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — והמערכת תחפש ותביא אותו מהרשת ממקור אמין, עם קישור למקור.
           </div>
           <input className="field mb-2" value={ref} onChange={(e) => setRef(e.target.value)}
-            placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : 'השיר'} — ${topicName}`} />
+            placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — ${topicName}`} />
           {!pasteMode && (
             <button className="btn btn-primary btn-wide" onClick={fetchSource} disabled={fetching}>
               {fetching ? 'מחפש ומביא מהרשת…' : '📥 הבא טקסט מלא מהרשת'}
