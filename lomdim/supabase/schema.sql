@@ -60,10 +60,12 @@ create table if not exists materials (
   origin text default 'השנה',
   summary_md text,              -- הסיכום שנוצר
   content_hash text,            -- חתימת SHA-256 של הקובץ — לזיהוי כפילויות
+  source_text text,             -- הטקסט המלא (למשל שיר בספרות) — להצגה נוחה
   created_at timestamptz default now()
 );
--- אם הטבלה כבר קיימת מהרצה קודמת — מוסיף את העמודה בלי לשבור כלום:
+-- אם הטבלה כבר קיימת מהרצה קודמת — מוסיף את העמודות בלי לשבור כלום:
 alter table materials add column if not exists content_hash text;
+alter table materials add column if not exists source_text text;
 
 -- ── שאלות תרגול ──
 create table if not exists questions (
@@ -101,8 +103,10 @@ create table if not exists flashcards (
   topic_id uuid references topics on delete set null,
   front text not null,
   back text not null,
+  context text,                 -- הקשר קצר שמוצג לפני החשיפה (מאיזה שיר/נושא)
   created_at timestamptz default now()
 );
+alter table flashcards add column if not exists context text;
 
 -- ── "לחיזוק" (עקומת למידה) ──
 create table if not exists review_items (
@@ -125,23 +129,46 @@ create table if not exists past_exams (
   kind text,
   exam_date date,
   grade int,
+  storage_path text,            -- צילום המבחן המתוקן
+  analyzed boolean default false,
   created_at timestamptz default now()
 );
+alter table past_exams add column if not exists storage_path text;
+alter table past_exams add column if not exists analyzed boolean default false;
 
--- ── RLS ──
-do $$
-declare t text;
-begin
-  foreach t in array array['profiles','chats','subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
-  loop
-    execute format('alter table %I enable row level security;', t);
-    execute format($p$
-      drop policy if exists own_all on %1$I;
-      create policy own_all on %1$I
-        for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-    $p$, t);
-  end loop;
-end $$;
+-- ── RLS — כל משתמש רואה ומנהל רק את השורות שלו ──
+-- (כתוב במפורש לכל טבלה כדי שירוץ חלק גם בעורך ה-SQL של Supabase)
+alter table profiles     enable row level security;
+alter table chats        enable row level security;
+alter table subjects     enable row level security;
+alter table topics       enable row level security;
+alter table materials    enable row level security;
+alter table questions    enable row level security;
+alter table attempts     enable row level security;
+alter table flashcards   enable row level security;
+alter table review_items enable row level security;
+alter table past_exams   enable row level security;
+
+drop policy if exists own_all on profiles;
+create policy own_all on profiles     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on chats;
+create policy own_all on chats        for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on subjects;
+create policy own_all on subjects     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on topics;
+create policy own_all on topics       for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on materials;
+create policy own_all on materials    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on questions;
+create policy own_all on questions    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on attempts;
+create policy own_all on attempts     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on flashcards;
+create policy own_all on flashcards   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on review_items;
+create policy own_all on review_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on past_exams;
+create policy own_all on past_exams   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── אחסון תמונות ──
 insert into storage.buckets (id, name, public)

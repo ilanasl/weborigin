@@ -110,7 +110,8 @@ export default function Upload({ nav, params }) {
       const kind = isText(file) ? 'text' : file?.type === 'application/pdf' ? 'pdf' : 'image'
       const { data: mat } = await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: result.topic || 'חומר',
-        kind, storage_path: storagePath, origin, summary_md: result.summary_md || '', content_hash: hash,
+        kind, storage_path: storagePath, origin, summary_md: result.summary_md || '',
+        content_hash: hash, source_text: result.source_text || null,
       }).select('id').single()
 
       // 4) שאלות
@@ -124,7 +125,7 @@ export default function Upload({ nav, params }) {
       // 5) כרטיסיות
       if (Array.isArray(result.flashcards) && result.flashcards.length) {
         await supabase.from('flashcards').insert(result.flashcards.map((c) => ({
-          subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back,
+          subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
         })))
       }
       nav.reset('subject', { id: subjectId })

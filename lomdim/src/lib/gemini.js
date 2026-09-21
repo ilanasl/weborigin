@@ -66,8 +66,9 @@ function buildParts(payload) {
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
+      `"source_text":"אם החומר הוא שיר או יצירה ספרותית — כתוב/י כאן את הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת השאר/י ריק.",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
-      `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
+      `"flashcards":[{"front":"מושג","back":"הגדרה","context":"הקשר קצר לפני החשיפה — מאיזה שיר/יצירה או תת-נושא הכרטיסייה שואלת (למשל: מתוך השיר 'שמו של השיר', או שם תת-הנושא). אם ברור לגמרי מהנושא — השאר/י ריק."}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) +
       ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
@@ -151,15 +152,23 @@ async function callDirect(payload) {
   return parsed
 }
 
+// מצב "צינור דק": הפרומפט נבנה כאן (buildParts) ונשלח לפונקציה, שרק מוסיפה את המפתח.
+// כך כל הלוגיקה בצד הלקוח (מתעדכן אוטומטית) — אין צורך לפרוס את הפונקציה שוב.
 async function callFn(payload) {
   if (!FN_URL) throw new Error('Gemini function URL is not configured')
+  const { parts, wantJson } = buildParts(payload)
   const res = await fetch(FN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON || ''}` },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ parts, wantJson }),
   })
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => '')}`)
-  return res.json()
+  const data = await res.json()
+  const out = data?.text ?? ''
+  if (!wantJson) return { answer: out }
+  const parsed = parseJson(out)
+  if (!parsed) throw new Error('parse_failed')
+  return parsed
 }
 
 const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
@@ -185,6 +194,17 @@ export const topicSummary = async ({ subjectName, topicName, learner }) => {
     `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות), בלי הקדמות ובלי סיומת ובלי "שלום".`
   const { answer } = await explain({ subjectName, question, learner })
   return { summary_md: answer }
+}
+
+// הבאת טקסט מקור מלא (שיר / פסוקים בתנ"ך) מהידע — לא מהצילום
+export const fetchSourceText = async ({ subjectName, reference }) => {
+  const q =
+    `החזר/י אך ורק את הטקסט המלא והמדויק של: "${reference}"${subjectName ? ` (מקצוע ${subjectName})` : ''}. ` +
+    `אם זה שיר — כל השורות והבתים במדויק ובשורות המקוריות. אם אלה פסוקים מהתנ"ך — הפסוקים המבוקשים במדויק לפי נוסח המסורה, עם מספרי הפסוקים. ` +
+    `בלי פרשנות, בלי הקדמה ובלי הסבר — רק הטקסט עצמו. ` +
+    `אם אינך בטוח/ה בנוסח המדויק, פתח/י בשורה "⚠️ ייתכן שהנוסח אינו מדויק — כדאי לוודא מול המקור" ואז תן/י את הנוסח הטוב ביותר הידוע לך.`
+  const { answer } = await explain({ subjectName, question: q })
+  return { source_text: answer }
 }
 
 // וריאציות תרגול על אותו רעיון/טעות — לגיוון ולחיזוק ממוקד
