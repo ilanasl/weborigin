@@ -22,16 +22,18 @@ export default function TopicSummary({ nav, params }) {
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // קישורים למקורות אמינים — ממולאים מראש עם שם השיר/המקור
   const q = encodeURIComponent((ref.trim() || topicName || '').trim())
+  // חיפוש גוגל ממוקד לאתר — הכי אמין להגיע לעמוד הנכון (בלי לנחש נתיבי חיפוש פנימיים)
+  const g = (extra) => `https://www.google.com/search?q=${q}${extra ? '%20' + extra : ''}`
   const SOURCES = isBible
     ? [
-        { label: '📖 ספריא', url: `https://www.sefaria.org.il/search?q=${q}` },
-        { label: '📚 ויקיטקסט', url: `https://he.wikisource.org/w/index.php?search=${q}` },
-        { label: '🔍 חיפוש', url: `https://www.google.com/search?q=${q}%20פסוקים` },
+        { label: '📖 ספריא', url: g('site:sefaria.org.il') },
+        { label: '📚 ויקיטקסט', url: g('site:he.wikisource.org') },
+        { label: '🔍 חיפוש', url: g('פסוקים') },
       ]
     : [
-        { label: '📖 פרויקט בן־יהודה', url: `https://benyehuda.org/search?q=${q}` },
-        { label: '📚 ויקיטקסט', url: `https://he.wikisource.org/w/index.php?search=${q}` },
-        { label: '🔍 חיפוש', url: `https://www.google.com/search?q=${q}%20שיר%20מלא%20טקסט` },
+        { label: '📖 פרויקט בן־יהודה', url: g('site:benyehuda.org') },
+        { label: '📚 ויקיטקסט', url: g('site:he.wikisource.org') },
+        { label: '🔍 חיפוש', url: g('שיר%20מלא%20טקסט') },
       ]
 
   async function savePasted() {
