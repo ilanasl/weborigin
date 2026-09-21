@@ -13,6 +13,17 @@ create table if not exists profiles (
   updated_at timestamptz default now()
 );
 
+-- ── שיחות "תסביר לי" (היסטוריה) ──
+create table if not exists chats (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  subject_id uuid references subjects on delete cascade,
+  title text,
+  messages jsonb not null default '[]',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- ── מקצועות ──
 create table if not exists subjects (
   id uuid primary key default gen_random_uuid(),
@@ -121,7 +132,7 @@ create table if not exists past_exams (
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
+  foreach t in array array['profiles','chats','subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
   loop
     execute format('alter table %I enable row level security;', t);
     execute format($p$
