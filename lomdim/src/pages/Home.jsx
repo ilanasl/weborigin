@@ -120,9 +120,14 @@ export default function Home({ nav }) {
         </div>
       )}
 
-      <button className="btn btn-wide mt-5" onClick={() => nav.go('soon', { title: 'דוח יומי להורה' })}>
-        👨‍👩‍👦 דוח יומי להורה
-      </button>
+      <div className="action-row mt-5">
+        <button className="btn btn-wide" onClick={() => nav.go('examBoard')}>
+          🗓️ לוח המבחנים והלו״ז
+        </button>
+        <button className="btn btn-wide" onClick={() => nav.go('soon', { title: 'דוח יומי להורה' })}>
+          👨‍👩‍👦 דוח יומי להורה
+        </button>
+      </div>
     </div>
   )
 }
