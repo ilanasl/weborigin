@@ -19,6 +19,10 @@ const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומ�
 const TONE_RULE = 'כתוב/י בשפה פשוטה ובגובה העיניים, חברית ומזמינה — כמו אח/ות גדול/ה שמסביר/ה, לא כמו מורה מרוחק/ת. בלי מילים גבוהות או מליציות; אם צריך מונח מקצועי, הסבר/י אותו מייד במילים פשוטות. משפטים קצרים וברורים.'
 // ניקוד רק היכן שההגייה מבדילה בין אפשרויות
 const NIKUD_RULE = 'הוסף/י ניקוד רק במילים שבהן ההגייה חשובה כדי להבדיל בין האפשרויות (למשל מספרים: שְׁמוֹנָה מול שְׁמוֹנֶה, שְׁמוֹנָה עָשָׂר מול שְׁמוֹנֶה עֶשְׂרֵה). שאר הטקסט — בלי ניקוד.'
+// טקסונומיית בלום — גיוון רמות חשיבה
+const BLOOM_RULE = 'גוון/י את רמות החשיבה: לא רק זכירה והבנה — כלול/י גם שאלת יישום (מקרה חדש עם נתונים/מילים אחרים), שאלת ניתוח, ולפחות שאלה אחת מסוג "מצא/י את הטעות" (מוצג פתרון או משפט עם שגיאה, והתלמיד/ה מזהה איפה נפלה הטעות).'
+// אימות עצמי — מפחית תשובות שגויות (LLM-as-a-Judge קליל, ללא קריאה נוספת)
+const VERIFY_RULE = 'בקרת איכות לפני סיום: פתור/י כל שאלה בעצמך צעד-אחר-צעד, וודא/י שהשדה answer הוא בדיוק האינדקס (0=הראשונה) של האפשרות הנכונה, ושכל שאר האפשרויות אכן שגויות. אם יש אי-התאמה — תקן/י. אל תחזיר/י שאלה שאין לה תשובה אחת נכונה וברורה.'
 
 // פנייה אישית לפי פרופיל הלומד/ת (שם + מין)
 function learnerRule(learner) {
@@ -64,7 +68,7 @@ function buildParts(payload) {
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
-      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + VARY_RULE + learnerRule(learner) +
+      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) +
       ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
@@ -75,7 +79,7 @@ function buildParts(payload) {
     parts.push({ text:
       `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}${difficulty ? `, קושי ${difficulty}` : ''}. ` +
       `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
-      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + VARY_RULE + learnerRule(learner) + ` ` +
+      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) + ` ` +
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
