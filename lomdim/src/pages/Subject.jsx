@@ -125,6 +125,7 @@ export default function Subject({ nav, params }) {
             <div className="info">
               <div className="nm">
                 {t.name}
+                {t.in_exam && <span className="scope-in">✓ במבחן</span>}
                 {t.m.due && <span className="due">לחזרה היום</span>}
                 {t.origin === 'חזרה' && <span className="scope-out">חזרה</span>}
               </div>
