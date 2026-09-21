@@ -6,6 +6,7 @@ const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) {
 
 export default function Practice({ nav, params }) {
   const { subjectId } = params
+  const examMode = params.mode === 'exam'
   const [queue, setQueue] = useState([])
   const [idx, setIdx] = useState(0)
   const [picked, setPicked] = useState(null)
@@ -64,7 +65,9 @@ export default function Practice({ nav, params }) {
   return (
     <div className="pt-2">
       <div className="flex items-center gap-2 mb-1">
-        <div className="flex-1 text-[13px] text-muted font-semibold tnum">שאלה {idx + 1} מתוך {queue.length}</div>
+        <div className="flex-1 text-[13px] text-muted font-semibold tnum">
+          {examMode ? 'מבחן · ' : ''}שאלה {idx + 1} מתוך {queue.length}
+        </div>
         <span className={`pill ${badge}`}>{q.difficulty}</span>
       </div>
 
@@ -84,7 +87,7 @@ export default function Practice({ nav, params }) {
         })}
       </div>
 
-      {!answered && q.hint && (
+      {!answered && q.hint && !examMode && (
         showHint
           ? <div className="mt-3 rounded-[12px] bg-accent-soft border border-line p-3 text-[14px]">💡 {q.hint}</div>
           : <button className="mt-3 rounded-[12px] border border-dashed border-line bg-accent-soft text-accent font-semibold px-4 py-[9px] text-sm"

@@ -3,22 +3,26 @@ import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import Markdown from '../components/Markdown'
 
+const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
+
 export default function Subject({ nav, params }) {
   const { id } = params
   const [subject, setSubject] = useState(null)
   const [topics, setTopics] = useState([])
   const [materials, setMaterials] = useState([])
   const [qCount, setQCount] = useState(0)
+  const [fcCount, setFcCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   async function load() {
     setLoading(true)
-    const [{ data: s }, { data: tp }, { data: mt }, { data: at }, { count }] = await Promise.all([
+    const [{ data: s }, { data: tp }, { data: mt }, { data: at }, { count: qc }, { count: fc }] = await Promise.all([
       supabase.from('subjects').select('*').eq('id', id).single(),
       supabase.from('topics').select('*').eq('subject_id', id).order('created_at'),
       supabase.from('materials').select('*').eq('subject_id', id).order('created_at', { ascending: false }),
       supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('subject_id', id),
+      supabase.from('flashcards').select('id', { count: 'exact', head: true }).eq('subject_id', id),
     ])
     const byTopic = {}
     for (const a of at || []) {
@@ -30,45 +34,94 @@ export default function Subject({ nav, params }) {
     setSubject(s)
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
     setMaterials(mt || [])
-    setQCount(count || 0)
+    setQCount(qc || 0); setFcCount(fc || 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
 
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
+  const name = subject.name
+  const examDays = daysUntil(subject.exam_date)
+  const examKind = subject.exam_kind || 'מבחן'
   const summary = materials.find((m) => m.summary_md)
+
+  const pcts = topics.map((t) => t.m.pct).filter((p) => p != null)
+  const ready = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null
+  const strong = topics.filter((t) => t.m.pct != null && t.m.pct >= 75)
+  const weak = topics.filter((t) => t.m.pct != null && t.m.pct < 50)
+
+  const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
+
+  const Chips = ({ arr, kind }) => (
+    <div className="rc-chips">
+      {(arr.length ? arr : [{ id: '_', name: '—' }]).map((t) => (
+        <span key={t.id} className={`rc-chip ${kind}`}>● {t.name}</span>
+      ))}
+    </div>
+  )
 
   return (
     <div>
-      <div className="flex items-center gap-3 my-2 mb-4">
-        <div className="w-[52px] h-[52px] rounded-[14px] grid place-items-center font-disp font-extrabold text-[26px]"
-          style={{ background: subject.bg, color: subject.color }}>{subject.name.charAt(0)}</div>
-        <h1 className="text-[23px] font-black">{subject.name}</h1>
+      <div className="subj-head">
+        <div className="avatar" style={{ background: subject.bg, color: subject.color }}>{name.charAt(0)}</div>
+        <div>
+          <h1>{name}</h1>
+          <div className="meta">
+            {topics.length} נושאים{examDays != null && examDays >= 0 ? ` · ${examKind} בעוד ${examDays} ימים` : ''}
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-[10px] mb-4">
-        <button className="btn btn-primary" disabled={qCount === 0}
-          onClick={() => nav.go('practice', { subjectId: id })}>תרגול</button>
-        <button className="btn" onClick={() => nav.go('upload', { subjectId: id, subjectName: subject.name })}>
-          העלה חומר
-        </button>
+      {/* כרטיס מוכנות */}
+      <div className="ready-card">
+        <div className="ready-top">
+          <div className="ready-lbl">מוכנות ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</div>
+          <div className="ready-pct tnum">{ready == null ? '—' : ready + '%'}</div>
+        </div>
+        <div className="bar mt-3"><i style={{ width: `${ready || 0}%` }} /></div>
+        {ready == null && <div className="collecting mt-2">עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
+        {(strong.length > 0 || weak.length > 0) && (
+          <>
+            <div className="rc-group"><div className="rc-h">חזק בנושא</div><Chips arr={strong} kind="good" /></div>
+            <div className="rc-group"><div className="rc-h">כדאי לתרגל</div><Chips arr={weak} kind="weak" /></div>
+          </>
+        )}
+        <div className="action-row" style={{ margin: '16px 0 0' }}>
+          <button className="btn btn-primary" disabled={qCount === 0} onClick={() => goPractice('practice')}>🎯 תרגול</button>
+          <button className="btn" disabled={qCount === 0} onClick={() => goPractice('exam')}>📝 {examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</button>
+        </div>
       </div>
 
-      <div className="text-[14px] font-bold text-muted mt-5 mb-[10px]">הנושאים שלי</div>
+      {/* מודולים */}
+      <div className="action-row">
+        {fcCount > 0 && (
+          <button className="btn" onClick={() => nav.go('flashcards', { subjectId: id, subjectName: name })}>🃏 כרטיסיות</button>
+        )}
+        <button className="btn" onClick={() => nav.go('check', { subjectId: id, subjectName: name })}>📷 בדוק תרגיל שפתרתי</button>
+        <button className="btn" onClick={() => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md })}>💬 תסביר לי</button>
+        <button className="btn" onClick={() => nav.go('soon', { title: 'לחיזוק' })}>📓 לחיזוק</button>
+      </div>
+
+      {/* נושאים */}
+      <div className="list-title">הנושאים שלי</div>
       <div className="card">
         {topics.length === 0 ? (
           <div className="text-muted text-sm">עדיין אין נושאים — העלו חומר כדי שהמערכת תזהה נושאים.</div>
         ) : topics.map((t) => (
-          <div key={t.id} className="flex items-center gap-3 py-3 border-b border-line last:border-0">
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-[15px]">{t.name}</div>
+          <div key={t.id} className="topic">
+            <div className="info">
+              <div className="nm">
+                {t.name}
+                {t.m.due && <span className="due">לחזרה היום</span>}
+                {t.origin === 'חזרה' && <span className="scope-out">חזרה</span>}
+              </div>
               {t.m.pct == null ? (
-                <div className="text-[12.5px] italic text-muted mt-1">אוספים נתונים…</div>
+                <div className="collecting mt-1.5">אוספים נתונים…</div>
               ) : (
-                <div className="flex items-center gap-2 mt-[6px] max-w-[220px]">
-                  <div className="bar flex-1"><i style={{ width: `${t.m.pct}%` }} /></div>
-                  <span className="text-[12.5px] font-bold text-muted tnum">{t.m.pct}%</span>
+                <div className="bar-row mt-1.5" style={{ maxWidth: 220 }}>
+                  <div className="bar"><i style={{ width: `${t.m.pct}%` }} /></div>
+                  <span className="pct tnum" style={{ color: 'var(--muted)' }}>{t.m.pct}%</span>
                 </div>
               )}
             </div>
@@ -76,24 +129,37 @@ export default function Subject({ nav, params }) {
         ))}
       </div>
 
-      {summary && (
-        <>
-          <div className="text-[14px] font-bold text-muted mt-5 mb-[10px]">הסיכום שלי</div>
-          <div className="card text-[15px] md:text-[16.5px]"><Markdown text={summary.summary_md} /></div>
-        </>
-      )}
-
-      <div className="text-[14px] font-bold text-muted mt-5 mb-[10px]">החומרים שהעליתי</div>
+      {/* חומרים — ציר זמן */}
+      <div className="list-title">החומרים שהעליתי</div>
       <div className="card">
         {materials.length === 0 ? (
           <div className="text-muted text-sm">עדיין לא הועלה חומר.</div>
-        ) : materials.map((m) => (
-          <div key={m.id} className="flex items-center justify-between py-2 border-b border-line last:border-0">
-            <div className="text-[14.5px]">{m.title || 'חומר'}</div>
-            <div className="text-[12px] text-muted">{new Date(m.created_at).toLocaleDateString('he-IL')}</div>
+        ) : (
+          <div className="timeline">
+            {materials.map((m) => (
+              <div key={m.id} className="tl-item">
+                <div className="d">{new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</div>
+                <div className="t">
+                  {m.title || 'חומר'}{' '}
+                  <span className={`mat-origin ${m.origin === 'חזרה' ? 'o-old' : 'o-new'}`}>{m.origin || 'השנה'}</span>
+                </div>
+                <div className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}</div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
+        <button className="btn mt-3.5 w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+          ➕ העלה חומר חדש
+        </button>
       </div>
+
+      {/* סיכום */}
+      {summary && (
+        <>
+          <div className="list-title">הסיכום שלי</div>
+          <div className="card text-[14.5px] leading-relaxed"><Markdown text={summary.summary_md} /></div>
+        </>
+      )}
     </div>
   )
 }

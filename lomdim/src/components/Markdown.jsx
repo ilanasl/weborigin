@@ -48,19 +48,18 @@ export default function Markdown({ text, className = '' }) {
     <div className={`md ${className}`}>
       {blocks.map((b, i) => {
         if (b.type === 'h') {
-          const size = b.level === 1 ? 'text-[19px] md:text-[22px]'
-            : b.level === 2 ? 'text-[17px] md:text-[19px]' : 'text-[15.5px] md:text-[17px]'
-          return <div key={i} className={`font-disp font-extrabold ${size} mt-4 first:mt-0 mb-1`}><Inline text={b.text} /></div>
+          const size = b.level === 1 ? 'text-[16px]' : b.level === 2 ? 'text-[15px]' : 'text-[14px]'
+          return <div key={i} className={`font-disp font-bold ${size} mt-4 first:mt-0 mb-1`}><Inline text={b.text} /></div>
         }
         if (b.type === 'list') {
           const Tag = b.ordered ? 'ol' : 'ul'
           return (
-            <Tag key={i} className={`my-2 pe-5 space-y-[6px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
+            <Tag key={i} className={`my-1.5 pe-5 space-y-[5px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
               {b.items.map((it, j) => <li key={j}><Inline text={it} /></li>)}
             </Tag>
           )
         }
-        return <p key={i} className="my-2 leading-relaxed"><Inline text={b.text} /></p>
+        return <p key={i} className="my-1.5"><Inline text={b.text} /></p>
       })}
     </div>
   )

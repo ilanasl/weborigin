@@ -6,6 +6,10 @@ import Home from './pages/Home'
 import Subject from './pages/Subject'
 import Upload from './pages/Upload'
 import Practice from './pages/Practice'
+import Explain from './pages/Explain'
+import Flashcards from './pages/Flashcards'
+import CheckExercise from './pages/CheckExercise'
+import Soon from './pages/Soon'
 
 function ConfigNeeded() {
   return (
@@ -23,7 +27,10 @@ function ConfigNeeded() {
   )
 }
 
-const PAGES = { home: Home, subject: Subject, upload: Upload, practice: Practice }
+const PAGES = {
+  home: Home, subject: Subject, upload: Upload, practice: Practice,
+  explain: Explain, flashcards: Flashcards, check: CheckExercise, soon: Soon,
+}
 
 function Shell() {
   const { user, loading, signOut } = useAuth()

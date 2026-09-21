@@ -133,8 +133,8 @@ export default function Upload({ nav, params }) {
 
   return (
     <div className="pt-2">
-      <h1 className="text-[25px] md:text-[28px] font-black mb-1">העלה חומר</h1>
-      <div className="text-muted text-[15px] mb-4">{subjectName}</div>
+      <h1 className="text-[23px] font-black mb-1">העלה חומר</h1>
+      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
 
       <div className="card">
         <div className="border-2 border-dashed border-line rounded-[14px] p-6 text-center flex flex-col gap-3 items-center">
@@ -170,7 +170,7 @@ export default function Upload({ nav, params }) {
           <div className="text-[13.5px] text-muted mt-1">
             נוצרו: {result.questions?.length || 0} שאלות · {result.flashcards?.length || 0} כרטיסיות.
           </div>
-          <div className="mt-3 pt-3 border-t border-line text-[15px] md:text-[16px]">
+          <div className="mt-3 pt-3 border-t border-line text-[14.5px] leading-relaxed">
             <Markdown text={result.summary_md} />
           </div>
           <button className="btn btn-primary btn-wide mt-4" onClick={save} disabled={busy}>
