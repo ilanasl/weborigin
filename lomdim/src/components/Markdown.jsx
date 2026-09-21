@@ -77,12 +77,12 @@ export default function Markdown({ text, className = '' }) {
         }
         if (b.type === 'table') {
           return (
-            <div key={i} className="my-3 overflow-x-auto">
-              <table className="w-full text-[13.5px] border-collapse">
+            <div key={i} className="my-3">
+              <table className="w-full text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
                 <thead>
                   <tr>
                     {b.header.map((c, j) => (
-                      <th key={j} className="border border-line bg-surface2 p-2 text-start font-bold"><Inline text={c} /></th>
+                      <th key={j} className="border border-line bg-surface2 p-2 text-start font-bold break-words"><Inline text={c} /></th>
                     ))}
                   </tr>
                 </thead>
@@ -90,7 +90,7 @@ export default function Markdown({ text, className = '' }) {
                   {b.rows.map((r, j) => (
                     <tr key={j}>
                       {r.map((c, k) => (
-                        <td key={k} className="border border-line p-2 align-top"><Inline text={c} /></td>
+                        <td key={k} className="border border-line p-2 align-top break-words"><Inline text={c} /></td>
                       ))}
                     </tr>
                   ))}
