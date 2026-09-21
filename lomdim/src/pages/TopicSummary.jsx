@@ -16,6 +16,38 @@ export default function TopicSummary({ nav, params }) {
   const [err, setErr] = useState('')
   const [ref, setRef] = useState('')
   const [fetching, setFetching] = useState(false)
+  const [pasteMode, setPasteMode] = useState(false)
+  const [pasteVal, setPasteVal] = useState('')
+
+  const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
+  // קישורים למקורות אמינים — ממולאים מראש עם שם השיר/המקור
+  const q = encodeURIComponent((ref.trim() || topicName || '').trim())
+  const SOURCES = isBible
+    ? [
+        { label: '📖 ספריא', url: `https://www.sefaria.org.il/search?q=${q}` },
+        { label: '📚 ויקיטקסט', url: `https://he.wikisource.org/w/index.php?search=${q}` },
+        { label: '🔍 חיפוש', url: `https://www.google.com/search?q=${q}%20פסוקים` },
+      ]
+    : [
+        { label: '📖 פרויקט בן־יהודה', url: `https://benyehuda.org/search?q=${q}` },
+        { label: '📚 ויקיטקסט', url: `https://he.wikisource.org/w/index.php?search=${q}` },
+        { label: '🔍 חיפוש', url: `https://www.google.com/search?q=${q}%20שיר%20מלא%20טקסט` },
+      ]
+
+  async function savePasted() {
+    const t = pasteVal.trim()
+    if (!t) return
+    setBusy(true); setErr('')
+    try {
+      await supabase.from('materials').insert({
+        subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור (מהמקור)', source_text: t,
+      })
+      setPasteVal(''); setPasteMode(false)
+      await load(); setShowSource(true)
+    } catch (e) {
+      setErr('שמירת הטקסט נכשלה. ' + String(e))
+    } finally { setBusy(false) }
+  }
 
   async function load() {
     setLoading(true)
@@ -38,9 +70,9 @@ export default function TopicSummary({ nav, params }) {
     try {
       const { source_text } = await fetchSourceText({ subjectName, reference: ref.trim() || topicName })
       await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור', source_text,
+        subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור (טיוטה AI)', source_text,
       })
-      await load(); setShowSource(true); setRef('')
+      await load(); setShowSource(true)
     } catch (e) {
       setErr('הבאת הטקסט נכשלה. נסו שוב. ' + String(e))
     } finally { setFetching(false) }
@@ -66,25 +98,59 @@ export default function TopicSummary({ nav, params }) {
       <h1 className="text-[22px] font-black mb-1">{topicName}</h1>
       <div className="text-muted text-[13.5px] mb-4">{subjectName} · חומר לחזרה</div>
 
-      {sourceText ? (
+      {sourceText && !pasteMode ? (
         <>
           <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowSource((v) => !v)}>
             <span className="flex-1 text-start">📜 הטקסט המלא</span>
             <span className="text-[12px] font-bold">{showSource ? 'הסתר ▲' : 'הצג ▼'}</span>
           </button>
           {showSource && (
-            <div className="card mb-3 whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
+            <div className="card mb-3">
+              <div className="whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
+              <button className="text-muted text-[12.5px] font-semibold mt-3 hover:text-primary"
+                onClick={() => { setPasteVal(sourceText); setPasteMode(true) }}>✏️ ערוך / החלף בטקסט מהמקור</button>
+            </div>
           )}
         </>
       ) : (
         <div className="card mb-3">
-          <div className="text-[14px] font-semibold mb-1">📜 טקסט מקור (שיר / פסוקים)</div>
-          <div className="text-muted text-[12.5px] mb-2">להביא את הטקסט המלא מהידע (לא מהצילום) — למשל שם שיר, או "בראשית פרק א, פסוקים א–ה".</div>
+          <div className="text-[14px] font-semibold mb-1">📜 טקסט מקור מלא ({isBible ? 'פסוקים' : 'שיר'})</div>
+          <div className="text-muted text-[12.5px] mb-2 leading-relaxed">
+            לטקסט מדויק מילה-במילה — פִּתחו מקור אמין, העתיקו את הנוסח, והדביקו כאן (זה נשמר מדויק ב-100%):
+          </div>
           <input className="field mb-2" value={ref} onChange={(e) => setRef(e.target.value)}
-            placeholder={topicName} />
-          <button className="btn btn-wide" onClick={fetchSource} disabled={fetching}>
-            {fetching ? 'מביא…' : '📜 הבא טקסט מלא'}
-          </button>
+            placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : 'השיר'} — ${topicName}`} />
+          <div className="flex flex-wrap gap-2 mb-3">
+            {SOURCES.map((s) => (
+              <a key={s.label} href={s.url} target="_blank" rel="noreferrer"
+                className="text-[13px] font-semibold text-primary border border-line rounded-[10px] px-2.5 py-1.5 hover:border-primary">
+                {s.label} ↗
+              </a>
+            ))}
+          </div>
+
+          {pasteMode ? (
+            <>
+              <textarea className="field mb-2" style={{ minHeight: 160 }} value={pasteVal}
+                onChange={(e) => setPasteVal(e.target.value)}
+                placeholder="הדביקו כאן את הטקסט המלא מהמקור…" />
+              <div className="action-row">
+                <button className="btn" onClick={() => { setPasteMode(false); setPasteVal('') }} disabled={busy}>ביטול</button>
+                <button className="btn btn-primary" onClick={savePasted} disabled={busy || !pasteVal.trim()}>
+                  {busy ? 'שומר…' : '💾 שמור טקסט מדויק'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-wide mb-2" onClick={() => setPasteMode(true)}>
+                📋 הדבק טקסט מהמקור
+              </button>
+              <button className="btn btn-wide" onClick={fetchSource} disabled={fetching}>
+                {fetching ? 'מנסה…' : '🤖 ניסיון אוטומטי (טיוטה — לא תמיד מדויק)'}
+              </button>
+            </>
+          )}
         </div>
       )}
 
