@@ -4,6 +4,15 @@
 --  כל טבלה מוגנת ב-RLS: כל משתמש רואה ומנהל רק את השורות שלו.
 -- ══════════════════════════════════════════════════════════════
 
+-- ── פרופיל הלומד/ת (שם + מין, לפנייה אישית) ──
+create table if not exists profiles (
+  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
+  name text,
+  gender text default 'בן',      -- 'בן' | 'בת'
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- ── מקצועות ──
 create table if not exists subjects (
   id uuid primary key default gen_random_uuid(),
@@ -112,7 +121,7 @@ create table if not exists past_exams (
 do $$
 declare t text;
 begin
-  foreach t in array array['subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
+  foreach t in array array['profiles','subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
   loop
     execute format('alter table %I enable row level security;', t);
     execute format($p$

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { checkExercise } from '../lib/gemini'
 import Markdown from '../components/Markdown'
+import { useAuth } from '../context/AuthContext'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -13,6 +14,7 @@ function fileToBase64(file) {
 
 export default function CheckExercise({ params }) {
   const { subjectName } = params
+  const { profile } = useAuth()
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState(null)
@@ -22,7 +24,7 @@ export default function CheckExercise({ params }) {
     if (!file) return
     setBusy(true); setErr(''); setRes(null)
     try {
-      const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName })
+      const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
       setRes(out)
     } catch {
       setErr('הבדיקה נכשלה. נסו לצלם את הפתרון חד וברור יותר.')

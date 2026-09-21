@@ -13,8 +13,28 @@ const FN_URL =
   (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/gemini` : '')
 
 // כללים שחוזרים בכמה משימות
-const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר להשתמש באנגלית רק כשהיא חלק מהמקצוע. אסור להשתמש באותיות משפות אחרות (למשל גאורגית, רוסית, יוונית) — אם הזדהו כאלה, התעלם מהן.'
+const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר להשתמש באנגלית רק כשהיא חלק מהמקצוע. חל איסור מוחלט על אותיות משפות אחרות — במיוחד ערבית, וגם רוסית, גאורגית או יוונית. אל תשלב אף מילה או אות בערבית.'
 const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומים — לא תמיד האפשרות הראשונה.'
+
+// פנייה אישית לפי פרופיל הלומד/ת (שם + מין)
+function learnerRule(learner) {
+  if (!learner || !learner.name) return ''
+  const g = learner.gender === 'בת' ? 'נקבה' : 'זכר'
+  return ` פנה/י אל התלמיד/ה בשמו/ה "${learner.name}" ובלשון ${g} (למשל: ${g === 'בת' ? 'קראי, בחרי, נסי' : 'קרא, בחר, נסה'}).`
+}
+
+// ── ניקוי פלט: הסרת אותיות מכתבים זרים שלא אמורים להופיע בעברית ──
+const FOREIGN = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿Ѐ-ӿͰ-ϿႠ-ჿ԰-֏]/g
+const stripForeign = (s) =>
+  typeof s === 'string'
+    ? s.replace(FOREIGN, '').replace(/\(\s*\)/g, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([.,;:!?])/g, '$1').trim()
+    : s
+function deepClean(v) {
+  if (typeof v === 'string') return stripForeign(v)
+  if (Array.isArray(v)) return v.map(deepClean)
+  if (v && typeof v === 'object') { const o = {}; for (const k in v) o[k] = deepClean(v[k]); return o }
+  return v
+}
 
 // ── בניית הפרומפט לכל משימה (משותף לשני המצבים) ──
 function buildParts(payload) {
@@ -23,39 +43,41 @@ function buildParts(payload) {
   const img = (b64, mt) => ({ inlineData: { mimeType: mt || 'image/jpeg', data: b64 } })
 
   if (task === 'analyze_material') {
-    const { text, imageBase64, mimeType, subjectName, knownTopics = [] } = payload
+    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner } = payload
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום ב-Markdown עם כותרות ונקודות",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
-      HEB_RULE + ` ` + VARY_RULE +
+      HEB_RULE + ` ` + VARY_RULE + learnerRule(learner) +
       ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
   }
   if (task === 'generate_questions') {
-    const { subjectName, topic, sourceText, count = 5, difficulty } = payload
+    const { subjectName, topic, sourceText, count = 5, difficulty, learner } = payload
     parts.push({ text:
       `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}${difficulty ? `, קושי ${difficulty}` : ''}. ` +
       `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
-      HEB_RULE + ` ` + VARY_RULE + ` ` +
+      HEB_RULE + ` ` + VARY_RULE + learnerRule(learner) + ` ` +
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
   if (task === 'explain') {
-    const { subjectName, context, question } = payload
+    const { subjectName, context, question, learner } = payload
     parts.push({ text:
       `את/ה מורה סבלני/ת ל"${subjectName}". הסבר/י בפשטות ובקצרה, ברמת כיתה ט'. ` +
+      HEB_RULE + learnerRule(learner) + ' ' +
       (context ? `הקשר: ${context}\n` : '') + `שאלה: ${question}` })
     return { parts, wantJson: false }
   }
   if (task === 'check_exercise') {
-    const { imageBase64, mimeType, subjectName } = payload
+    const { imageBase64, mimeType, subjectName, learner } = payload
     parts.push({ text:
       `צילום של תרגיל שנפתר במחברת (מקצוע ${subjectName}). בדוק/י וזהה/י איפה הטעות. ` +
+      HEB_RULE + learnerRule(learner) + ' ' +
       `החזר/י JSON: {"exercise":"","correct":true,"steps":[{"text":"","ok":true}],"feedback":"","reteach":""}` })
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
@@ -124,15 +146,15 @@ async function callFn(payload) {
 const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
 
 export const analyzeMaterial = async (p) => {
-  const out = await call({ task: 'analyze_material', ...p })
+  const out = deepClean(await call({ task: 'analyze_material', ...p }))
   return { ...out, questions: shuffleQuestions(out.questions) }
 }
 export const generateQuestions = async (p) => {
-  const out = await call({ task: 'generate_questions', ...p })
+  const out = deepClean(await call({ task: 'generate_questions', ...p }))
   return { ...out, questions: shuffleQuestions(out.questions) }
 }
-export const explain = (p) => call({ task: 'explain', ...p })
-export const checkExercise = (p) => call({ task: 'check_exercise', ...p })
+export const explain = async (p) => deepClean(await call({ task: 'explain', ...p }))
+export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
 
 // חתימת תוכן של קובץ (SHA-256) — לזיהוי קובץ שכבר הועלה
 export async function fileHash(file) {

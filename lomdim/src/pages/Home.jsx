@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { readiness } from '../lib/mastery'
+import { useAuth } from '../context/AuthContext'
 
 // פלטת פסטלים רכים לאריחי המקצועות
 const PALETTE = [
@@ -15,6 +16,7 @@ const PALETTE = [
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 
 export default function Home({ nav }) {
+  const { profile } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -62,12 +64,19 @@ export default function Home({ nav }) {
   return (
     <div>
       <div className="hello mt-1.5 mb-5">
-        <div className="eyebrow">שלום 👋</div>
-        <h1 className="font-black">מוכנים ללמוד?</h1>
+        <div className="eyebrow">שלום{profile?.name ? ` ${profile.name}` : ''} 👋</div>
+        <h1 className="font-black">
+          {profile?.gender === 'בת' ? 'מוכנה ללמוד?' : profile?.gender === 'בן' ? 'מוכן ללמוד?' : 'מוכנים ללמוד?'}
+        </h1>
         {upcoming && (
           <div className="sub">
             הכי קרוב: <b>{upcoming.name}</b> — {upcoming.examDays === 0 ? 'היום' : `בעוד ${upcoming.examDays} ימים`}.
           </div>
+        )}
+        {!profile && (
+          <button className="streak-line mt-3" onClick={() => nav.go('settings')}>
+            👤 מי מתרגל? הגדירו שם ומין ›
+          </button>
         )}
       </div>
 
