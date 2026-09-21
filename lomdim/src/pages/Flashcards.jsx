@@ -2,17 +2,23 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { GRAD } from '../lib/mastery'
 
-export default function Flashcards({ params }) {
+export default function Flashcards({ nav, params }) {
   const { subjectId, subjectName } = params
   const [cards, setCards] = useState([])
+  const [topicNames, setTopicNames] = useState({})
   const [i, setI] = useState(0)
   const [flipped, setFlipped] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('flashcards').select('*').eq('subject_id', subjectId).order('created_at')
-      setCards(data || []); setLoading(false)
+      const [{ data }, { data: tp }] = await Promise.all([
+        supabase.from('flashcards').select('*').eq('subject_id', subjectId).order('created_at'),
+        supabase.from('topics').select('id, name').eq('subject_id', subjectId),
+      ])
+      setCards(data || [])
+      setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
+      setLoading(false)
     })()
   }, [subjectId])
 
@@ -22,6 +28,7 @@ export default function Flashcards({ params }) {
   )
 
   const card = cards[i]
+  const cardContext = card.context || topicNames[card.topic_id] || 'מושג'
   const go = (d) => { setFlipped(false); setI((x) => (x + d + cards.length) % cards.length) }
 
   async function rate(known) {
@@ -49,7 +56,7 @@ export default function Flashcards({ params }) {
       <div className="fc-stage">
         <div className={`fc-card ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped((f) => !f)}>
           <div className="fc-face fc-front">
-            <div className="fc-eyebrow">מושג</div>
+            <div className="fc-eyebrow">{cardContext}</div>
             <div className="fc-term">{card.front}</div>
             <div className="fc-fliphint">לחצו כדי לראות את ההגדרה ↻</div>
           </div>
@@ -68,8 +75,9 @@ export default function Flashcards({ params }) {
           onClick={() => rate(false)}>😕 עדיין לא</button>
         <button className="btn btn-primary" onClick={() => rate(true)}>✅ ידעתי</button>
       </div>
-      <div className="text-center mt-2">
+      <div className="text-center mt-2 flex flex-col gap-2">
         <button className="text-muted text-sm font-semibold" onClick={() => go(1)}>דלג ←</button>
+        <button className="text-muted text-sm font-semibold hover:text-primary" onClick={() => nav.back()}>סיים תרגול ✓</button>
       </div>
     </div>
   )

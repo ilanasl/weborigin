@@ -103,8 +103,10 @@ create table if not exists flashcards (
   topic_id uuid references topics on delete set null,
   front text not null,
   back text not null,
+  context text,                 -- הקשר קצר שמוצג לפני החשיפה (מאיזה שיר/נושא)
   created_at timestamptz default now()
 );
+alter table flashcards add column if not exists context text;
 
 -- ── "לחיזוק" (עקומת למידה) ──
 create table if not exists review_items (

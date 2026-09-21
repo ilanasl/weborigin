@@ -125,7 +125,7 @@ export default function Upload({ nav, params }) {
       // 5) כרטיסיות
       if (Array.isArray(result.flashcards) && result.flashcards.length) {
         await supabase.from('flashcards').insert(result.flashcards.map((c) => ({
-          subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back,
+          subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
         })))
       }
       nav.reset('subject', { id: subjectId })
