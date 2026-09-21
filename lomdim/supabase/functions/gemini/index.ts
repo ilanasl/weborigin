@@ -24,20 +24,29 @@ function json(body: unknown, status = 200) {
   })
 }
 
-async function gemini(parts: unknown[], wantJson: boolean) {
+// grounded=true מפעיל חיפוש-ברשת אמיתי (Google Search) — למשל להבאת נוסח מדויק של שיר/פסוקים
+async function gemini(parts: unknown[], wantJson: boolean, grounded: boolean) {
+  const reqBody: Record<string, unknown> = {
+    contents: [{ role: 'user', parts }],
+    generationConfig: wantJson && !grounded
+      ? { temperature: 0.4, responseMimeType: 'application/json' }
+      : { temperature: grounded ? 0.2 : 0.6 },
+  }
+  if (grounded) reqBody.tools = [{ google_search: {} }]
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
-      generationConfig: wantJson
-        ? { temperature: 0.4, responseMimeType: 'application/json' }
-        : { temperature: 0.6 },
-    }),
+    body: JSON.stringify(reqBody),
   })
   const data = await res.json()
   if (!res.ok) throw new Error(JSON.stringify(data))
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const cand = data?.candidates?.[0]
+  const text = (cand?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('')
+  // deno-lint-ignore no-explicit-any
+  const chunks = cand?.groundingMetadata?.groundingChunks || []
+  // deno-lint-ignore no-explicit-any
+  const sources = chunks.map((c: any) => c?.web?.uri).filter(Boolean)
+  return { text, sources }
 }
 
 Deno.serve(async (req) => {
@@ -47,8 +56,8 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json()
     if (!Array.isArray(body.parts)) return json({ error: 'missing_parts' }, 400)
-    const text = await gemini(body.parts, !!body.wantJson)
-    return json({ text })
+    const { text, sources } = await gemini(body.parts, !!body.wantJson, !!body.grounded)
+    return json({ text, sources })
   } catch (e) {
     return json({ error: String(e) }, 500)
   }
