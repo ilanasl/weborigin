@@ -1,17 +1,30 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 
 export default function Settings({ nav }) {
-  const { profile, saveProfile } = useAuth()
+  const { user, profile, saveProfile } = useAuth()
   const [name, setName] = useState(profile?.name || '')
   const [gender, setGender] = useState(profile?.gender || 'בן')
   const [busy, setBusy] = useState(false)
+  const [resetting, setResetting] = useState(false)
 
   async function save() {
     if (!name.trim()) return
     setBusy(true)
     await saveProfile({ name: name.trim(), gender })
     setBusy(false)
+    nav.reset('home')
+  }
+
+  async function resetProgress() {
+    if (!window.confirm('לאפס את כל ההתקדמות (התשובות והאחוזים) ל-0?\nהחומרים, הנושאים והשאלות יישארו — רק היסטוריית התרגול תימחק.')) return
+    setResetting(true)
+    const uid = user?.id
+    await supabase.from('attempts').delete().eq('user_id', uid)
+    await supabase.from('review_items').delete().eq('user_id', uid)
+    setResetting(false)
+    window.alert('ההתקדמות אופסה — הכול מ-0 ✨')
     nav.reset('home')
   }
 
@@ -46,6 +59,19 @@ export default function Settings({ nav }) {
 
         <button className="btn btn-primary btn-wide" onClick={save} disabled={busy || !name.trim()}>
           {busy ? 'שומר…' : 'שמור'}
+        </button>
+      </div>
+
+      <div className="list-title">איפוס</div>
+      <div className="card">
+        <div className="text-[14px] mb-1 font-semibold">להתחיל נקי</div>
+        <div className="text-muted text-[13px] mb-3">
+          מאפס את כל ההתקדמות (התשובות והאחוזים) ל-0. שימושי כש{profile?.name || 'הילד/ה'} מתחיל לעבוד אחרי הבדיקות שלך.
+          החומרים והשאלות יישארו.
+        </div>
+        <button className="btn btn-wide" style={{ color: 'var(--bad)', borderColor: 'color-mix(in srgb, var(--bad) 45%, var(--line))' }}
+          onClick={resetProgress} disabled={resetting}>
+          {resetting ? 'מאפס…' : 'אפס התקדמות ל-0'}
         </button>
       </div>
     </div>
