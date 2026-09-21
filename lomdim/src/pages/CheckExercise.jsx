@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { checkExercise } from '../lib/gemini'
+import { supabase } from '../lib/supabase'
+import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
@@ -13,16 +14,46 @@ function fileToBase64(file) {
 }
 
 export default function CheckExercise({ params }) {
-  const { subjectName } = params
+  const { subjectId, subjectName } = params
   const { profile } = useAuth()
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [res, setRes] = useState(null)
   const [err, setErr] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+
+  async function ensureTopic(name) {
+    const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', name).maybeSingle()
+    if (ex) return ex.id
+    const { data: ins } = await supabase.from('topics').insert({ subject_id: subjectId, name, origin: 'השנה' }).select('id').single()
+    return ins?.id
+  }
+
+  async function addToReinforce() {
+    setAdding(true); setErr('')
+    try {
+      const topicId = await ensureTopic('תרגילים שבדקתי')
+      const src = [res.exercise, res.feedback, res.reteach].filter(Boolean).join('\n')
+      const { questions } = await generateQuestions({ subjectName, topic: 'תרגילים שבדקתי', sourceText: src, count: 2, learner: profile })
+      if (questions?.length) {
+        const { data: inserted } = await supabase.from('questions').insert(questions.map((q) => ({
+          subject_id: subjectId, topic_id: topicId, q: q.q, choices: q.choices, answer: q.answer,
+          difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
+        }))).select('id')
+        if (inserted?.length) {
+          await supabase.from('review_items').insert(inserted.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
+        }
+      }
+      setAdded(true)
+    } catch (e) {
+      setErr('הוספה לחיזוק נכשלה. נסו שוב. ' + String(e))
+    } finally { setAdding(false) }
+  }
 
   async function run() {
     if (!file) return
-    setBusy(true); setErr(''); setRes(null)
+    setBusy(true); setErr(''); setRes(null); setAdded(false)
     try {
       const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
       setRes(out)
@@ -72,6 +103,15 @@ export default function CheckExercise({ params }) {
             <div className="mt-3 pt-3 border-t border-line text-[13.5px] text-muted">
               <b className="text-ink">לזכור: </b>{res.reteach}
             </div>
+          )}
+          {!res.correct && (
+            added ? (
+              <div className="mt-4 text-good font-semibold text-[14px]">✓ נוסף ל"לחיזוק" — יופיע שם לתרגול חוזר.</div>
+            ) : (
+              <button className="btn btn-wide mt-4" onClick={addToReinforce} disabled={adding}>
+                {adding ? 'מוסיף…' : '📓 הוסף את הטעות ל"לחיזוק"'}
+              </button>
+            )
           )}
         </div>
       )}
