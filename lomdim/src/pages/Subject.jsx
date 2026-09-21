@@ -106,6 +106,9 @@ export default function Subject({ nav, params }) {
         <button className="btn" onClick={() => nav.go('reinforce', { subjectId: id, subjectName: name })}>
           📓 לחיזוק{rvCount > 0 ? ` (${rvCount})` : ''}
         </button>
+        <button className="btn btn-wide" onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}>
+          📅 מתכנן המבחן
+        </button>
       </div>
 
       {/* נושאים */}

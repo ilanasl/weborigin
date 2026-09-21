@@ -9,6 +9,7 @@ import Practice from './pages/Practice'
 import PracticePicker from './pages/PracticePicker'
 import TopicSummary from './pages/TopicSummary'
 import Reinforce from './pages/Reinforce'
+import Planner from './pages/Planner'
 import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
 import CheckExercise from './pages/CheckExercise'
@@ -33,7 +34,7 @@ function ConfigNeeded() {
 
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
-  practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce,
+  practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, soon: Soon,
   settings: Settings,
 }
