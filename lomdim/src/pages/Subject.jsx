@@ -11,18 +11,20 @@ export default function Subject({ nav, params }) {
   const [materials, setMaterials] = useState([])
   const [qCount, setQCount] = useState(0)
   const [fcCount, setFcCount] = useState(0)
+  const [rvCount, setRvCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showMats, setShowMats] = useState(false)
 
   async function load() {
     setLoading(true)
-    const [{ data: s }, { data: tp }, { data: mt }, { data: at }, { count: qc }, { count: fc }] = await Promise.all([
+    const [{ data: s }, { data: tp }, { data: mt }, { data: at }, { count: qc }, { count: fc }, { count: rc }] = await Promise.all([
       supabase.from('subjects').select('*').eq('id', id).single(),
       supabase.from('topics').select('*').eq('subject_id', id).order('created_at'),
       supabase.from('materials').select('*').eq('subject_id', id).order('created_at', { ascending: false }),
       supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('subject_id', id),
       supabase.from('flashcards').select('id', { count: 'exact', head: true }).eq('subject_id', id),
+      supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('subject_id', id),
     ])
     const byTopic = {}
     for (const a of at || []) {
@@ -34,7 +36,7 @@ export default function Subject({ nav, params }) {
     setSubject(s)
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
     setMaterials(mt || [])
-    setQCount(qc || 0); setFcCount(fc || 0)
+    setQCount(qc || 0); setFcCount(fc || 0); setRvCount(rc || 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
@@ -101,7 +103,9 @@ export default function Subject({ nav, params }) {
         )}
         <button className="btn" onClick={() => nav.go('check', { subjectId: id, subjectName: name })}>📷 בדוק תרגיל שפתרתי</button>
         <button className="btn" onClick={() => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md })}>💬 תסביר לי</button>
-        <button className="btn" onClick={() => nav.go('soon', { title: 'לחיזוק' })}>📓 לחיזוק</button>
+        <button className="btn" onClick={() => nav.go('reinforce', { subjectId: id, subjectName: name })}>
+          📓 לחיזוק{rvCount > 0 ? ` (${rvCount})` : ''}
+        </button>
       </div>
 
       {/* נושאים */}
