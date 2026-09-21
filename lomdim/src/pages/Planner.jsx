@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
-import { scanScope } from '../lib/gemini'
+import { scanScope, matchScopeTopics } from '../lib/gemini'
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 // ברירת מחדל: כמה ימים לפני מתחילים ללמוד — מבדק קצר יותר, מבחן מסכם ארוך יותר
@@ -28,6 +28,7 @@ export default function Planner({ nav, params }) {
   const [scopeFile, setScopeFile] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [scanErr, setScanErr] = useState('')
+  const [matchNote, setMatchNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -67,10 +68,19 @@ export default function Planner({ nav, params }) {
   }
 
   async function save() {
-    setBusy(true)
+    setBusy(true); setMatchNote('')
     await supabase.from('subjects').update({
       exam_kind: kind, exam_date: date || null, exam_scope_text: scope || null,
     }).eq('id', subjectId)
+    // מיקוד → נושאים: מזהה אילו נושאים כלולים במבחן ומסמן אותם (התוכנית תתמקד בהם)
+    if (scope.trim() && topics.length) {
+      try {
+        const { in_exam } = await matchScopeTopics({ subjectName, scopeText: scope.trim(), knownTopics: topics.map((t) => t.name) })
+        const set = new Set(in_exam || [])
+        await Promise.all(topics.map((t) => supabase.from('topics').update({ in_exam: set.has(t.name) }).eq('id', t.id)))
+        if (set.size) setMatchNote(`🎯 זוהו ${set.size} נושאים במבחן — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
+      } catch { /* לא חוסם את שמירת התוכנית */ }
+    }
     // שמירת צילום המיקוד כחומר (כדי שיישמר וייראה ב"החומרים שהעליתי")
     if (scopeFile) {
       try {
@@ -95,8 +105,9 @@ export default function Planner({ nav, params }) {
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
   const examDays = daysUntil(date)
-  // נושאים חלשים קודם (null = אמצע)
-  const ordered = [...topics].sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
+  // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. חלשים קודם.
+  const inExam = topics.filter((t) => t.in_exam)
+  const ordered = [...(inExam.length ? inExam : topics)].sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
   const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + d); return dt }
 
   // בניית תוכנית: מתחילים ללמוד רק בחלון (leadDays לפני המבחן), נושאים חלשים קודם,
@@ -170,8 +181,9 @@ export default function Planner({ nav, params }) {
           </div>
         </div>
         <button className="btn btn-primary btn-wide" onClick={save} disabled={busy}>
-          {busy ? 'שומר…' : 'שמור ובנה תוכנית'}
+          {busy ? 'שומר ובונה…' : 'שמור ובנה תוכנית'}
         </button>
+        {matchNote && <div className="text-good text-[13px] font-semibold leading-relaxed">{matchNote}</div>}
       </div>
 
       {examDays != null && examDays >= 0 && (

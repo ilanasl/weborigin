@@ -54,9 +54,10 @@ export default function ExamBoard({ nav }) {
     // יום המבחן + יום חזרה לפני
     add(s.off, { ...base, exam: true })
     if (s.off >= 2) add(s.off - 1, { ...base, review: true })
-    // נושאים חלשים קודם
-    const topics = (topicsBySubj[s.id] || []).map((t) => ({ ...t, m: mastery(byTopicSubj[t.id] || []) }))
-    const ordered = topics.sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
+    // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. חלשים קודם.
+    const all = (topicsBySubj[s.id] || []).map((t) => ({ ...t, m: mastery(byTopicSubj[t.id] || []) }))
+    const inExam = all.filter((t) => t.in_exam)
+    const ordered = (inExam.length ? inExam : all).sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
     const startIn = Math.max(1, s.off - lead)
     const studyOffsets = []
     for (let d = startIn; d <= s.off - 2; d++) studyOffsets.push(d)

@@ -111,6 +111,15 @@ function buildParts(payload) {
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: false }
   }
+  if (task === 'match_scope') {
+    const { subjectName, scopeText, knownTopics = [] } = payload
+    parts.push({ text:
+      `במקצוע "${subjectName}" קיימים הנושאים הבאים: ${knownTopics.join(' | ')}. ` +
+      `לפניך מיקוד החומר למבחן: """${scopeText}""". ` +
+      `החזר/י JSON בלבד: {"in_exam":["<שמות נושאים — אך ורק מהרשימה שלמעלה, בדיוק כפי שנכתבו — הכלולים במיקוד>"]}. ` +
+      `אל תמציא/י שמות חדשים. אם המיקוד כללי או עמום — בחר/י את הנושאים מהרשימה שהכי מתאימים לו. ` + HEB_RULE })
+    return { parts, wantJson: true }
+  }
   if (task === 'fetch_source') {
     const { subjectName, reference } = payload
     parts.push({ text:
@@ -210,6 +219,8 @@ export const explain = async (p) => deepClean(await call({ task: 'explain', ...p
 export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
 // קריאת צילום מיקוד המבחן (הלוח / מה שהמורה שלחה) → טקסט מסודר של מה שנכלל
 export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
+// התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
+export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
 
 // סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
 export const topicSummary = async ({ subjectName, topicName, learner }) => {
