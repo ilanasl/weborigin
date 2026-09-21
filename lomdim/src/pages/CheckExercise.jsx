@@ -30,11 +30,13 @@ export default function CheckExercise({ params }) {
     return ins?.id
   }
 
-  async function addToReinforce() {
+  async function addToReinforce(result) {
+    const r = result || res
+    if (!r) return
     setAdding(true); setErr('')
     try {
       const topicId = await ensureTopic('תרגילים שבדקתי')
-      const src = [res.exercise, res.feedback, res.reteach].filter(Boolean).join('\n')
+      const src = [r.exercise, r.feedback, r.reteach].filter(Boolean).join('\n')
       const { questions } = await generateQuestions({ subjectName, topic: 'תרגילים שבדקתי', sourceText: src, count: 2, learner: profile })
       if (questions?.length) {
         const { data: inserted } = await supabase.from('questions').insert(questions.map((q) => ({
@@ -57,6 +59,7 @@ export default function CheckExercise({ params }) {
     try {
       const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
       setRes(out)
+      if (!out.correct) addToReinforce(out) // אוטומטי — טעות נכנסת ל"לחיזוק"
     } catch {
       setErr('הבדיקה נכשלה. נסו לצלם את הפתרון חד וברור יותר.')
     } finally { setBusy(false) }
@@ -104,14 +107,10 @@ export default function CheckExercise({ params }) {
               <b className="text-ink">לזכור: </b>{res.reteach}
             </div>
           )}
-          {!res.correct && (
-            added ? (
-              <div className="mt-4 text-good font-semibold text-[14px]">✓ נוסף ל"לחיזוק" — יופיע שם לתרגול חוזר.</div>
-            ) : (
-              <button className="btn btn-wide mt-4" onClick={addToReinforce} disabled={adding}>
-                {adding ? 'מוסיף…' : '📓 הוסף את הטעות ל"לחיזוק"'}
-              </button>
-            )
+          {!res.correct && (adding || added) && (
+            <div className="mt-4 text-[14px] font-semibold text-good">
+              {added ? '✓ נוסף אוטומטית ל"לחיזוק" — יחזור לתרגול' : '📓 מוסיף ל"לחיזוק"…'}
+            </div>
           )}
         </div>
       )}
