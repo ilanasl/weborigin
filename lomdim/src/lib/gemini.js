@@ -13,8 +13,12 @@ const FN_URL =
   (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/gemini` : '')
 
 // כללים שחוזרים בכמה משימות
-const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר להשתמש באנגלית רק כשהיא חלק מהמקצוע. חל איסור מוחלט על אותיות משפות אחרות — במיוחד ערבית, וגם רוסית, גאורגית או יוונית. אל תשלב אף מילה או אות בערבית.'
+const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר אנגלית רק כשהיא חלק מהמקצוע. חל איסור מוחלט על אותיות משפות אחרות — במיוחד ערבית, וגם רוסית, גאורגית או יוונית. בלי LaTeX ובלי פקודות: אל תשתמש ב-$...$ או ב-\\leftarrow וכדומה; חץ כותבים ← או →.'
 const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומים — לא תמיד האפשרות הראשונה.'
+// שפה מותאמת גיל: פשוטה, חברית, בגובה העיניים
+const TONE_RULE = 'כתוב/י בשפה פשוטה ובגובה העיניים, חברית ומזמינה — כמו אח/ות גדול/ה שמסביר/ה, לא כמו מורה מרוחק/ת. בלי מילים גבוהות או מליציות; אם צריך מונח מקצועי, הסבר/י אותו מייד במילים פשוטות. משפטים קצרים וברורים.'
+// ניקוד רק היכן שההגייה מבדילה בין אפשרויות
+const NIKUD_RULE = 'הוסף/י ניקוד רק במילים שבהן ההגייה חשובה כדי להבדיל בין האפשרויות (למשל מספרים: שְׁמוֹנָה מול שְׁמוֹנֶה, שְׁמוֹנָה עָשָׂר מול שְׁמוֹנֶה עֶשְׂרֵה). שאר הטקסט — בלי ניקוד.'
 
 // פנייה אישית לפי פרופיל הלומד/ת (שם + מין)
 function learnerRule(learner) {
@@ -25,10 +29,20 @@ function learnerRule(learner) {
 
 // ── ניקוי פלט: הסרת אותיות מכתבים זרים שלא אמורים להופיע בעברית ──
 const FOREIGN = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿Ѐ-ӿͰ-ϿႠ-ჿ԰-֏]/g
-const stripForeign = (s) =>
-  typeof s === 'string'
-    ? s.replace(FOREIGN, '').replace(/\(\s*\)/g, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([.,;:!?])/g, '$1').trim()
-    : s
+const stripForeign = (s) => {
+  if (typeof s !== 'string') return s
+  return s
+    .replace(FOREIGN, '')
+    // תיקון פקודות LaTeX שדלפו לפלט
+    .replace(/\$?\\?leftarrow\$?/gi, '←')
+    .replace(/\$?\\?rightarrow\$?/gi, '→')
+    .replace(/\$([^$\n]{1,80})\$/g, '$1')   // הסרת עטיפת $...$
+    .replace(/\\(text|mathrm|left|right|,|;|!|quad)\b/g, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ +([.,;:!?])/g, '$1')
+    .trim()
+}
 function deepClean(v) {
   if (typeof v === 'string') return stripForeign(v)
   if (Array.isArray(v)) return v.map(deepClean)
@@ -50,7 +64,7 @@ function buildParts(payload) {
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
-      HEB_RULE + ` ` + VARY_RULE + learnerRule(learner) +
+      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + VARY_RULE + learnerRule(learner) +
       ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
@@ -61,23 +75,24 @@ function buildParts(payload) {
     parts.push({ text:
       `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}${difficulty ? `, קושי ${difficulty}` : ''}. ` +
       `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
-      HEB_RULE + ` ` + VARY_RULE + learnerRule(learner) + ` ` +
+      HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + VARY_RULE + learnerRule(learner) + ` ` +
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
   if (task === 'explain') {
     const { subjectName, context, question, learner } = payload
     parts.push({ text:
-      `את/ה מורה סבלני/ת ל"${subjectName}". הסבר/י בפשטות ובקצרה, ברמת כיתה ט'. ` +
-      HEB_RULE + learnerRule(learner) + ' ' +
-      (context ? `הקשר: ${context}\n` : '') + `שאלה: ${question}` })
+      `את/ה חבר/ה גדול/ה שעוזר/ת ללמוד "${subjectName}", ברמת כיתה ט'. את/ה כבר באמצע שיחה — אל תפתח/י ב"שלום" ואל תציג/י את עצמך שוב, פשוט המשך/י ישר לעניין. ` +
+      TONE_RULE + ' ' + HEB_RULE + learnerRule(learner) +
+      ` אם התלמיד/ה עונה תשובה לשאלה ששאלת: תן/י קודם משוב קצר — נכון או לא, ולמה. אם ענה/תה משהו שאינו אחת האפשרויות שנתת — אמור/י בעדינות "זו לא אחת האפשרויות" והסבר/י מה כן. אם היו עוד סעיפים פתוחים ששאלת — המשך/י אליהם ואל תשאיר/י אותם באוויר. ` +
+      (context ? `הקשר החומר: ${context}\n` : '') + `הודעת התלמיד/ה: ${question}` })
     return { parts, wantJson: false }
   }
   if (task === 'check_exercise') {
     const { imageBase64, mimeType, subjectName, learner } = payload
     parts.push({ text:
       `צילום של תרגיל שנפתר במחברת (מקצוע ${subjectName}). בדוק/י וזהה/י איפה הטעות. ` +
-      HEB_RULE + learnerRule(learner) + ' ' +
+      HEB_RULE + ' ' + TONE_RULE + learnerRule(learner) + ' ' +
       `החזר/י JSON: {"exercise":"","correct":true,"steps":[{"text":"","ok":true}],"feedback":"","reteach":""}` })
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
@@ -162,9 +177,17 @@ export const topicSummary = async ({ subjectName, topicName, learner }) => {
     `כתוב סיכום עיוני מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ט'. ` +
     `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא. (2) לכל מושג מרכזי — מה זה, על איזו שאלה הוא עונה, ודוגמה. ` +
     `(3) דגשים וטעויות נפוצות למבחן. (4) כשמתאים — השתמש בטבלת Markdown להשוואה, עם עמודות שמתאימות לנושא: לרוב "מושג | מה זה | על איזו שאלה עונה | דוגמה", ובנושאים כמו שם המספר "מספר | זכר | נקבה". ` +
-    `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות), בלי הקדמות ובלי סיומת.`
+    TONE_RULE + ' ' + NIKUD_RULE + ' ' +
+    `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות), בלי הקדמות ובלי סיומת ובלי "שלום".`
   const { answer } = await explain({ subjectName, question, learner })
   return { summary_md: answer }
+}
+
+// וריאציות תרגול על אותו רעיון/טעות — לגיוון ולחיזוק ממוקד
+export const generateVariations = ({ subjectName, topicName, concept, learner, count = 5 }) => {
+  const src = `צור/י ${count} שאלות שונות זו מזו שמתרגלות בדיוק את אותו רעיון/טעות: "${concept}". ` +
+    `וריאציות אמיתיות (מילים ומשפטים אחרים), ברמות קושי מגוונות, שכולן בודקות את אותו עיקרון.`
+  return generateQuestions({ subjectName, topic: topicName, sourceText: src, count, learner })
 }
 
 // חתימת תוכן של קובץ (SHA-256) — לזיהוי קובץ שכבר הועלה
