@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
+import { scanScope } from '../lib/gemini'
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result).split(',')[1])
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+}
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date(new Date().toDateString())) / 86400000) : null
 
 export default function Planner({ nav, params }) {
@@ -12,6 +22,9 @@ export default function Planner({ nav, params }) {
   const [kind, setKind] = useState('מבחן מסכם')
   const [date, setDate] = useState('')
   const [scope, setScope] = useState('')
+  const [scopeFile, setScopeFile] = useState(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanErr, setScanErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -36,11 +49,40 @@ export default function Planner({ nav, params }) {
   }
   useEffect(() => { load() }, [subjectId])
 
+  async function onPickPhoto(f) {
+    setScanErr('')
+    if (!f) { setScopeFile(null); return }
+    setScopeFile(f); setScanning(true)
+    try {
+      const text = await scanScope({ imageBase64: await fileToBase64(f), mimeType: f.type, subjectName })
+      if (text) setScope((s) => (s ? s.trim() + '\n' : '') + text.trim())
+    } catch (e) {
+      setScanErr('קריאת הצילום נכשלה. אפשר לכתוב את המיקוד ידנית. ' + String(e?.message || e).slice(0, 160))
+    } finally { setScanning(false) }
+  }
+
   async function save() {
     setBusy(true)
     await supabase.from('subjects').update({
       exam_kind: kind, exam_date: date || null, exam_scope_text: scope || null,
     }).eq('id', subjectId)
+    // שמירת צילום המיקוד כחומר (כדי שיישמר וייראה ב"החומרים שהעליתי")
+    if (scopeFile) {
+      try {
+        const { data: u } = await supabase.auth.getUser()
+        const uid = u.user?.id
+        let storagePath = null
+        if (uid) {
+          storagePath = `${uid}/scope-${Date.now()}`
+          await supabase.storage.from('materials').upload(storagePath, scopeFile).catch(() => {})
+        }
+        await supabase.from('materials').insert({
+          subject_id: subjectId, title: 'מיקוד המבחן', kind: 'image',
+          storage_path: storagePath, origin: 'השנה', source_text: scope || null,
+        })
+      } catch { /* לא חוסם את שמירת התוכנית */ }
+      setScopeFile(null)
+    }
     await load()
     setBusy(false)
   }
@@ -97,6 +139,16 @@ export default function Planner({ nav, params }) {
           <textarea className="field" style={{ minHeight: 70 }} value={scope}
             onChange={(e) => setScope(e.target.value)}
             placeholder="מה בדיוק במבחן? אפשר להעתיק את מה שהמורה שלחה…" />
+          <div className="mt-2">
+            <label className="text-[13px] font-semibold text-primary cursor-pointer inline-flex items-center gap-1.5">
+              📷 צרפו צילום של המיקוד (למשל מה שהמורה כתבה על הלוח)
+              <input type="file" accept="image/*" className="hidden"
+                onChange={(e) => onPickPhoto(e.target.files?.[0] || null)} />
+            </label>
+            {scanning && <div className="text-muted text-[12.5px] mt-1">קורא את הצילום… ✍️</div>}
+            {scopeFile && !scanning && <div className="text-good text-[12.5px] mt-1">✓ צורף וזוהה — אפשר לערוך את הטקסט למעלה.</div>}
+            {scanErr && <div className="text-bad text-[12.5px] mt-1">{scanErr}</div>}
+          </div>
         </div>
         <button className="btn btn-primary btn-wide" onClick={save} disabled={busy}>
           {busy ? 'שומר…' : 'שמור ובנה תוכנית'}
