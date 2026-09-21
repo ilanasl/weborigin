@@ -136,20 +136,39 @@ create table if not exists past_exams (
 alter table past_exams add column if not exists storage_path text;
 alter table past_exams add column if not exists analyzed boolean default false;
 
--- ── RLS ──
-do $$
-declare t text;
-begin
-  foreach t in array array['profiles','chats','subjects','topics','materials','questions','attempts','flashcards','review_items','past_exams']
-  loop
-    execute format('alter table %I enable row level security;', t);
-    execute format($p$
-      drop policy if exists own_all on %1$I;
-      create policy own_all on %1$I
-        for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-    $p$, t);
-  end loop;
-end $$;
+-- ── RLS — כל משתמש רואה ומנהל רק את השורות שלו ──
+-- (כתוב במפורש לכל טבלה כדי שירוץ חלק גם בעורך ה-SQL של Supabase)
+alter table profiles     enable row level security;
+alter table chats        enable row level security;
+alter table subjects     enable row level security;
+alter table topics       enable row level security;
+alter table materials    enable row level security;
+alter table questions    enable row level security;
+alter table attempts     enable row level security;
+alter table flashcards   enable row level security;
+alter table review_items enable row level security;
+alter table past_exams   enable row level security;
+
+drop policy if exists own_all on profiles;
+create policy own_all on profiles     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on chats;
+create policy own_all on chats        for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on subjects;
+create policy own_all on subjects     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on topics;
+create policy own_all on topics       for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on materials;
+create policy own_all on materials    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on questions;
+create policy own_all on questions    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on attempts;
+create policy own_all on attempts     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on flashcards;
+create policy own_all on flashcards   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on review_items;
+create policy own_all on review_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on past_exams;
+create policy own_all on past_exams   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── אחסון תמונות ──
 insert into storage.buckets (id, name, public)
