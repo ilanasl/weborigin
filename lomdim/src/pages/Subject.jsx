@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
-import Markdown from '../components/Markdown'
 
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 
@@ -155,14 +154,6 @@ export default function Subject({ nav, params }) {
           ➕ העלה חומר חדש
         </button>
       </div>
-
-      {/* סיכום */}
-      {summary && (
-        <>
-          <div className="list-title">הסיכום שלי</div>
-          <div className="card text-[14.5px] leading-relaxed"><Markdown text={summary.summary_md} /></div>
-        </>
-      )}
     </div>
   )
 }
