@@ -4,9 +4,10 @@ import { explain } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
-const SUGGESTIONS = ['תסביר לי בפשטות', 'תן דוגמה', 'למה זה ככה?', 'תבחן אותי בשאלה']
+const QUIZ = '🎯 תבחן אותי'
+const SUGGESTIONS = ['תסביר לי בפשטות', 'תן דוגמה', 'למה זה ככה?', QUIZ]
 
-export default function Explain({ params }) {
+export default function Explain({ nav, params }) {
   const { subjectId, subjectName, context } = params
   const { profile } = useAuth()
   const intro = { who: 'ai', text: `${profile?.name ? profile.name + ', ' : ''}מה לא ברור ב${subjectName}? אפשר לכתוב הכול במילים שלך.` }
@@ -101,7 +102,10 @@ export default function Explain({ params }) {
 
       <div className="chips">
         {SUGGESTIONS.map((s) => (
-          <button key={s} className="chip" onClick={() => send(s)} disabled={busy}>{s}</button>
+          <button key={s} className="chip" disabled={busy}
+            onClick={() => s === QUIZ
+              ? nav.go('practicePicker', { subjectId, subjectName, mode: 'practice' })
+              : send(s)}>{s}</button>
         ))}
       </div>
 
