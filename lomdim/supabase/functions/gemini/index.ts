@@ -79,6 +79,16 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
+
+    // ── מצב "צינור דק" ──
+    // הלקוח בונה את הפרומפט (parts) ושולח אותו; השרת רק מוסיף את המפתח וקורא ל-Gemini.
+    // כך כל הלוגיקה חיה בצד הלקוח (מתעדכן אוטומטית) ואין צורך לפרוס את הפונקציה שוב.
+    if (Array.isArray(body.parts)) {
+      const text = await gemini(body.parts, !!body.wantJson)
+      return json({ text })
+    }
+
+    // ── מצב ישן (תאימות לאחור) ──
     const { task } = body
 
     if (task === 'analyze_material') {

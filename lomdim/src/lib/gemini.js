@@ -151,15 +151,23 @@ async function callDirect(payload) {
   return parsed
 }
 
+// מצב "צינור דק": הפרומפט נבנה כאן (buildParts) ונשלח לפונקציה, שרק מוסיפה את המפתח.
+// כך כל הלוגיקה בצד הלקוח (מתעדכן אוטומטית) — אין צורך לפרוס את הפונקציה שוב.
 async function callFn(payload) {
   if (!FN_URL) throw new Error('Gemini function URL is not configured')
+  const { parts, wantJson } = buildParts(payload)
   const res = await fetch(FN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON || ''}` },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ parts, wantJson }),
   })
   if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => '')}`)
-  return res.json()
+  const data = await res.json()
+  const out = data?.text ?? ''
+  if (!wantJson) return { answer: out }
+  const parsed = parseJson(out)
+  if (!parsed) throw new Error('parse_failed')
+  return parsed
 }
 
 const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
