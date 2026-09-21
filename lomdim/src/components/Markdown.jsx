@@ -1,9 +1,7 @@
 // ── רכיב Markdown קטן ומדויק ──
-// הופך את הסיכום של Gemini (כותרות, נקודות, **הדגשות**) לטקסט מעוצב,
-// במקום להציג את סימני ה-# וה-** כמו שהם.
+// הופך את הסיכום של Gemini (כותרות, נקודות, **הדגשות**, טבלאות) לטקסט מעוצב.
 
 function Inline({ text }) {
-  // מפצל **הדגשה** ל-<strong>, שאר הטקסט רגיל
   const parts = String(text).split(/(\*\*[^*]+\*\*)/g)
   return (
     <>
@@ -16,15 +14,33 @@ function Inline({ text }) {
   )
 }
 
+const splitRow = (line) =>
+  line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
+const isTableSep = (line) => /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) && line.includes('-')
+
 export default function Markdown({ text, className = '' }) {
   const lines = String(text || '').replace(/\r/g, '').split('\n')
   const blocks = []
-  let list = null // { ordered, items: [] }
-
+  let list = null
   const flush = () => { if (list) { blocks.push(list); list = null } }
 
-  for (const raw of lines) {
-    const line = raw.trimEnd()
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trimEnd()
+
+    // טבלה: שורת כותרת עם | ואחריה שורת מפריד ---
+    if (/\|/.test(line) && lines[i + 1] != null && isTableSep(lines[i + 1])) {
+      flush()
+      const header = splitRow(line)
+      const rows = []
+      let j = i + 2
+      while (j < lines.length && /\|/.test(lines[j]) && lines[j].trim()) {
+        rows.push(splitRow(lines[j])); j++
+      }
+      blocks.push({ type: 'table', header, rows })
+      i = j - 1
+      continue
+    }
+
     if (!line.trim()) { flush(); continue }
 
     const h = line.match(/^(#{1,4})\s+(.*)$/)
@@ -35,7 +51,7 @@ export default function Markdown({ text, className = '' }) {
     if (ul || ol) {
       const ordered = !!ol
       if (!list || list.ordered !== ordered) { flush(); list = { type: 'list', ordered, items: [] } }
-      list.items.push((ul ? ul[1] : ol[1]))
+      list.items.push(ul ? ul[1] : ol[1])
       continue
     }
 
@@ -57,6 +73,30 @@ export default function Markdown({ text, className = '' }) {
             <Tag key={i} className={`my-1.5 pe-5 space-y-[5px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
               {b.items.map((it, j) => <li key={j}><Inline text={it} /></li>)}
             </Tag>
+          )
+        }
+        if (b.type === 'table') {
+          return (
+            <div key={i} className="my-3 overflow-x-auto">
+              <table className="w-full text-[13.5px] border-collapse">
+                <thead>
+                  <tr>
+                    {b.header.map((c, j) => (
+                      <th key={j} className="border border-line bg-surface2 p-2 text-start font-bold"><Inline text={c} /></th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.rows.map((r, j) => (
+                    <tr key={j}>
+                      {r.map((c, k) => (
+                        <td key={k} className="border border-line p-2 align-top"><Inline text={c} /></td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )
         }
         return <p key={i} className="my-1.5"><Inline text={b.text} /></p>
