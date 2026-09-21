@@ -97,7 +97,7 @@ export default function Home({ nav }) {
               {s.examDays != null && s.examDays >= 0 && (
                 <div className="card-chips">
                   <span className={`exam-chip ${s.examDays > 7 ? 'calm' : ''}`}>
-                    {s.examDays === 0 ? 'מבחן היום' : `מבחן בעוד ${s.examDays} ימים`}
+                    {s.examDays === 0 ? `${s.exam_kind || 'מבחן'} היום` : `${s.exam_kind || 'מבחן'} בעוד ${s.examDays} ימים`}
                   </span>
                 </div>
               )}
