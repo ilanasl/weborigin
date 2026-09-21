@@ -127,8 +127,12 @@ create table if not exists past_exams (
   kind text,
   exam_date date,
   grade int,
+  storage_path text,            -- צילום המבחן המתוקן
+  analyzed boolean default false,
   created_at timestamptz default now()
 );
+alter table past_exams add column if not exists storage_path text;
+alter table past_exams add column if not exists analyzed boolean default false;
 
 -- ── RLS ──
 do $$
