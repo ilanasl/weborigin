@@ -110,7 +110,8 @@ export default function Upload({ nav, params }) {
       const kind = isText(file) ? 'text' : file?.type === 'application/pdf' ? 'pdf' : 'image'
       const { data: mat } = await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: result.topic || 'חומר',
-        kind, storage_path: storagePath, origin, summary_md: result.summary_md || '', content_hash: hash,
+        kind, storage_path: storagePath, origin, summary_md: result.summary_md || '',
+        content_hash: hash, source_text: result.source_text || null,
       }).select('id').single()
 
       // 4) שאלות

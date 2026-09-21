@@ -66,6 +66,7 @@ function buildParts(payload) {
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
       `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
+      `"source_text":"אם החומר הוא שיר או יצירה ספרותית — כתוב/י כאן את הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת השאר/י ריק.",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה"}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) +

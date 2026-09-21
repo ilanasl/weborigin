@@ -8,6 +8,8 @@ export default function TopicSummary({ nav, params }) {
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
   const [summary, setSummary] = useState(null)
+  const [sourceText, setSourceText] = useState(null)
+  const [showSource, setShowSource] = useState(false)
   const [qCount, setQCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -15,12 +17,15 @@ export default function TopicSummary({ nav, params }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: mats }, { count }] = await Promise.all([
+    const [{ data: mats }, { data: src }, { count }] = await Promise.all([
       supabase.from('materials').select('summary_md, created_at').eq('topic_id', topicId)
         .not('summary_md', 'is', null).order('created_at', { ascending: false }).limit(1),
+      supabase.from('materials').select('source_text').eq('topic_id', topicId)
+        .not('source_text', 'is', null).order('created_at', { ascending: false }).limit(1),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topicId),
     ])
     setSummary(mats?.[0]?.summary_md || null)
+    setSourceText(src?.[0]?.source_text || null)
     setQCount(count || 0)
     setLoading(false)
   }
@@ -45,6 +50,18 @@ export default function TopicSummary({ nav, params }) {
     <div className="pt-2">
       <h1 className="text-[22px] font-black mb-1">{topicName}</h1>
       <div className="text-muted text-[13.5px] mb-4">{subjectName} · חומר לחזרה</div>
+
+      {sourceText && (
+        <>
+          <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowSource((v) => !v)}>
+            <span className="flex-1 text-start">📜 הטקסט המלא</span>
+            <span className="text-[12px] font-bold">{showSource ? 'הסתר ▲' : 'הצג ▼'}</span>
+          </button>
+          {showSource && (
+            <div className="card mb-3 whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
+          )}
+        </>
+      )}
 
       {summary ? (
         <div className="card text-[14.5px] leading-relaxed"><Markdown text={summary} /></div>

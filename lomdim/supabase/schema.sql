@@ -60,10 +60,12 @@ create table if not exists materials (
   origin text default 'השנה',
   summary_md text,              -- הסיכום שנוצר
   content_hash text,            -- חתימת SHA-256 של הקובץ — לזיהוי כפילויות
+  source_text text,             -- הטקסט המלא (למשל שיר בספרות) — להצגה נוחה
   created_at timestamptz default now()
 );
--- אם הטבלה כבר קיימת מהרצה קודמת — מוסיף את העמודה בלי לשבור כלום:
+-- אם הטבלה כבר קיימת מהרצה קודמת — מוסיף את העמודות בלי לשבור כלום:
 alter table materials add column if not exists content_hash text;
+alter table materials add column if not exists source_text text;
 
 -- ── שאלות תרגול ──
 create table if not exists questions (
