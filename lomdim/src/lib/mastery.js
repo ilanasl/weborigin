@@ -10,7 +10,7 @@ const DIFF_W = { קל: 1, בינוני: 1.4, קשה: 1.8 }
 const REC_HALFLIFE = 14 // ימים
 const GUESS = 0.25
 const MIN_EFF = 3
-export const GRAD = 2 // הצלחות שנדרשות כדי שפריט "ייטמע"
+export const GRAD = 3 // הצלחות שנדרשות כדי שפריט "ייטמע" (עקומת למידה איטית יותר)
 
 // attempts: [{ correct: bool, difficulty: 'קל'|'בינוני'|'קשה', ts: number(ms) }]
 export function mastery(attempts = []) {

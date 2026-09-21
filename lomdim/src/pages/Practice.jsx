@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { generateVariations } from '../lib/gemini'
+import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 
 export default function Practice({ nav, params }) {
-  const { subjectId, topicId, topicName } = params
+  const { subjectId, subjectName, topicId, topicName } = params
+  const { profile } = useAuth()
   const examMode = params.mode === 'exam'
   const [queue, setQueue] = useState([])
   const [idx, setIdx] = useState(0)
@@ -62,7 +65,25 @@ export default function Practice({ nav, params }) {
         .select('id').eq('kind', 'question').eq('ref_id', q.id).maybeSingle()
       if (ex) await supabase.from('review_items').update({ streak: 0, updated_at: new Date().toISOString() }).eq('id', ex.id)
       else await supabase.from('review_items').insert({ subject_id: subjectId, kind: 'question', ref_id: q.id, streak: 0 })
+      spawnVariations(q) // ברקע — עוד כמה תרגולים על אותה טעות
     }
+  }
+
+  // מייצר ברקע כמה שאלות דומות על אותה טעות, ומכניס אותן ל"לחיזוק"
+  async function spawnVariations(seed) {
+    try {
+      const { questions } = await generateVariations({
+        subjectName, topicName: topicName || '', concept: seed.q, learner: profile, count: 5,
+      })
+      if (!questions?.length) return
+      const { data: ins } = await supabase.from('questions').insert(questions.map((v) => ({
+        subject_id: subjectId, topic_id: seed.topic_id,
+        q: v.q, choices: v.choices, answer: v.answer,
+        difficulty: v.difficulty || 'בינוני', explain: v.explain || '', hint: v.hint || '',
+      }))).select('id')
+      if (ins?.length) await supabase.from('review_items')
+        .insert(ins.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
+    } catch { /* לא חוסם את התרגול */ }
   }
   function next() {
     if (idx >= queue.length - 1) { setDone(true); return }

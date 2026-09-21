@@ -37,7 +37,7 @@ export default function CheckExercise({ params }) {
     try {
       const topicId = await ensureTopic('תרגילים שבדקתי')
       const src = [r.exercise, r.feedback, r.reteach].filter(Boolean).join('\n')
-      const { questions } = await generateQuestions({ subjectName, topic: 'תרגילים שבדקתי', sourceText: src, count: 2, learner: profile })
+      const { questions } = await generateQuestions({ subjectName, topic: 'תרגילים שבדקתי', sourceText: src, count: 5, learner: profile })
       if (questions?.length) {
         const { data: inserted } = await supabase.from('questions').insert(questions.map((q) => ({
           subject_id: subjectId, topic_id: topicId, q: q.q, choices: q.choices, answer: q.answer,
@@ -59,7 +59,8 @@ export default function CheckExercise({ params }) {
     try {
       const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
       setRes(out)
-      if (!out.correct) addToReinforce(out) // אוטומטי — טעות נכנסת ל"לחיזוק"
+      const hasMistake = out.correct === false || (Array.isArray(out.steps) && out.steps.some((s) => s.ok === false))
+      if (hasMistake) addToReinforce(out) // אוטומטי — טעות נכנסת ל"לחיזוק"
     } catch {
       setErr('הבדיקה נכשלה. נסו לצלם את הפתרון חד וברור יותר.')
     } finally { setBusy(false) }
