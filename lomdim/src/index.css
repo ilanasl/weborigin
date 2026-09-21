@@ -49,7 +49,7 @@ button{font-family:inherit; cursor:pointer}
 .tnum{font-variant-numeric:tabular-nums}
 
 @layer components{
-  .app-shell{ @apply mx-auto w-full max-w-[760px] px-4 pb-12; }
+  .app-shell{ @apply mx-auto w-full max-w-[760px] px-5 pb-12 sm:px-6; }
   .card{ @apply bg-surface border border-line rounded-xl2 p-4 shadow-soft; }
   .btn{ @apply inline-flex items-center justify-center gap-2 rounded-[14px] border border-line
          bg-surface text-ink font-semibold text-[14.5px] px-4 py-3 transition
