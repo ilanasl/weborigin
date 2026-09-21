@@ -66,7 +66,8 @@ export default function Upload({ nav, params }) {
       // 3) חומר + סיכום
       const { data: mat } = await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: result.topic || 'חומר',
-        kind: 'image', storage_path: storagePath, origin, summary_md: result.summary_md || '',
+        kind: file?.type === 'application/pdf' ? 'pdf' : 'image',
+        storage_path: storagePath, origin, summary_md: result.summary_md || '',
       }).select('id').single()
 
       // 4) שאלות
@@ -99,7 +100,7 @@ export default function Upload({ nav, params }) {
           <div className="text-3xl">📎</div>
           <div className="font-semibold">צלם או בחר קובץ — תמונה של המחברת / דף עבודה</div>
           <div className="text-[12.5px] text-muted">בלי לתייג נושא — המערכת תזהה לבד.</div>
-          <input type="file" accept="image/*" capture="environment"
+          <input type="file" accept="image/*,application/pdf"
             onChange={(e) => { setFile(e.target.files?.[0] || null); setResult(null) }}
             className="text-sm" />
         </div>

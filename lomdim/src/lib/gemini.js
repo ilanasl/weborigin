@@ -7,7 +7,7 @@ import { SUPABASE_URL, SUPABASE_ANON } from './supabase'
 // 2) מצב "פונקציה" (מאובטח): קריאה לפונקציית ה-Edge של Supabase שמסתירה את המפתח.
 
 const DIRECT_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
-const MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash'
+const MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-3.6-flash'
 const FN_URL =
   import.meta.env.VITE_GEMINI_FN_URL ||
   (SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/gemini` : '')

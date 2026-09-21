@@ -6,7 +6,7 @@
 //
 // (אפשר גם עם JWT; --no-verify-jwt מקל בשלב ההתחלה. אפשר לאמת ידנית בהמשך.)
 
-const MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-2.0-flash'
+const MODEL = Deno.env.get('GEMINI_MODEL') || 'gemini-3.6-flash'
 const API_KEY = Deno.env.get('GEMINI_API_KEY') || ''
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`
 
