@@ -102,6 +102,15 @@ function buildParts(payload) {
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
   }
+  if (task === 'scan_scope') {
+    const { imageBase64, mimeType, subjectName } = payload
+    parts.push({ text:
+      `לפניך צילום של מיקוד למבחן (למשל מה שהמורה כתבה על הלוח או שלחה) במקצוע "${subjectName}". ` +
+      `תמלל/י ותסכם/י בעברית, בצורה מסודרת ותמציתית, מה נכלל במבחן — רשימת הנושאים והדגשים בלבד. ` +
+      HEB_RULE + ` החזר/י טקסט נקי בלבד (אפשר בנקודות), בלי הקדמה ובלי "שלום".` })
+    parts.push(img(imageBase64, mimeType))
+    return { parts, wantJson: false }
+  }
   return { parts: [{ text: 'unknown task' }], wantJson: false }
 }
 
@@ -183,6 +192,8 @@ export const generateQuestions = async (p) => {
 }
 export const explain = async (p) => deepClean(await call({ task: 'explain', ...p }))
 export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
+// קריאת צילום מיקוד המבחן (הלוח / מה שהמורה שלחה) → טקסט מסודר של מה שנכלל
+export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
 
 // סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
 export const topicSummary = async ({ subjectName, topicName, learner }) => {
