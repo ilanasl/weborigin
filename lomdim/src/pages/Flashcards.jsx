@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { GRAD } from '../lib/mastery'
 
 export default function Flashcards({ params }) {
   const { subjectId, subjectName } = params
@@ -22,6 +23,23 @@ export default function Flashcards({ params }) {
 
   const card = cards[i]
   const go = (d) => { setFlipped(false); setI((x) => (x + d + cards.length) % cards.length) }
+
+  async function rate(known) {
+    const c = card
+    const { data: ex } = await supabase.from('review_items')
+      .select('id, streak').eq('kind', 'flashcard').eq('ref_id', c.id).maybeSingle()
+    if (!known) {
+      // לא ידעתי → נכנס/מתאפס בלחיזוק
+      if (ex) await supabase.from('review_items').update({ streak: 0, updated_at: new Date().toISOString() }).eq('id', ex.id)
+      else await supabase.from('review_items').insert({ subject_id: subjectId, kind: 'flashcard', ref_id: c.id, streak: 0 })
+    } else if (ex) {
+      // ידעתי → מתקדם בעקומת הלמידה; אחרי GRAD יוצא מהחיזוק
+      const s = (ex.streak || 0) + 1
+      if (s >= GRAD) await supabase.from('review_items').delete().eq('id', ex.id)
+      else await supabase.from('review_items').update({ streak: s, updated_at: new Date().toISOString() }).eq('id', ex.id)
+    }
+    go(1)
+  }
 
   return (
     <div className="pt-2">
@@ -46,8 +64,12 @@ export default function Flashcards({ params }) {
       <div className="fc-count tnum">{i + 1} / {cards.length}</div>
 
       <div className="action-row">
-        <button className="btn" onClick={() => go(-1)}>→ הקודם</button>
-        <button className="btn btn-primary" onClick={() => go(1)}>הבא ←</button>
+        <button className="btn" style={{ color: 'var(--bad)', borderColor: 'color-mix(in srgb, var(--bad) 40%, var(--line))' }}
+          onClick={() => rate(false)}>😕 עדיין לא</button>
+        <button className="btn btn-primary" onClick={() => rate(true)}>✅ ידעתי</button>
+      </div>
+      <div className="text-center mt-2">
+        <button className="text-muted text-sm font-semibold" onClick={() => go(1)}>דלג ←</button>
       </div>
     </div>
   )

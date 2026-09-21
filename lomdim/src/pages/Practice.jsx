@@ -56,6 +56,13 @@ export default function Practice({ nav, params }) {
       question_id: q.id, topic_id: q.topic_id, subject_id: subjectId,
       correct: ok, difficulty: q.difficulty,
     })
+    // טעות → נכנס ל"לחיזוק" (streak מתאפס)
+    if (!ok) {
+      const { data: ex } = await supabase.from('review_items')
+        .select('id').eq('kind', 'question').eq('ref_id', q.id).maybeSingle()
+      if (ex) await supabase.from('review_items').update({ streak: 0, updated_at: new Date().toISOString() }).eq('id', ex.id)
+      else await supabase.from('review_items').insert({ subject_id: subjectId, kind: 'question', ref_id: q.id, streak: 0 })
+    }
   }
   function next() {
     if (idx >= queue.length - 1) { setDone(true); return }
