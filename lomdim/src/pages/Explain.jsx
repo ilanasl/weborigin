@@ -49,8 +49,8 @@ export default function Explain({ nav, params }) {
       const { answer } = await explain({ subjectName, context, question: q, learner: profile })
       const next = [...afterMe, { who: 'ai', text: answer || 'לא הצלחתי לענות, נסו לנסח אחרת.' }]
       setMsgs(next); persist(next)
-    } catch {
-      setMsgs((m) => [...m, { who: 'ai', text: 'משהו השתבש בחיבור. נסו שוב עוד רגע.' }])
+    } catch (e) {
+      setMsgs((m) => [...m, { who: 'ai', text: 'שגיאה: ' + String(e?.message || e).slice(0, 300) }])
     } finally { setBusy(false) }
   }
 
