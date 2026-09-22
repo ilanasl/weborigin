@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase'
 import { renikudQuestions } from '../lib/gemini'
 
 const stripN = (s) => String(s || '').replace(/[֑-ׇ]/g, '')
+// שלד עיצורים "קשה" — בלי ניקוד ובלי אימות קריאה (י/ו) — כדי לסבול כתיב מלא/חסר בין המקור למנוקד
+const skel = (s) => stripN(s).replace(/[יו]/g, '').replace(/\s+/g, ' ').trim()
 
 export default function Settings({ nav }) {
   const { user, profile, saveProfile } = useAuth()
@@ -40,10 +42,10 @@ export default function Settings({ nav }) {
           if (!it) continue
           // בטיחות פר-שדה: מיישמים ניקוד רק במקום שבו הטקסט זהה בדיוק (בלי ניקוד).
           // אם המודל שינה מילה/מסיח — פשוט משאירים את המקורי לאותו שדה. סדר האפשרויות ואינדקס התשובה נשמרים.
-          const newQ = (typeof it.q === 'string' && stripN(it.q) === stripN(orig.q)) ? it.q : orig.q
+          const newQ = (typeof it.q === 'string' && skel(it.q) === skel(orig.q)) ? it.q : orig.q
           const newChoices = (orig.choices || []).map((oc, idx) => {
             const nc = Array.isArray(it.choices) ? it.choices[idx] : null
-            return (typeof nc === 'string' && stripN(nc) === stripN(oc)) ? nc : oc
+            return (typeof nc === 'string' && skel(nc) === skel(oc)) ? nc : oc
           })
           const changed = newQ !== orig.q || newChoices.some((c, idx) => c !== orig.choices[idx])
           if (!changed) continue
