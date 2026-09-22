@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { explain } from '../lib/gemini'
+import { explain, classifyTopic } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
@@ -21,6 +21,7 @@ export default function Explain({ nav, params }) {
   const [topics, setTopics] = useState([])
   const [addIdx, setAddIdx] = useState(null)   // אינדקס ההודעה שמוסיפים ממנה לסיכומים
   const [addTopic, setAddTopic] = useState('')
+  const [detecting, setDetecting] = useState(false)
   const [saved, setSaved] = useState({})       // idx -> נוסף
   const endRef = useRef(null)
 
@@ -34,6 +35,16 @@ export default function Explain({ nav, params }) {
     supabase.from('topics').select('id, name').eq('subject_id', subjectId).order('created_at')
       .then(({ data }) => setTopics(data || []))
   }, [subjectId])
+
+  // פתיחת התפריט + זיהוי אוטומטי של הנושא המתאים
+  async function openAdd(i) {
+    setAddIdx(i); setAddTopic(topics[0]?.id || ''); setDetecting(true)
+    try {
+      const { topic } = await classifyTopic({ subjectName, text: msgs[i].text, knownTopics: topics.map((t) => t.name) })
+      const match = topics.find((t) => t.name === topic)
+      if (match) setAddTopic(match.id)
+    } catch { /* נשארים עם ברירת המחדל */ } finally { setDetecting(false) }
+  }
 
   async function saveSummary(i) {
     const topicId = addTopic || topics[0]?.id
@@ -133,18 +144,22 @@ export default function Explain({ nav, params }) {
               saved[i] ? (
                 <div className="text-good text-[12px] font-semibold mt-2">✓ נוסף לסיכומים של הנושא</div>
               ) : addIdx === i ? (
-                <div className="mt-2 pt-2 border-t border-line flex flex-wrap items-center gap-2">
-                  <span className="text-[12px] text-muted">לאיזה נושא?</span>
-                  <select className="field !py-1.5 !w-auto text-[13px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)}>
-                    {topics.length === 0 && <option value="">אין נושאים</option>}
-                    {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                  <button className="text-[12.5px] font-bold text-primary" onClick={() => saveSummary(i)} disabled={!topics.length}>שמור</button>
-                  <button className="text-[12.5px] font-semibold text-muted" onClick={() => setAddIdx(null)}>ביטול</button>
+                <div className="mt-2 pt-2 border-t border-line">
+                  <div className="text-[12px] text-muted mb-1.5">
+                    {detecting ? 'מזהה את הנושא… ✍️' : 'לשמור בנושא (אפשר לשנות):'}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select className="field !py-1.5 !w-auto text-[13px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)} disabled={detecting}>
+                      {topics.length === 0 && <option value="">אין נושאים</option>}
+                      {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button className="text-[12.5px] font-bold text-primary disabled:opacity-40" onClick={() => saveSummary(i)} disabled={detecting || !topics.length}>שמור</button>
+                    <button className="text-[12.5px] font-semibold text-muted" onClick={() => setAddIdx(null)}>ביטול</button>
+                  </div>
                 </div>
               ) : (
                 <button className="text-[12px] text-primary font-semibold mt-2 hover:underline"
-                  onClick={() => { setAddIdx(i); setAddTopic(topics[0]?.id || '') }}>➕ הוסף לסיכומים שלי</button>
+                  onClick={() => openAdd(i)}>➕ הוסף לסיכומים שלי</button>
               )
             )}
           </div>

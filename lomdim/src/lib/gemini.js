@@ -125,6 +125,14 @@ function buildParts(payload) {
       `\nהנתונים:\n${JSON.stringify(items)}` })
     return { parts, wantJson: true }
   }
+  if (task === 'classify_topic') {
+    const { subjectName, text, knownTopics = [] } = payload
+    parts.push({ text:
+      `במקצוע "${subjectName}" קיימים הנושאים הבאים: ${knownTopics.join(' | ')}. ` +
+      `לפניך סיכום/תשובה מתוך שיחה: """${String(text).slice(0, 1500)}""". ` +
+      `לאיזה נושא מהרשימה הוא שייך בעיקר? החזר/י JSON בלבד: {"topic":"<שם נושא אחד, בדיוק כפי שנכתב ברשימה>"}. בחר/י את המתאים ביותר, ואל תמציא/י שם חדש. ` + HEB_RULE })
+    return { parts, wantJson: true }
+  }
   if (task === 'tag_sentence') {
     const { subjectName, topicName, count = 6, mode = 'syntax', learner } = payload
     const isPos = mode === 'pos'
@@ -249,6 +257,8 @@ export const checkExercise = async (p) => deepClean(await call({ task: 'check_ex
 export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
+// זיהוי הנושא שאליו שייך טקסט (לשמירת סיכום מהצ'אט לנושא הנכון)
+export const classifyTopic = async (p) => deepClean(await call({ task: 'classify_topic', ...p }))
 // תרגיל ניתוח משפט / חלקי דיבר — משפטים עם תווית תפקיד לכל מילה
 export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
 // הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת
