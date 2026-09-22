@@ -109,10 +109,10 @@ export default function Settings({ nav }) {
 
       <div className="list-title">ניקוד שאלות קיימות</div>
       <div className="card">
-        <div className="text-[14px] mb-1 font-semibold">🔤 הוסף ניקוד לבניינים וצורות פועל</div>
+        <div className="text-[14px] mb-1 font-semibold">🔤 הוסף ניקוד לבניינים ולשם המספר</div>
         <div className="text-muted text-[13px] mb-3">
-          מעבר חד‑פעמי על השאלות הקיימות שמוסיף ניקוד לשמות בניינים/צורות פועל (למשל פָּעַל / פּוֹעֵל / פֻּעַל).
-          שומר את השאלות ואת כל ההיסטוריה — רק מוסיף ניקוד. שאלות חדשות כבר מגיעות מנוקדות.
+          מעבר חד‑פעמי שמוסיף ניקוד רק לשמות הבניינים (פָּעַל / פּוֹעֵל / פֻּעַל וכו') ולשם המספר (שְׁמוֹנָה מול שְׁמוֹנֶה) —
+          ולא נוגע במילים אחרות. שומר את השאלות ואת כל ההיסטוריה. שאלות חדשות כבר מגיעות מנוקדות.
         </div>
         <select className="field mb-2" value={nkSubj} onChange={(e) => setNkSubj(e.target.value)}>
           <option value="all">כל המקצועות</option>
