@@ -141,6 +141,20 @@ create table if not exists past_exams (
 alter table past_exams add column if not exists storage_path text;
 alter table past_exams add column if not exists analyzed boolean default false;
 
+-- ── תרגילי ניתוח משפט (נשמרים כדי שלא ייעלמו; ממשיכים מאיפה שעצרו) ──
+create table if not exists syntax_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  subject_id uuid not null references subjects on delete cascade,
+  topic_id uuid references topics on delete set null,
+  mode text default 'syntax',   -- 'syntax' | 'pos'
+  sentence text not null,
+  tokens jsonb not null,        -- [{"w":"מילה","role":"תפקיד"}]
+  explain text,
+  done boolean default false,
+  created_at timestamptz default now()
+);
+
 -- ── RLS — כל משתמש רואה ומנהל רק את השורות שלו ──
 -- (כתוב במפורש לכל טבלה כדי שירוץ חלק גם בעורך ה-SQL של Supabase)
 alter table profiles     enable row level security;
@@ -153,6 +167,7 @@ alter table attempts     enable row level security;
 alter table flashcards   enable row level security;
 alter table review_items enable row level security;
 alter table past_exams   enable row level security;
+alter table syntax_items enable row level security;
 
 drop policy if exists own_all on profiles;
 create policy own_all on profiles     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -174,6 +189,8 @@ drop policy if exists own_all on review_items;
 create policy own_all on review_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists own_all on past_exams;
 create policy own_all on past_exams   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on syntax_items;
+create policy own_all on syntax_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── אחסון תמונות ──
 insert into storage.buckets (id, name, public)
