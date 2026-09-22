@@ -35,7 +35,7 @@ export default function Subject({ nav, params }) {
     }
     setSubject(s)
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
-    setMaterials((mt || []).filter((m) => m.kind !== 'check'))
+    setMaterials((mt || []).filter((m) => m.kind !== 'check' && m.kind !== 'note'))
     setQCount(qc || 0); setFcCount(fc || 0); setRvCount(rc || 0)
     setLoading(false)
   }
