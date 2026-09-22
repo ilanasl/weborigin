@@ -2,6 +2,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Open+Sans:wght@400;600;700;800&family=Montserrat:wght@400;600;700;800;900&family=Poppins:wght@400;600;700;800&display=swap">
+<!-- PNG compression (pngquant-style, keeps PNG) so exports fit the weight cap without converting to JPG. Loaded from CDN; if unavailable the tool keeps the full PNG. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/upng-js@2.1.0/UPNG.js"></script>
 <style>
   :root{
     --bg:#0f1319; --panel:#161b23; --panel-2:#1d232d; --border:#2a323f;
@@ -863,15 +866,30 @@ async function encode(canvas,fmt,kb){
   for(let i=0;i<8;i++){const mid=(lo+hi)/2;const b=await toBlob(src,type,mid);if(b.size<=target){best=b;lo=mid;}else hi=mid;}
   return best;
 }
-// Encode honoring a KB cap. PNG is lossless (can't be squeezed): if a PNG would
-// exceed the cap, fall back to JPG that fits (photos look identical, Google-Ads-safe).
+// Fit a PNG under a KB cap while STAYING a PNG (pngquant-style, like TinyPNG):
+// try lossless first; if over the cap, quantise with UPNG at the highest colour
+// count that fits (dithered, so smooth gradients stay clean). Never converts to JPG.
+async function pngUnderCap(canvas,kb){
+  const loss=await toBlob(canvas,"image/png",undefined);
+  const target=kb?kb*1024:0;
+  if(!target || loss.size<=target) return { blob:loss, over:false };
+  if(typeof UPNG==="undefined" || typeof UPNG.encode!=="function") return { blob:loss, over:true };
+  let data;
+  try{ data=canvas.getContext("2d").getImageData(0,0,canvas.width,canvas.height).data.buffer; }
+  catch(_){ return { blob:loss, over:true }; }
+  let last=loss;
+  for(const cnum of [256,224,192,160,128,96,64,48,32,24,16]){
+    let b; try{ b=new Blob([UPNG.encode([data],canvas.width,canvas.height,cnum)],{type:"image/png"}); }catch(_){ continue; }
+    last=b;
+    if(b.size<=target) return { blob:b, over:false };
+  }
+  return { blob:last, over:last.size>target };
+}
+// Encode honoring a KB cap. PNG stays PNG (compressed to fit); JPG/WebP use quality search.
 async function encodeCapped(canvas,fmt,kb){
-  if(!kb) return { blob:await encode(canvas,fmt,0), fmt, fell:false };
   if(fmt!=="png") return { blob:await encode(canvas,fmt,kb), fmt, fell:false };
-  const png=await encode(canvas,"png",0);
-  // Always keep PNG — never auto-convert to JPG. The weight is just a target;
-  // `over` flags when a PNG is above it, but the file stays a real PNG.
-  return { blob:png, fmt:"png", fell:false, over:png.size>kb*1024 };
+  const r=await pngUnderCap(canvas,kb);
+  return { blob:r.blob, fmt:"png", fell:false, over:r.over };
 }
 function extOf(fmt){return fmt==="jpeg"?"jpg":fmt;}
 let downloadsCap=null;
