@@ -398,6 +398,12 @@ function getAccent(img){try{const c=document.createElement("canvas");c.width=24;
 // A dark, on-hue version of a color — used to tint the overlay to match the image.
 function darken(hex,tv){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return null;const n=parseInt(m[1],16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const mx=Math.max(r,g,b)||1;const k=(tv||58)/mx;r=Math.min(255,r*k)|0;g=Math.min(255,g*k)|0;b=Math.min(255,b*k)|0;return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function tintFromImage(img){return darken(getAccent(img),58);}
+function hexLum(hex){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return 0;const n=parseInt(m[1],16);return (0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;}
+// A soft pastel version of a colour (blended toward white) — for a light panel with dark text.
+function paleTint(hex,amt){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return "#ffffff";const n=parseInt(m[1],16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const k=(amt==null?0.8:amt);r=Math.round(r+(255-r)*k);g=Math.round(g+(255-g)*k);b=Math.round(b+(255-b)*k);return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");}
+// Auto-tint from the image: a soft PALE tint when the panel is light (dark text),
+// a clean DARK tint when the panel is dark (light text). Harmonizes, never muddy.
+function autoTint(img,baseColor){if(!img)return baseColor;const acc=getAccent(img);return hexLum(baseColor)>=0.6?paleTint(acc,0.8):darken(acc,58);}
 function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   over=over||{};
   const dim=tpl.sizes[size];const canvas=document.createElement("canvas");canvas.width=dim.w;canvas.height=dim.h;const ctx=canvas.getContext("2d");
@@ -416,7 +422,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
-  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&tint)?tint:s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
+  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&image)?autoTint(image,ovl.color):s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
