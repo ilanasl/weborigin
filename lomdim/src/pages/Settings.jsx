@@ -37,15 +37,17 @@ export default function Settings({ nav }) {
         const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
         for (const orig of batch) {
           const it = byId[String(orig.id)]
-          if (!it || !Array.isArray(it.choices)) continue
-          // בטיחות: מיישמים רק שינוי ניקוד טהור — אותו טקסט בדיוק (בלי ניקוד), באותו סדר.
-          const qOk = stripN(it.q) === stripN(orig.q)
-          const cOk = it.choices.length === orig.choices.length &&
-            it.choices.every((c, idx) => stripN(c) === stripN(orig.choices[idx]))
-          if (!qOk || !cOk) continue
-          // דילוג אם אין בכלל שינוי
-          if (it.q === orig.q && JSON.stringify(it.choices) === JSON.stringify(orig.choices)) continue
-          await supabase.from('questions').update({ q: it.q, choices: it.choices }).eq('id', orig.id)
+          if (!it) continue
+          // בטיחות פר-שדה: מיישמים ניקוד רק במקום שבו הטקסט זהה בדיוק (בלי ניקוד).
+          // אם המודל שינה מילה/מסיח — פשוט משאירים את המקורי לאותו שדה. סדר האפשרויות ואינדקס התשובה נשמרים.
+          const newQ = (typeof it.q === 'string' && stripN(it.q) === stripN(orig.q)) ? it.q : orig.q
+          const newChoices = (orig.choices || []).map((oc, idx) => {
+            const nc = Array.isArray(it.choices) ? it.choices[idx] : null
+            return (typeof nc === 'string' && stripN(nc) === stripN(oc)) ? nc : oc
+          })
+          const changed = newQ !== orig.q || newChoices.some((c, idx) => c !== orig.choices[idx])
+          if (!changed) continue
+          await supabase.from('questions').update({ q: newQ, choices: newChoices }).eq('id', orig.id)
           updated++
         }
       } catch { /* מדלגים על מנה שנכשלה */ }
