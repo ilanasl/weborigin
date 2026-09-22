@@ -111,6 +111,16 @@ function buildParts(payload) {
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: false }
   }
+  if (task === 'renikud') {
+    const { items } = payload  // [{id, q, choices:[...]}]
+    parts.push({ text:
+      `לפניך שאלות אמריקאיות בלשון עברית (בפורמט JSON). הוסף/י ניקוד מלא אך ורק לשמות בניינים ולצורות פועל שמופיעות בהן ` +
+      `(פָּעַל, נִפְעַל, פִּעֵל, פֻּעַל, הִפְעִיל, הֻפְעַל, הִתְפַּעֵל, וכן צורות פועל שהניקוד שלהן חשוב) — גם בשאלה וגם בכל אפשרויות התשובה. ` +
+      `אל תשנה/י שום דבר אחר: לא ניסוח, לא סדר המילים, לא סדר האפשרויות, לא מילים. אם בשאלה אין בניין/צורת פועל — החזר/י אותה בדיוק כפי שהיא. ` +
+      `החזר/י JSON באותו מבנה בדיוק, עם אותם ה-id: {"items":[{"id":"","q":"","choices":["","","",""]}]}. ` + HEB_RULE +
+      `\nהנתונים:\n${JSON.stringify(items)}` })
+    return { parts, wantJson: true }
+  }
   if (task === 'tag_sentence') {
     const { subjectName, topicName, count = 6, mode = 'syntax', learner } = payload
     const isPos = mode === 'pos'
@@ -237,6 +247,8 @@ export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope',
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
 // תרגיל ניתוח משפט / חלקי דיבר — משפטים עם תווית תפקיד לכל מילה
 export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
+// הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת
+export const renikudQuestions = async (items) => deepClean(await call({ task: 'renikud', items }))
 
 // סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
 export const topicSummary = async ({ subjectName, topicName, learner }) => {

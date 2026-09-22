@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { renikudQuestions } from '../lib/gemini'
+
+const stripN = (s) => String(s || '').replace(/[֑-ׇ]/g, '')
 
 export default function Settings({ nav }) {
   const { user, profile, saveProfile } = useAuth()
@@ -8,6 +11,48 @@ export default function Settings({ nav }) {
   const [gender, setGender] = useState(profile?.gender || 'בן')
   const [busy, setBusy] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [subjects, setSubjects] = useState([])
+  const [nkSubj, setNkSubj] = useState('all')
+  const [nkBusy, setNkBusy] = useState(false)
+  const [nkNote, setNkNote] = useState('')
+
+  useEffect(() => {
+    supabase.from('subjects').select('id, name').order('created_at').then(({ data }) => setSubjects(data || []))
+  }, [])
+
+  async function addNikud() {
+    if (!window.confirm('להוסיף ניקוד לשמות בניינים וצורות פועל בשאלות הקיימות?\nזה משתמש ב-AI (עלות קטנה חד-פעמית). ההיסטוריה נשמרת.')) return
+    setNkBusy(true); setNkNote('טוען שאלות…')
+    let q = supabase.from('questions').select('id, q, choices')
+    if (nkSubj !== 'all') q = q.eq('subject_id', nkSubj)
+    const { data } = await q
+    const all = data || []
+    let updated = 0
+    const CH = 15
+    for (let i = 0; i < all.length; i += CH) {
+      const batch = all.slice(i, i + CH).map((x) => ({ id: x.id, q: x.q, choices: x.choices }))
+      setNkNote(`מנקד… ${Math.min(i + CH, all.length)}/${all.length}`)
+      try {
+        const { items } = await renikudQuestions(batch)
+        const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
+        for (const orig of batch) {
+          const it = byId[String(orig.id)]
+          if (!it || !Array.isArray(it.choices)) continue
+          // בטיחות: מיישמים רק שינוי ניקוד טהור — אותו טקסט בדיוק (בלי ניקוד), באותו סדר.
+          const qOk = stripN(it.q) === stripN(orig.q)
+          const cOk = it.choices.length === orig.choices.length &&
+            it.choices.every((c, idx) => stripN(c) === stripN(orig.choices[idx]))
+          if (!qOk || !cOk) continue
+          // דילוג אם אין בכלל שינוי
+          if (it.q === orig.q && JSON.stringify(it.choices) === JSON.stringify(orig.choices)) continue
+          await supabase.from('questions').update({ q: it.q, choices: it.choices }).eq('id', orig.id)
+          updated++
+        }
+      } catch { /* מדלגים על מנה שנכשלה */ }
+    }
+    setNkBusy(false)
+    setNkNote(`✓ הסתיים — ${updated} שאלות נוקדו${all.length ? ` (מתוך ${all.length})` : ''}.`)
+  }
 
   async function save() {
     if (!name.trim()) return
@@ -60,6 +105,23 @@ export default function Settings({ nav }) {
         <button className="btn btn-primary btn-wide" onClick={save} disabled={busy || !name.trim()}>
           {busy ? 'שומר…' : 'שמור'}
         </button>
+      </div>
+
+      <div className="list-title">ניקוד שאלות קיימות</div>
+      <div className="card">
+        <div className="text-[14px] mb-1 font-semibold">🔤 הוסף ניקוד לבניינים וצורות פועל</div>
+        <div className="text-muted text-[13px] mb-3">
+          מעבר חד‑פעמי על השאלות הקיימות שמוסיף ניקוד לשמות בניינים/צורות פועל (למשל פָּעַל / פּוֹעֵל / פֻּעַל).
+          שומר את השאלות ואת כל ההיסטוריה — רק מוסיף ניקוד. שאלות חדשות כבר מגיעות מנוקדות.
+        </div>
+        <select className="field mb-2" value={nkSubj} onChange={(e) => setNkSubj(e.target.value)}>
+          <option value="all">כל המקצועות</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <button className="btn btn-wide" onClick={addNikud} disabled={nkBusy}>
+          {nkBusy ? 'מנקד…' : '🔤 נקד שאלות קיימות'}
+        </button>
+        {nkNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: nkBusy ? 'var(--muted)' : 'var(--good)' }}>{nkNote}</div>}
       </div>
 
       <div className="list-title">איפוס</div>
