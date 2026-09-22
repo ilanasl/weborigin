@@ -597,7 +597,7 @@ TEMPLATES.forEach(tpl=>{
   card.innerHTML=`
     <div class="card-h">
       <input type="checkbox" class="c-sel">
-      <span class="card-title">${d.w}×${d.h}</span>
+      <span class="card-title">${d.w}×${d.h} · 📱 ${m.w}×${m.h}</span>
       <span class="card-name">${tpl.name}</span>
     </div>
     <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
