@@ -8,6 +8,7 @@ export default function TopicSummary({ nav, params }) {
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
   const [summary, setSummary] = useState(null)
+  const [notes, setNotes] = useState([])
   const [sourceText, setSourceText] = useState(null)
   const [showSource, setShowSource] = useState(false)
   const [qCount, setQCount] = useState(0)
@@ -59,17 +60,28 @@ export default function TopicSummary({ nav, params }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: mats }, { data: src }, { count }] = await Promise.all([
-      supabase.from('materials').select('summary_md, created_at').eq('topic_id', topicId)
+    const [{ data: mats }, { data: notesData }, { data: src }, { count }] = await Promise.all([
+      // הסיכום הראשי — לא כולל סיכומים שנוספו מהצ'אט (kind='note')
+      supabase.from('materials').select('summary_md, created_at').eq('topic_id', topicId).neq('kind', 'note')
         .not('summary_md', 'is', null).order('created_at', { ascending: false }).limit(1),
+      // סיכומים שהוספתי (מהצ'אט) — קבועים, נפרדים
+      supabase.from('materials').select('id, title, summary_md, created_at').eq('topic_id', topicId).eq('kind', 'note')
+        .order('created_at', { ascending: false }),
       supabase.from('materials').select('source_text').eq('topic_id', topicId)
         .not('source_text', 'is', null).order('created_at', { ascending: false }).limit(1),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topicId),
     ])
     setSummary(mats?.[0]?.summary_md || null)
+    setNotes(notesData || [])
     setSourceText(src?.[0]?.source_text || null)
     setQCount(count || 0)
     setLoading(false)
+  }
+
+  async function deleteNote(id) {
+    if (!window.confirm('להסיר את הסיכום הזה?')) return
+    await supabase.from('materials').delete().eq('id', id)
+    await load()
   }
   useEffect(() => { load() }, [topicId])
 
@@ -197,6 +209,23 @@ export default function TopicSummary({ nav, params }) {
       )}
 
       {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
+
+      {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
+      {notes.length > 0 && (
+        <>
+          <div className="list-title">סיכומים שהוספתי</div>
+          {notes.map((n) => (
+            <div key={n.id} className="card mb-3">
+              <div className="flex items-start gap-2 mb-1">
+                <div className="flex-1 font-extrabold text-[15px]">📝 {n.title || 'סיכום'}</div>
+                <button onClick={() => deleteNote(n.id)} title="הסר סיכום"
+                  className="text-[15px]" style={{ color: 'var(--bad)' }}>🗑</button>
+              </div>
+              <div className="text-[14.5px] leading-relaxed"><Markdown text={n.summary_md} /></div>
+            </div>
+          ))}
+        </>
+      )}
 
       <div className="action-row mt-3">
         <button className="btn" onClick={generate} disabled={busy}>

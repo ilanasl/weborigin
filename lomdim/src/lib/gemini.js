@@ -125,6 +125,15 @@ function buildParts(payload) {
       `\nהנתונים:\n${JSON.stringify(items)}` })
     return { parts, wantJson: true }
   }
+  if (task === 'prep_note') {
+    const { subjectName, text, knownTopics = [] } = payload
+    parts.push({ text:
+      `במקצוע "${subjectName}" קיימים הנושאים: ${knownTopics.join(' | ')}. ` +
+      `לפניך תשובה מתוך שיחה: """${String(text).slice(0, 3000)}""". ` +
+      `החזר/י JSON: {"topic":"<שם נושא אחד בדיוק מהרשימה שאליו זה שייך>","title":"<כותרת קצרה (2-5 מילים) על מה הסיכום>","summary_md":"<הסיכום עצמו ב-Markdown נקי>"}. ` +
+      `ב-summary_md: שמור/י על התוכן, הטבלאות והנקודות — אבל הסר/י כל פנייה אישית, שם פרטי, פתיחות ("בטח", "יופי") ושאלות של צ'אט ("רוצה ש..."). רק הסיכום העובדתי. ` + HEB_RULE })
+    return { parts, wantJson: true }
+  }
   if (task === 'classify_topic') {
     const { subjectName, text, knownTopics = [] } = payload
     parts.push({ text:
@@ -259,6 +268,8 @@ export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope',
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
 // זיהוי הנושא שאליו שייך טקסט (לשמירת סיכום מהצ'אט לנושא הנכון)
 export const classifyTopic = async (p) => deepClean(await call({ task: 'classify_topic', ...p }))
+// הכנת סיכום נקי מהצ'אט: מזהה נושא, יוצר כותרת קצרה, ומנקה פנייה אישית/צ'אט
+export const prepNote = async (p) => deepClean(await call({ task: 'prep_note', ...p }))
 // תרגיל ניתוח משפט / חלקי דיבר — משפטים עם תווית תפקיד לכל מילה
 export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
 // הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת

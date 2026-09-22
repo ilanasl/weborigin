@@ -44,7 +44,7 @@ export default function Home({ nav }) {
         ...s,
         ready: readiness(Object.values(byTopic)),
         nTopics: (tp || []).filter((t) => t.subject_id === s.id).length,
-        nMaterials: (mt || []).filter((m) => m.subject_id === s.id && m.kind !== 'check').length,
+        nMaterials: (mt || []).filter((m) => m.subject_id === s.id && m.kind !== 'check' && m.kind !== 'note').length,
         exams,
         examDays: exams[0]?.days ?? null,
       }

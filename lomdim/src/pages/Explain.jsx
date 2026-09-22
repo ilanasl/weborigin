@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { explain, classifyTopic } from '../lib/gemini'
+import { explain, prepNote } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
@@ -22,6 +22,7 @@ export default function Explain({ nav, params }) {
   const [addIdx, setAddIdx] = useState(null)   // אינדקס ההודעה שמוסיפים ממנה לסיכומים
   const [addTopic, setAddTopic] = useState('')
   const [detecting, setDetecting] = useState(false)
+  const [prep, setPrep] = useState({ title: '', summary_md: '' })
   const [saved, setSaved] = useState({})       // idx -> נוסף
   const endRef = useRef(null)
 
@@ -36,23 +37,24 @@ export default function Explain({ nav, params }) {
       .then(({ data }) => setTopics(data || []))
   }, [subjectId])
 
-  // פתיחת התפריט + זיהוי אוטומטי של הנושא המתאים
+  // פתיחת התפריט + זיהוי נושא, כותרת נקייה וסיכום מנוקה
   async function openAdd(i) {
-    setAddIdx(i); setAddTopic(topics[0]?.id || ''); setDetecting(true)
+    setAddIdx(i); setAddTopic(topics[0]?.id || ''); setPrep({ title: '', summary_md: '' }); setDetecting(true)
     try {
-      const { topic } = await classifyTopic({ subjectName, text: msgs[i].text, knownTopics: topics.map((t) => t.name) })
+      const { topic, title, summary_md } = await prepNote({ subjectName, text: msgs[i].text, knownTopics: topics.map((t) => t.name) })
       const match = topics.find((t) => t.name === topic)
       if (match) setAddTopic(match.id)
+      setPrep({ title: title || '', summary_md: summary_md || '' })
     } catch { /* נשארים עם ברירת המחדל */ } finally { setDetecting(false) }
   }
 
   async function saveSummary(i) {
     const topicId = addTopic || topics[0]?.id
     if (!topicId) return
-    const topicName = topics.find((t) => t.id === topicId)?.name || ''
     await supabase.from('materials').insert({
-      subject_id: subjectId, topic_id: topicId, title: `סיכום מהשיחה — ${topicName}`,
-      kind: 'text', summary_md: msgs[i].text,
+      subject_id: subjectId, topic_id: topicId,
+      title: prep.title || 'סיכום', kind: 'note',
+      summary_md: prep.summary_md || msgs[i].text,
     })
     setSaved((s) => ({ ...s, [i]: true })); setAddIdx(null)
   }
