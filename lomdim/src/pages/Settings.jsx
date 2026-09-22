@@ -7,6 +7,18 @@ const stripN = (s) => String(s || '').replace(/[֑-ׇ]/g, '')
 // שלד עיצורים "קשה" — בלי ניקוד ובלי אימות קריאה (י/ו) — כדי לסבול כתיב מלא/חסר בין המקור למנוקד
 const skel = (s) => stripN(s).replace(/[יו]/g, '').replace(/\s+/g, ' ').trim()
 
+// זיהוי מועמדות לניקוד: עוד לא מנוקדות + מכילות שם בניין או מילת מספר
+const HAS_NIKUD = /[ְ-ׇּׁׂ]/
+const BINYANIM = ['פעל', 'נפעל', 'פיעל', 'פועל', 'הפעיל', 'הופעל', 'התפעל']
+const NUMWORDS = ['אחד', 'אחת', 'שתי', 'שתיים', 'שניים', 'שלוש', 'שלושה', 'ארבע', 'ארבעה', 'חמש', 'חמישה',
+  'שש', 'שישה', 'שבע', 'שבעה', 'שמונה', 'תשע', 'תשעה', 'עשר', 'עשרה', 'עשרים', 'שלושים', 'ארבעים', 'חמישים', 'מאה', 'מאתיים', 'אלף']
+function isNikudCandidate(row) {
+  const txt = [row.q, ...(row.choices || [])].join(' ')
+  if (HAS_NIKUD.test(txt)) return false // כבר מנוקד — לא שולחים שוב
+  const words = txt.split(/\s+/).map((w) => w.replace(/[^֐-׿]/g, ''))
+  return words.some((w) => BINYANIM.includes(w)) || words.some((w) => NUMWORDS.includes(w))
+}
+
 export default function Settings({ nav }) {
   const { user, profile, saveProfile } = useAuth()
   const [name, setName] = useState(profile?.name || '')
@@ -28,7 +40,9 @@ export default function Settings({ nav }) {
     let q = supabase.from('questions').select('id, q, choices')
     if (nkSubj !== 'all') q = q.eq('subject_id', nkSubj)
     const { data } = await q
-    const all = data || []
+    // רק שאלות שעוד לא מנוקדות ושמכילות בניין/מספר — חוסך קרדיטים ולא רץ מחדש על הכל
+    const all = (data || []).filter(isNikudCandidate)
+    if (!all.length) { setNkBusy(false); setNkNote('✓ אין שאלות חדשות לניקוד — הכול מעודכן.'); return }
     let updated = 0
     const CH = 15
     for (let i = 0; i < all.length; i += CH) {
@@ -117,6 +131,7 @@ export default function Settings({ nav }) {
         <div className="text-muted text-[13px] mb-3">
           מעבר חד‑פעמי שמוסיף ניקוד רק לשמות הבניינים (פָּעַל / פּוֹעֵל / פֻּעַל וכו') ולשם המספר (שְׁמוֹנָה מול שְׁמוֹנֶה) —
           ולא נוגע במילים אחרות. שומר את השאלות ואת כל ההיסטוריה. שאלות חדשות כבר מגיעות מנוקדות.
+          רץ רק על שאלות שעוד לא מנוקדות ושמכילות בניין/מספר — אפשר להריץ שוב בלי לבזבז קרדיטים.
         </div>
         <select className="field mb-2" value={nkSubj} onChange={(e) => setNkSubj(e.target.value)}>
           <option value="all">כל המקצועות</option>
