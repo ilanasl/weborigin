@@ -35,32 +35,37 @@ export default function ExamBoard({ nav }) {
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
-  // מבחנים קרובים (יש תאריך, בעתיד או היום)
+  // מבחנים קרובים — לכל מקצוע עד שניים (מבחן מסכם + מבדק), בעתיד או היום
   const exams = subjects
-    .map((s) => ({ ...s, off: offsetOf(s.exam_date) }))
-    .filter((s) => s.exam_date && s.off >= 0)
+    .flatMap((s) => [
+      { s, kind: 'מבחן מסכם', date: s.exam_date },
+      { s, kind: 'מבדק', date: s.quiz_date },
+    ])
+    .map((e) => ({ ...e, off: offsetOf(e.date) }))
+    .filter((e) => e.date && e.off >= 0)
     .sort((a, b) => a.off - b.off)
 
-  const noDate = subjects.filter((s) => !s.exam_date)
+  const noDate = subjects.filter((s) => !s.exam_date && !s.quiz_date)
 
   // בניית לו"ז משולב: כל מבחן מחלק את הנושאים החלשים שלו על חלון הלמידה שלו
   const dayMap = {} // offset -> [entry]
   const add = (off, entry) => { (dayMap[off] ||= []).push(entry) }
 
-  for (const s of exams) {
-    const kind = s.exam_kind || 'מבחן מסכם'
+  for (const e of exams) {
+    const s = e.s
+    const kind = e.kind
     const lead = LEAD_DEFAULT[kind] || 8
     const base = { subjectId: s.id, subjectName: s.name, color: s.color, bg: s.bg, kind }
     // יום המבחן + יום חזרה לפני
-    add(s.off, { ...base, exam: true })
-    if (s.off >= 2) add(s.off - 1, { ...base, review: true })
+    add(e.off, { ...base, exam: true })
+    if (e.off >= 2) add(e.off - 1, { ...base, review: true })
     // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. חלשים קודם.
     const all = (topicsBySubj[s.id] || []).map((t) => ({ ...t, m: mastery(byTopicSubj[t.id] || []) }))
     const inExam = all.filter((t) => t.in_exam)
     const ordered = (inExam.length ? inExam : all).sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
-    const startIn = Math.max(1, s.off - lead)
+    const startIn = Math.max(1, e.off - lead)
     const studyOffsets = []
-    for (let d = startIn; d <= s.off - 2; d++) studyOffsets.push(d)
+    for (let d = startIn; d <= e.off - 2; d++) studyOffsets.push(d)
     if (ordered.length === 0) {
       if (studyOffsets.length) add(studyOffsets[0], { ...base, noMaterial: true })
       continue
@@ -92,19 +97,19 @@ export default function ExamBoard({ nav }) {
         </div>
       ) : (
         <div className="card mb-3">
-          {exams.map((s) => (
-            <button key={s.id} onClick={() => nav.go('planner', { subjectId: s.id, subjectName: s.name })}
+          {exams.map((e) => (
+            <button key={e.s.id + e.kind} onClick={() => nav.go('planner', { subjectId: e.s.id, subjectName: e.s.name })}
               className="flex items-center gap-3 w-full text-start py-2.5 border-b border-line last:border-0">
               <div className="w-9 h-9 rounded-[11px] grid place-items-center font-black flex-none"
-                style={{ background: s.bg, color: s.color }}>{s.name.charAt(0)}</div>
+                style={{ background: e.s.bg, color: e.s.color }}>{e.s.name.charAt(0)}</div>
               <div className="flex-1 min-w-0">
-                <div className="text-[14.5px] font-semibold truncate">{s.name}</div>
+                <div className="text-[14.5px] font-semibold truncate">{e.s.name}</div>
                 <div className="text-[12px] text-muted">
-                  {s.exam_kind || 'מבחן'} · {new Date(s.exam_date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  {e.kind} · {new Date(e.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </div>
               </div>
-              <span className={`exam-chip ${s.off > 7 ? 'calm' : ''}`}>
-                {s.off === 0 ? 'היום' : s.off === 1 ? 'מחר' : `בעוד ${s.off} ימים`}
+              <span className={`exam-chip ${e.off > 7 ? 'calm' : ''}`}>
+                {e.off === 0 ? 'היום' : e.off === 1 ? 'מחר' : `בעוד ${e.off} ימים`}
               </span>
             </button>
           ))}

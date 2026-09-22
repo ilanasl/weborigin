@@ -36,12 +36,17 @@ export default function Home({ nav }) {
           correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime(),
         })
       }
+      const exams = [
+        { kind: 'מבחן מסכם', days: daysUntil(s.exam_date) },
+        { kind: 'מבדק', days: daysUntil(s.quiz_date) },
+      ].filter((x) => x.days != null && x.days >= 0).sort((a, b) => a.days - b.days)
       return {
         ...s,
         ready: readiness(Object.values(byTopic)),
         nTopics: (tp || []).filter((t) => t.subject_id === s.id).length,
         nMaterials: (mt || []).filter((m) => m.subject_id === s.id && m.kind !== 'check').length,
-        examDays: daysUntil(s.exam_date),
+        exams,
+        examDays: exams[0]?.days ?? null,
       }
     })
     setSubjects(list)
@@ -94,11 +99,13 @@ export default function Home({ nav }) {
               onClick={() => nav.go('subject', { id: s.id })}>
               <h3>{s.name}</h3>
               <div className="meta">{s.nTopics} נושאים · {s.nMaterials} חומרים</div>
-              {s.examDays != null && s.examDays >= 0 && (
+              {s.exams.length > 0 && (
                 <div className="card-chips">
-                  <span className={`exam-chip ${s.examDays > 7 ? 'calm' : ''}`}>
-                    {s.examDays === 0 ? `${s.exam_kind || 'מבחן'} היום` : `${s.exam_kind || 'מבחן'} בעוד ${s.examDays} ימים`}
-                  </span>
+                  {s.exams.map((ex) => (
+                    <span key={ex.kind} className={`exam-chip ${ex.days > 7 ? 'calm' : ''}`}>
+                      {ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`}
+                    </span>
+                  ))}
                 </div>
               )}
               <div className="tile-sp" />
