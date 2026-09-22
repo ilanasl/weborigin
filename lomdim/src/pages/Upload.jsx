@@ -73,7 +73,7 @@ export default function Upload({ nav, params }) {
     } catch (e) {
       const msg = String(e)
       setErr(msg.includes('parse_failed')
-        ? 'Gemini החזיר תשובה שלא הצלחנו לקרוא. נסו שוב, או צלמו את הדף בתאורה טובה יותר / חד יותר.'
+        ? 'המערכת החזירה תשובה שלא הצלחנו לקרוא. נסו שוב, או צלמו את הדף בתאורה טובה יותר / חד יותר.'
         : 'הניתוח נכשל. ודאו חיבור לאינטרנט ושמפתח ה-API מוגדר. ' + msg)
     } finally { setBusy(false) }
   }
@@ -160,7 +160,7 @@ export default function Upload({ nav, params }) {
 
         {!result && (
           <button className="btn btn-primary btn-wide mt-4" onClick={analyze} disabled={!file || busy}>
-            {busy ? 'מנתח…' : 'נתח עם Gemini'}
+            {busy ? 'מנתח…' : 'נתח חומר'}
           </button>
         )}
         {err && <div className="text-bad text-[13.5px] mt-3 leading-relaxed">{err}</div>}

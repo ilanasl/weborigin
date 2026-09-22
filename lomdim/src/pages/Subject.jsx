@@ -35,7 +35,7 @@ export default function Subject({ nav, params }) {
     }
     setSubject(s)
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
-    setMaterials(mt || [])
+    setMaterials((mt || []).filter((m) => m.kind !== 'check'))
     setQCount(qc || 0); setFcCount(fc || 0); setRvCount(rc || 0)
     setLoading(false)
   }
@@ -55,6 +55,8 @@ export default function Subject({ nav, params }) {
   // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
   const hasExam = examDays != null && examDays >= 0
   const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
+  // תרגיל ניתוח משפט רלוונטי ללשון/עברית/דקדוק
+  const isLang = /עברית|לשון|דקדוק|תחביר/.test(name || '')
 
   const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
 
@@ -99,22 +101,15 @@ export default function Subject({ nav, params }) {
         </div>
       </div>
 
-      {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
-      {needsMaterial && (
-        <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
-          className="w-full text-start rounded-[16px] p-3.5 mb-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
-          style={{ background: 'var(--accent-soft)', color: 'color-mix(in srgb,var(--accent) 80%,#7a4b00)' }}>
-          <span className="text-[17px] leading-none">📤</span>
-          <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו ›</span>
-        </button>
-      )}
-
       {/* מודולים */}
       <div className="action-row">
         {fcCount > 0 && (
           <button className="btn" onClick={() => nav.go('flashcards', { subjectId: id, subjectName: name })}>🃏 כרטיסיות</button>
         )}
         <button className="btn" onClick={() => nav.go('check', { subjectId: id, subjectName: name })}>📷 בדוק תרגיל שפתרתי</button>
+        {isLang && (
+          <button className="btn" onClick={() => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' })}>🧩 ניתוח משפט</button>
+        )}
         <button className="btn" onClick={() => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md })}>💬 תסביר לי</button>
         <button className="btn" onClick={() => nav.go('reinforce', { subjectId: id, subjectName: name })}>
           📓 לחיזוק{rvCount > 0 ? ` (${rvCount})` : ''}
@@ -126,6 +121,16 @@ export default function Subject({ nav, params }) {
           🗂️ מבחנים שעברו
         </button>
       </div>
+
+      {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
+      {needsMaterial && (
+        <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
+          className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
+          style={{ background: 'var(--accent-soft)', color: 'color-mix(in srgb,var(--accent) 80%,#7a4b00)' }}>
+          <span className="text-[17px] leading-none">📤</span>
+          <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו ›</span>
+        </button>
+      )}
 
       {/* נושאים */}
       <div className="list-title">הנושאים שלי</div>

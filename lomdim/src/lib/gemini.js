@@ -14,7 +14,7 @@ const FN_URL =
 
 // כללים שחוזרים בכמה משימות
 const HEB_RULE = 'כתוב אך ורק בעברית תקינה. מותר אנגלית רק כשהיא חלק מהמקצוע. חל איסור מוחלט על אותיות משפות אחרות — במיוחד ערבית, וגם רוסית, גאורגית או יוונית. בלי LaTeX ובלי פקודות: אל תשתמש ב-$...$ או ב-\\leftarrow וכדומה; חץ כותבים ← או →.'
-const VARY_RULE = 'פזר/י את התשובה הנכונה בין המיקומים — לא תמיד האפשרות הראשונה.'
+const VARY_RULE = 'חשוב מאוד — מיקום התשובה הנכונה: פזר/י את התשובה הנכונה באקראי בין המיקומים (ראשון/שני/שלישי/רביעי). אסור שהתשובה הנכונה תהיה תמיד או ברוב השאלות באותו מיקום, ובפרט לא תמיד הראשונה. בסדרה של שאלות ודא/י שהאינדקס answer מגוון — חלק 0, חלק 1, חלק 2, חלק 3.'
 // שפה מותאמת גיל: פשוטה, חברית, בגובה העיניים
 const TONE_RULE = 'כתוב/י בשפה פשוטה ובגובה העיניים, חברית ומזמינה — כמו אח/ות גדול/ה שמסביר/ה, לא כמו מורה מרוחק/ת. בלי מילים גבוהות או מליציות; אם צריך מונח מקצועי, הסבר/י אותו מייד במילים פשוטות. משפטים קצרים וברורים.'
 // ניקוד רק היכן שההגייה מבדילה בין אפשרויות
@@ -111,6 +111,20 @@ function buildParts(payload) {
     parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: false }
   }
+  if (task === 'tag_sentence') {
+    const { subjectName, topicName, count = 6, mode = 'syntax', learner } = payload
+    const isPos = mode === 'pos'
+    const roles = isPos ? '"פועל", "שם עצם", "שם תואר", "מילת קישור"' : '"נושא", "נשוא", "מושא", "לוואי", "תיאור"'
+    const rules = isPos
+      ? `לכל מילה — חלק הדיבר שלה. פועל: פעולה שאפשר להטות בזמן. שם עצם: אדם/חפץ/מקום/מושג (בד"כ אפשר ה' הידיעה). שם תואר: מתאר שם עצם ("איזה?"). מילות יחס/קישור/מ"ש → "מילת קישור".`
+      : `שיטה: קודם הנשוא (הפעולה), אז הנושא (מי?), ואז המשלימים. נשוא מורחב (שני פעלים/פועל+שם פועל) — שתי המילים "נשוא". מילת יחס נצמדת לתפקיד הצירוף ("את החשוד" → שתיהן "מושא"; "במעבדה" → "תיאור"; לוואי = מתאר שם עצם: "איזה?/של מי?/כמה?").`
+    parts.push({ text:
+      `צור/י ${count} משפטים פשוטים בעברית לתרגול ${isPos ? 'זיהוי חלקי הדיבר' : 'ניתוח תחבירי'} לכיתה ט'${topicName ? ` (נושא: ${topicName})` : ''}. ` +
+      `לכל משפט פרק/י אותו למילים לפי הסדר, ולכל מילה קבע/י תווית מתוך: ${roles} בלבד. ${rules} ` +
+      `החזר/י JSON: {"items":[{"sentence":"המשפט המלא","tokens":[{"w":"מילה","role":"תווית"}],"explain":"משפט הסבר קצר על החלוקה"}]}. ` +
+      `ה-tokens בסדר הופעתן במשפט, וצירופן ברווחים = המשפט המלא. ` + HEB_RULE + ' ' + TONE_RULE + ' ' + NIKUD_RULE + learnerRule(learner) })
+    return { parts, wantJson: true }
+  }
   if (task === 'match_scope') {
     const { subjectName, scopeText, knownTopics = [] } = payload
     parts.push({ text:
@@ -187,7 +201,7 @@ async function callDirect(payload) {
 // מצב "צינור דק": הפרומפט נבנה כאן (buildParts) ונשלח לפונקציה, שרק מוסיפה את המפתח.
 // כך כל הלוגיקה בצד הלקוח (מתעדכן אוטומטית) — אין צורך לפרוס את הפונקציה שוב.
 async function callFn(payload) {
-  if (!FN_URL) throw new Error('Gemini function URL is not configured')
+  if (!FN_URL) throw new Error('שירות ה-AI אינו מוגדר')
   const { parts, wantJson } = buildParts(payload)
   const grounded = !!payload.grounded
   const res = await fetch(FN_URL, {
@@ -195,7 +209,7 @@ async function callFn(payload) {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPABASE_ANON || ''}` },
     body: JSON.stringify({ parts, wantJson, grounded }),
   })
-  if (!res.ok) throw new Error(`Gemini error ${res.status}: ${await res.text().catch(() => '')}`)
+  if (!res.ok) throw new Error(`שגיאת מערכת ${res.status}: ${await res.text().catch(() => '')}`)
   const data = await res.json()
   const out = data?.text ?? ''
   const sources = data?.sources || []
@@ -221,6 +235,8 @@ export const checkExercise = async (p) => deepClean(await call({ task: 'check_ex
 export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
+// תרגיל ניתוח משפט / חלקי דיבר — משפטים עם תווית תפקיד לכל מילה
+export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
 
 // סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
 export const topicSummary = async ({ subjectName, topicName, learner }) => {

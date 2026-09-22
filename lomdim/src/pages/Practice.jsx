@@ -5,6 +5,14 @@ import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
+// ערבוב מיקום התשובה בכל שאלה בזמן התצוגה — מבטיח פיזור גם לשאלות ישנות שנשמרו עם התשובה במיקום 1
+function shuffleChoices(q) {
+  if (!Array.isArray(q?.choices) || typeof q.answer !== 'number') return q
+  const correct = q.choices[q.answer]
+  const order = shuffle(q.choices.map((_, i) => i))
+  const choices = order.map((i) => q.choices[i])
+  return { ...q, choices, answer: choices.indexOf(correct) }
+}
 
 export default function Practice({ nav, params }) {
   const { subjectId, subjectName, topicId, topicName } = params
@@ -23,7 +31,7 @@ export default function Practice({ nav, params }) {
       let q = supabase.from('questions').select('*').eq('subject_id', subjectId)
       if (topicId) q = q.eq('topic_id', topicId)
       const { data } = await q.limit(40)
-      setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10))
+      setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10).map(shuffleChoices))
       setLoading(false)
     })()
   }, [subjectId, topicId])

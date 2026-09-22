@@ -4,6 +4,14 @@ import { GRAD } from '../lib/mastery'
 import Markdown from '../components/Markdown'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
+// ערבוב מיקום התשובה בזמן התצוגה — פיזור גם לשאלות שנשמרו עם התשובה במיקום קבוע
+function shuffleChoices(q) {
+  if (!Array.isArray(q?.choices) || typeof q.answer !== 'number') return q
+  const correct = q.choices[q.answer]
+  const order = shuffle(q.choices.map((_, i) => i))
+  const choices = order.map((i) => q.choices[i])
+  return { ...q, choices, answer: choices.indexOf(correct) }
+}
 const now = () => new Date().toISOString()
 
 export default function Reinforce({ nav, params }) {
@@ -27,7 +35,7 @@ export default function Reinforce({ nav, params }) {
       ])
       const items = []
       for (const r of ri || []) {
-        if (r.kind === 'question') { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, streak: r.streak || 0, q }) }
+        if (r.kind === 'question') { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, streak: r.streak || 0, q: shuffleChoices(q) }) }
         else { const c = (fcs || []).find((x) => x.id === r.ref_id); if (c) items.push({ type: 'fc', reviewId: r.id, streak: r.streak || 0, card: c }) }
       }
       setQueue(shuffle(items))
