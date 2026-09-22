@@ -364,7 +364,7 @@ function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
 function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
-function drawOverlay(ctx,ov,W,H){const c=ov.color,o=ov.opacity,hold=Math.max(0,Math.min(100,ov.hold||0))/100,cov=ov.coverage||"full";let g=null;if(cov==="left")g=ctx.createLinearGradient(0,0,W,0);else if(cov==="right")g=ctx.createLinearGradient(W,0,0,0);else if(cov==="top")g=ctx.createLinearGradient(0,0,0,H);else if(cov==="bottom")g=ctx.createLinearGradient(0,H,0,0);if(ov.gradient&&g){const end=ov.fade!=null?Math.max(0,Math.min(100,ov.fade))/100:1;g.addColorStop(0,hexA(c,o));g.addColorStop(Math.min(hold,end),hexA(c,o));g.addColorStop(end,hexA(c,0));if(end<1)g.addColorStop(1,hexA(c,0));ctx.fillStyle=g;}else ctx.fillStyle=hexA(c,o);ctx.fillRect(0,0,W,H);}
+function drawOverlay(ctx,ov,W,H){const c=ov.color,o=ov.opacity,hold=Math.max(0,Math.min(100,ov.hold||0))/100,cov=ov.coverage||"full";let g=null;if(cov==="left")g=ctx.createLinearGradient(0,0,W,0);else if(cov==="right")g=ctx.createLinearGradient(W,0,0,0);else if(cov==="top")g=ctx.createLinearGradient(0,0,0,H);else if(cov==="bottom")g=ctx.createLinearGradient(0,H,0,0);if(ov.gradient&&g){const end=ov.fade!=null?Math.max(0,Math.min(100,ov.fade))/100:1;const c0=ov.startColor||c;g.addColorStop(0,hexA(c0,o));g.addColorStop(Math.min(hold,end),hexA(c,o));g.addColorStop(end,hexA(c,0));if(end<1)g.addColorStop(1,hexA(c,0));ctx.fillStyle=g;}else ctx.fillStyle=hexA(c,o);ctx.fillRect(0,0,W,H);}
 function wrapLines(ctx,text,maxW){const words=String(text).split(/\s+/),lines=[];let line="";for(const w of words){const t=line?line+" "+w:w;if(ctx.measureText(t).width>maxW&&line){lines.push(line);line=w;}else line=t;}if(line)lines.push(line);return lines;}
 function resolveLogo(logo,size){return size==="mobile"&&logo.mobile?Object.assign({},logo,logo.mobile):logo;}
 function drawLogo(ctx,img,W,H,spec,scale,xOver){
@@ -401,9 +401,8 @@ function tintFromImage(img){return darken(getAccent(img),58);}
 function hexLum(hex){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return 0;const n=parseInt(m[1],16);return (0.299*((n>>16)&255)+0.587*((n>>8)&255)+0.114*(n&255))/255;}
 // A soft pastel version of a colour (blended toward white) — for a light panel with dark text.
 function paleTint(hex,amt){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("#",""));if(!m)return "#ffffff";const n=parseInt(m[1],16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const k=(amt==null?0.8:amt);r=Math.round(r+(255-r)*k);g=Math.round(g+(255-g)*k);b=Math.round(b+(255-b)*k);return "#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");}
-// Auto-tint from the image: a soft PALE tint when the panel is light (dark text),
-// a clean DARK tint when the panel is dark (light text). Harmonizes, never muddy.
-function autoTint(img,baseColor){if(!img)return baseColor;const acc=getAccent(img);return hexLum(baseColor)>=0.6?paleTint(acc,0.8):darken(acc,58);}
+// Average (ambient) colour of the image — steadier for a harmonized panel tint.
+function avgColor(img){try{const c=document.createElement("canvas");c.width=16;c.height=16;const x=c.getContext("2d");x.drawImage(img,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}return "#"+[r/n,g/n,b/n].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");}catch(_){return null;}}
 function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   over=over||{};
   const dim=tpl.sizes[size];const canvas=document.createElement("canvas");canvas.width=dim.w;canvas.height=dim.h;const ctx=canvas.getContext("2d");
@@ -422,7 +421,9 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
-  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];const col=(s.auto&&image)?autoTint(image,ovl.color):s.color;ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
+  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
+      if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } }
+      ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,startColor:start,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
