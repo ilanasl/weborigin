@@ -11,6 +11,7 @@ import TopicSummary from './pages/TopicSummary'
 import Reinforce from './pages/Reinforce'
 import Planner from './pages/Planner'
 import ExamBoard from './pages/ExamBoard'
+import Syntax from './pages/Syntax'
 import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
 import CheckExercise from './pages/CheckExercise'
@@ -26,7 +27,7 @@ function ConfigNeeded() {
         <h3 className="font-extrabold text-lg mb-2">כמעט מוכן — צריך מפתחות ✨</h3>
         <p className="text-muted text-[15px] leading-relaxed">
           העתיקו את <code>.env.example</code> ל־<code>.env.local</code> ומלאו את פרטי ה־Supabase
-          (URL + anon key). את מפתח ה־Gemini מגדירים כ־Secret בפונקציית ה־Edge.
+          (URL + anon key). את מפתח ה־AI מגדירים כ־Secret בפונקציית ה־Edge.
           כל ההוראות ב־<b>README.md</b>.
         </p>
       </div>
@@ -37,7 +38,7 @@ function ConfigNeeded() {
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
   practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
-  explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, soon: Soon,
+  explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax, soon: Soon,
   settings: Settings,
 }
 

@@ -26,7 +26,7 @@ export default function Home({ nav }) {
       supabase.from('subjects').select('*').order('created_at'),
       supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
       supabase.from('topics').select('id, subject_id'),
-      supabase.from('materials').select('id, subject_id'),
+      supabase.from('materials').select('id, subject_id, kind'),
     ])
     const list = (subs || []).map((s) => {
       const byTopic = {}
@@ -40,7 +40,7 @@ export default function Home({ nav }) {
         ...s,
         ready: readiness(Object.values(byTopic)),
         nTopics: (tp || []).filter((t) => t.subject_id === s.id).length,
-        nMaterials: (mt || []).filter((m) => m.subject_id === s.id).length,
+        nMaterials: (mt || []).filter((m) => m.subject_id === s.id && m.kind !== 'check').length,
         examDays: daysUntil(s.exam_date),
       }
     })

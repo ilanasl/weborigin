@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
@@ -22,6 +22,41 @@ export default function CheckExercise({ params }) {
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
   const [added, setAdded] = useState(false)
+  const [history, setHistory] = useState([])
+  const [showHist, setShowHist] = useState(false)
+
+  async function loadHistory() {
+    const { data } = await supabase.from('materials').select('id, title, source_text, storage_path, created_at')
+      .eq('subject_id', subjectId).eq('kind', 'check').order('created_at', { ascending: false })
+    setHistory(data || [])
+  }
+  useEffect(() => { loadHistory() }, [subjectId])
+
+  // שמירת הבדיקה כהיסטוריה (בטבלת materials, kind='check', בלי נושא — לא מופיע ברשימת החומרים)
+  async function saveCheck(out, theFile) {
+    try {
+      const { data: u } = await supabase.auth.getUser()
+      const uid = u.user?.id
+      let storagePath = null
+      if (theFile && uid) {
+        storagePath = `${uid}/check-${Date.now()}`
+        await supabase.storage.from('materials').upload(storagePath, theFile).catch(() => {})
+      }
+      await supabase.from('materials').insert({
+        subject_id: subjectId, kind: 'check', title: out.exercise || 'תרגיל שנבדק',
+        storage_path: storagePath, source_text: JSON.stringify(out),
+      })
+      loadHistory()
+    } catch { /* לא חוסם */ }
+  }
+
+  async function deleteCheck(e, m) {
+    e.stopPropagation()
+    if (!window.confirm('למחוק את הבדיקה השמורה?')) return
+    await supabase.from('materials').delete().eq('id', m.id)
+    if (m.storage_path) await supabase.storage.from('materials').remove([m.storage_path]).catch(() => {})
+    loadHistory()
+  }
 
   async function ensureTopic(name) {
     const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', name).maybeSingle()
@@ -59,6 +94,7 @@ export default function CheckExercise({ params }) {
     try {
       const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
       setRes(out)
+      saveCheck(out, file) // שמירה להיסטוריה
       const hasMistake = out.correct === false || (Array.isArray(out.steps) && out.steps.some((s) => s.ok === false))
       if (hasMistake) addToReinforce(out) // אוטומטי — טעות נכנסת ל"לחיזוק"
     } catch {
@@ -71,11 +107,44 @@ export default function CheckExercise({ params }) {
       <h1 className="text-[23px] font-black mb-1">בדוק תרגיל שפתרתי</h1>
       <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
 
+      {/* היסטוריית בדיקות — מקופלת תחת חץ */}
+      {history.length > 0 && (
+        <>
+          <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowHist((v) => !v)}>
+            <span className="flex-1 text-start">📷 בדיקות קודמות ({history.length})</span>
+            <span className="text-[12px] font-bold">{showHist ? 'הסתר ▲' : 'הצג ▼'}</span>
+          </button>
+          {showHist && (
+            <div className="card mb-3">
+              {history.map((m) => {
+                let saved = null
+                try { saved = JSON.parse(m.source_text) } catch { /* ignore */ }
+                const ok = saved?.correct
+                return (
+                  <div key={m.id} className="flex items-center gap-2 w-full py-2.5 border-b border-line last:border-0">
+                    <button onClick={() => { setRes(saved); setFile(null); setAdded(false); setShowHist(false) }}
+                      className="flex-1 min-w-0 text-start">
+                      <div className="text-[14px] font-semibold truncate">{m.title || 'תרגיל'}</div>
+                      <div className="text-[12px] text-muted">
+                        {new Date(m.created_at).toLocaleDateString('he-IL')}
+                        {saved != null && <span className={ok ? 'text-good' : 'text-bad'}> · {ok ? 'נכון ✓' : 'הייתה טעות'}</span>}
+                      </div>
+                    </button>
+                    <button onClick={(ev) => deleteCheck(ev, m)} title="מחק"
+                      className="w-8 h-8 rounded-[9px] grid place-items-center text-[15px]" style={{ color: 'var(--bad)' }}>🗑</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
       <div className="card">
         <div className="dropzone">
           <div className="text-3xl">📷</div>
           <div className="font-semibold text-[15px] text-ink">צלמו את התרגיל הפתור מהמחברת</div>
-          <div className="text-[12.5px]">Gemini יקרא את הפתרון ויגיד איפה הטעות (אם יש).</div>
+          <div className="text-[12.5px]">המערכת תקרא את הפתרון ותגיד איפה הטעות (אם יש).</div>
           <input type="file" accept="image/*" className="text-sm mt-1"
             onChange={(e) => { setFile(e.target.files?.[0] || null); setRes(null); setErr('') }} />
         </div>
