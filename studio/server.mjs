@@ -44,6 +44,14 @@ function outputDir() {
     ? path.resolve(process.env.OUTPUT_DIR)
     : path.resolve(HERE, "output");
 }
+// Where saved-banner backups live (one JSON per banner). Set BACKUP_DIR in .env
+// to any folder (e.g. an absolute path) — default is ./backups next to the app.
+function backupDir() {
+  return process.env.BACKUP_DIR
+    ? path.resolve(process.env.BACKUP_DIR)
+    : path.resolve(HERE, "backups");
+}
+const safeName = (s) => String(s || "").replace(/[^\w.\-]+/g, "_").slice(0, 120) || "banner";
 
 // --- Gemini image generation ------------------------------------------------
 let client = null;
@@ -349,6 +357,39 @@ app.post("/api/save", (req, res) => {
 
 app.get("/api/output-dir", (_req, res) => res.json({ dir: outputDir() }));
 
+// --- Saved-banner backups (auto-written to a folder on this computer) --------
+app.post("/api/bank/put", (req, res) => {
+  try {
+    const rec = req.body?.rec;
+    if (!rec || !rec.id) return res.status(400).json({ error: "Missing 'rec' with an id." });
+    const dir = backupDir();
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, safeName(rec.id) + ".json"), JSON.stringify(rec));
+    res.json({ ok: true, dir });
+  } catch (err) {
+    res.status(500).json({ error: err?.message || "Backup save failed." });
+  }
+});
+app.post("/api/bank/del", (req, res) => {
+  try {
+    const id = req.body?.id;
+    if (id) { try { fs.unlinkSync(path.join(backupDir(), safeName(id) + ".json")); } catch (_) {} }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err?.message || "Backup delete failed." }); }
+});
+app.get("/api/bank/all", (_req, res) => {
+  try {
+    const dir = backupDir();
+    if (!fs.existsSync(dir)) return res.json({ dir, records: [] });
+    const records = [];
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith(".json")) continue;
+      try { records.push(JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"))); } catch (_) {}
+    }
+    res.json({ dir, records });
+  } catch (err) { res.status(500).json({ error: err?.message || "Backup read failed." }); }
+});
+
 // Serve the studio page itself.
 app.get("/", (_req, res) => res.sendFile(path.join(HERE, "studio.html")));
 app.use(express.static(HERE));
@@ -358,6 +399,7 @@ app.listen(PORT, () => {
   console.log(`  Open this in your browser:  http://localhost:${PORT}\n`);
   if (hasKey()) console.log(`  ✓ Gemini active (model: ${MODEL}).`);
   if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}).`);
+  console.log(`  💾 Saved-banner backups: ${backupDir()}`);
   if (hasKey() || hasOpenAI()) {
     console.log(`  ✓ Generated banners save to: ${outputDir()}\n`);
   } else {

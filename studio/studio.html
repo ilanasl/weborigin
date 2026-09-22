@@ -685,8 +685,9 @@ TEMPLATES.forEach(tpl=>{
 // remove exact-duplicate saved topics (same topic + prompt) once at startup
 (function dedupeSavedTopics(){const l=loadSavedTopics();const seen=new Set();const out=[];for(const e of l){const k=(e.topic||"")+" "+(e.prompt||"");if(!seen.has(k)){seen.add(k);out.push(e);}}if(out.length!==l.length)persistSavedTopics(out);})();
 refreshSavedSelects();
-// bring back the last state of every banner (survives refresh / tool updates / restart)
-restoreAutoSaved();
+// pull any backups from the folder into the browser, then bring back every banner's
+// last state (survives refresh / tool updates / restart / cleared browser / new machine)
+(async()=>{ await syncFromBackup(); await restoreAutoSaved(); })();
 {const sb=document.getElementById("savedBtn"); if(sb) sb.addEventListener("click",openSavedGallery);}
 
 function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
@@ -876,9 +877,13 @@ function snapRecord(tpl,st,id,snapshot){return {id,tpl:tpl.id,tplName:tpl.name,s
   name:(st.topic||"").trim()||tpl.name, topic:st.topic||"", customPrompt:st.customPrompt||"",
   uploaded:st.uploaded||null, logo:st.logo||null,
   over:JSON.parse(JSON.stringify(st.over||{})), text:JSON.parse(JSON.stringify(st.text||{enabled:false,texts:{}}))};}
-async function autoSaveBanner(tpl,st){ if(!st.uploaded) return; try{await BankDB.put(snapRecord(tpl,st,"auto:"+tpl.id,false));}catch(_){}}
-async function saveSnapshot(tpl,st){ if(!st.uploaded){alert("Generate or upload an image for this banner first.");return null;} const id="snap:"+Date.now()+":"+tpl.id; try{await BankDB.put(snapRecord(tpl,st,id,true));return id;}catch(_){return null;}}
-async function forgetAuto(tpl){ try{await BankDB.del("auto:"+tpl.id);}catch(_){}}
+// Folder backup via the local server (auto — so you never forget; restores anywhere).
+function backupPut(rec){ if(!rec) return; try{fetch("/api/bank/put",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rec})}).catch(()=>{});}catch(_){}}
+function backupDel(id){ if(!id) return; try{fetch("/api/bank/del",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})}).catch(()=>{});}catch(_){}}
+async function syncFromBackup(){ try{const r=await fetch("/api/bank/all");if(!r.ok)return 0;const j=await r.json();const recs=(j&&j.records)||[];for(const rec of recs){if(rec&&rec.id){try{await BankDB.put(rec);}catch(_){}}}return recs.length;}catch(_){return 0;}}
+async function autoSaveBanner(tpl,st){ if(!st.uploaded) return; const rec=snapRecord(tpl,st,"auto:"+tpl.id,false); try{await BankDB.put(rec);}catch(_){} backupPut(rec); }
+async function saveSnapshot(tpl,st){ if(!st.uploaded){alert("Generate or upload an image for this banner first.");return null;} const rec=snapRecord(tpl,st,"snap:"+Date.now()+":"+tpl.id,true); try{await BankDB.put(rec);}catch(_){return null;} backupPut(rec); return rec.id; }
+async function forgetAuto(tpl){ try{await BankDB.del("auto:"+tpl.id);}catch(_){} backupDel("auto:"+tpl.id); }
 async function restoreRecord(rec){
   const tpl=TEMPLATES.find(t=>t.id===rec.tpl); if(!tpl||!rec.uploaded) return null;
   const st=state[tpl.id];
@@ -912,7 +917,7 @@ async function openSavedGallery(){
     (async()=>{try{const img=await loadImage(rec.uploaded);const c=renderBanner(tpl,"desktop",img,rec.text&&rec.text.enabled?rec.text.texts:{},!!(rec.text&&rec.text.enabled),rec.logo?await loadImage(rec.logo):null,getAccent(img),rec.over,tintFromImage(img));cv.width=c.width;cv.height=c.height;cv.getContext("2d").drawImage(c,0,0);}catch(_){}})();
     const doLoad=async()=>{const t=await restoreRecord(rec);back.remove();if(t){const st=state[t.id];openEditor(t,st,()=>{if(cardRefresh[t.id])cardRefresh[t.id]();autoSaveBanner(t,st);});}};
     cv.addEventListener("click",doLoad); load.addEventListener("click",doLoad);
-    del.addEventListener("click",async()=>{try{await BankDB.del(rec.id);}catch(_){}row.remove();});
+    del.addEventListener("click",async()=>{try{await BankDB.del(rec.id);}catch(_){}backupDel(rec.id);row.remove();});
   }
   back.addEventListener("click",e=>{if(e.target===back)back.remove();});
   back.querySelector(".sg-x").addEventListener("click",()=>back.remove());
