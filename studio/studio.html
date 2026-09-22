@@ -834,6 +834,17 @@ async function encode(canvas,fmt,kb){
   for(let i=0;i<8;i++){const mid=(lo+hi)/2;const b=await toBlob(src,type,mid);if(b.size<=target){best=b;lo=mid;}else hi=mid;}
   return best;
 }
+// Encode honoring a KB cap. PNG is lossless (can't be squeezed): if a PNG would
+// exceed the cap, fall back to JPG that fits (photos look identical, Google-Ads-safe).
+async function encodeCapped(canvas,fmt,kb){
+  if(!kb) return { blob:await encode(canvas,fmt,0), fmt, fell:false };
+  if(fmt!=="png") return { blob:await encode(canvas,fmt,kb), fmt, fell:false };
+  const png=await encode(canvas,"png",0);
+  if(png.size<=kb*1024) return { blob:png, fmt:"png", fell:false };
+  const jpg=await encode(canvas,"jpeg",kb);
+  return { blob:jpg, fmt:"jpeg", fell:true };
+}
+function extOf(fmt){return fmt==="jpeg"?"jpg":fmt;}
 let downloadsCap=null;
 (async()=>{try{downloadsCap=window.claude&&window.claude.use?await window.claude.use("downloads"):null;}catch(_){}})();
 function blobToDataUrl(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
@@ -846,16 +857,29 @@ async function saveBlob(blob,name){
 /* ---- Single-banner export (Download button) ---- */
 function browserDownload(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}},1500);}
 function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);return {fmt,kb:isNaN(kbRaw)?0:kbRaw,ext:fmt==="jpeg"?"jpg":fmt};}
+// Default export rules (client spec), remembered if you override them up top:
+//   Banners → PNG, max 2000 KB  ·  Google Ad Images → PNG, max 1000 KB
+(function initExportDefaults(){
+  const setup=(fmtId,kbId,dFmt,dKb,kF,kK)=>{
+    const fmt=document.getElementById(fmtId),kb=document.getElementById(kbId); if(!fmt||!kb) return;
+    let sf=null,sk=null; try{sf=localStorage.getItem(kF);sk=localStorage.getItem(kK);}catch(_){}
+    fmt.value=sf||dFmt; kb.value=(sk!==null&&sk!=="")?sk:dKb;
+    fmt.addEventListener("change",()=>{try{localStorage.setItem(kF,fmt.value);}catch(_){}});
+    kb.addEventListener("input",()=>{try{localStorage.setItem(kK,kb.value);}catch(_){}});
+  };
+  setup("fmt","kb","png",2000,"bs_fmt","bs_kb");        // banners
+  setup("im-fmt","im-kb","png",1000,"bs_im_fmt","bs_im_kb"); // ad images
+})();
 // A short unique stamp (MMDD-HHMMSS-xx) so downloaded files never overwrite each other.
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2,4)}`;}
-async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const blob=await encode(canvas,f.fmt,f.fmt==="png"?0:f.kb);return {blob,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${f.ext}`};}
+async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const {blob,fmt,fell}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${extOf(fmt)}`};}
 // Always a real browser download (into the Downloads folder). Defaults to BOTH sizes.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
   await fontsReady;const f=currentFmt();const sfx=stamp();
   for(const size of (sizes||["desktop","mobile"])){
-    const {blob,name}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
-    log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${(f.kb&&f.fmt!=="png")?` (target ≤${f.kb}KB)`:""}`);
+    const {blob,name,fell}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
+    log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${fell?` (PNG was over ≤${f.kb}KB → saved as JPG)`:(f.kb?` ✓ ≤${f.kb}KB`:"")}`);
   }
 }
 
@@ -878,10 +902,10 @@ document.getElementById("run").addEventListener("click",async()=>{
     const sfx=stamp();
     for(const size of ["desktop","mobile"]){
       const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);
-      const blob=await encode(canvas,fmt,fmt==="png"?0:kb);
-      const name=`${tpl.id}-${size}-${sfx}.${ext}`;
+      const {blob,fmt:usedFmt,fell}=await encodeCapped(canvas,fmt,kb);
+      const name=`${tpl.id}-${size}-${sfx}.${extOf(usedFmt)}`;
       const r=await saveBlob(blob,name);
-      log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})`);
+      log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})${fell?` · PNG>≤${kb}KB → JPG`:""}`);
     }
   }
   log("Done.");
@@ -1127,11 +1151,11 @@ Promise.all([
 
   async function download(){
     const keep=results.filter(r=>r.sel&&r.canvas); if(!keep.length){$('im-dlstat').textContent='nothing selected';return;}
-    const fmt=($('im-fmt')||{}).value||'png', ext=fmt==='jpeg'?'jpg':fmt;
+    const fmt=($('im-fmt')||{}).value||'png';
     const kbRaw=parseInt(($('im-kb')||{}).value,10), kb=isNaN(kbRaw)?0:kbRaw;
-    let n=0;
-    for(const r of keep){const blob=await encode(r.canvas,fmt,fmt==='png'?0:kb);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${++n}.${ext}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
-    $('im-dlstat').textContent=`downloaded ${keep.length}`;
+    const sfx=stamp(); let n=0, fellAny=false;
+    for(const r of keep){const {blob,fmt:usedFmt,fell}=await encodeCapped(r.canvas,fmt,kb);if(fell)fellAny=true;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${sfx}-${++n}.${extOf(usedFmt)}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
+    $('im-dlstat').textContent=`downloaded ${keep.length}`+(fellAny?` (some PNG were over ≤${kb}KB → saved as JPG)`:'');
   }
 
   window.AdImages={ onReady(){ /* engine filled by health block */ } };
