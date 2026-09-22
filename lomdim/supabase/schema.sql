@@ -32,10 +32,15 @@ create table if not exists subjects (
   color text default '#4A55C7',
   bg text default '#E4E8F3',
   exam_kind text,               -- 'מבחן מסכם' | 'מבדק'
-  exam_date date,
-  exam_scope_text text,         -- מיקוד החומר בטקסט חופשי
+  exam_date date,               -- תאריך המבחן המסכם
+  exam_scope_text text,         -- מיקוד החומר של המבחן המסכם
+  quiz_date date,               -- תאריך המבדק
+  quiz_scope_text text,         -- מיקוד החומר של המבדק
   created_at timestamptz default now()
 );
+-- אם הטבלה כבר קיימת — מוסיף עמודות מבדק בלי לשבור כלום:
+alter table subjects add column if not exists quiz_date date;
+alter table subjects add column if not exists quiz_scope_text text;
 
 -- ── נושאים (המערכת מזהה אותם מהחומר) ──
 create table if not exists topics (

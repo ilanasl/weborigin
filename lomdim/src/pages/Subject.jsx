@@ -44,8 +44,13 @@ export default function Subject({ nav, params }) {
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
   const name = subject.name
-  const examDays = daysUntil(subject.exam_date)
-  const examKind = subject.exam_kind || 'מבחן'
+  // המבחן/מבדק הקרוב יותר מבין השניים
+  const upcomingExams = [
+    { kind: 'מבחן מסכם', days: daysUntil(subject.exam_date) },
+    { kind: 'מבדק', days: daysUntil(subject.quiz_date) },
+  ].filter((x) => x.days != null && x.days >= 0).sort((a, b) => a.days - b.days)
+  const examDays = upcomingExams[0]?.days ?? null
+  const examKind = upcomingExams[0]?.kind || 'מבחן'
   const summary = materials.find((m) => m.summary_md)
 
   const pcts = topics.map((t) => t.m.pct).filter((p) => p != null)

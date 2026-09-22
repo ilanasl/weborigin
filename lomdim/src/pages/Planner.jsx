@@ -23,8 +23,8 @@ export default function Planner({ nav, params }) {
   const [topics, setTopics] = useState([])
   const [kind, setKind] = useState('מבחן מסכם')
   const [leadDays, setLeadDays] = useState(LEAD_DEFAULT['מבחן מסכם'])
-  const [date, setDate] = useState('')
-  const [scope, setScope] = useState('')
+  const [exam, setExam] = useState({ date: '', scope: '' })  // מבחן מסכם
+  const [quiz, setQuiz] = useState({ date: '', scope: '' })  // מבדק
   const [scopeFile, setScopeFile] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [scanErr, setScanErr] = useState('')
@@ -45,15 +45,23 @@ export default function Planner({ nav, params }) {
       ;(byTopic[a.topic_id] ||= []).push({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })
     }
     setSubject(s)
-    const k = s?.exam_kind || 'מבחן מסכם'
+    setExam({ date: s?.exam_date || '', scope: s?.exam_scope_text || '' })
+    setQuiz({ date: s?.quiz_date || '', scope: s?.quiz_scope_text || '' })
+    // ברירת מחדל: הסוג הקרוב יותר שכבר הוגדר לו תאריך
+    const qd = daysUntil(s?.quiz_date), ed = daysUntil(s?.exam_date)
+    const k = (qd != null && qd >= 0 && (ed == null || ed < 0 || qd <= ed)) ? 'מבדק' : 'מבחן מסכם'
     setKind(k)
     setLeadDays(LEAD_DEFAULT[k])
-    setDate(s?.exam_date || '')
-    setScope(s?.exam_scope_text || '')
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
     setLoading(false)
   }
   useEffect(() => { load() }, [subjectId])
+
+  // המשבצת הפעילה לפי הסוג שנבחר
+  const slot = kind === 'מבדק' ? quiz : exam
+  const setSlot = (patch) => (kind === 'מבדק' ? setQuiz : setExam)((s) => ({ ...s, ...patch }))
+  const date = slot.date
+  const scope = slot.scope
 
   async function onPickPhoto(f) {
     setScanErr('')
@@ -61,7 +69,7 @@ export default function Planner({ nav, params }) {
     setScopeFile(f); setScanning(true)
     try {
       const text = await scanScope({ imageBase64: await fileToBase64(f), mimeType: f.type, subjectName })
-      if (text) setScope((s) => (s ? s.trim() + '\n' : '') + text.trim())
+      if (text) setSlot({ scope: (scope ? scope.trim() + '\n' : '') + text.trim() })
     } catch (e) {
       setScanErr('קריאת הצילום נכשלה. אפשר לכתוב את המיקוד ידנית. ' + String(e?.message || e).slice(0, 160))
     } finally { setScanning(false) }
@@ -69,9 +77,10 @@ export default function Planner({ nav, params }) {
 
   async function save() {
     setBusy(true); setMatchNote('')
-    await supabase.from('subjects').update({
-      exam_kind: kind, exam_date: date || null, exam_scope_text: scope || null,
-    }).eq('id', subjectId)
+    const cols = kind === 'מבדק'
+      ? { quiz_date: date || null, quiz_scope_text: scope || null }
+      : { exam_kind: 'מבחן מסכם', exam_date: date || null, exam_scope_text: scope || null }
+    await supabase.from('subjects').update(cols).eq('id', subjectId)
     // מיקוד → נושאים: מזהה אילו נושאים כלולים במבחן ומסמן אותם (התוכנית תתמקד בהם)
     if (scope.trim() && topics.length) {
       try {
@@ -140,20 +149,27 @@ export default function Planner({ nav, params }) {
 
       <div className="card flex flex-col gap-4">
         <div>
-          <label className="block text-[13.5px] font-bold text-muted mb-1.5">סוג</label>
+          <label className="block text-[13.5px] font-bold text-muted mb-1.5">איזה מהם עורכים?</label>
           <div className="flex gap-2">
-            {['מבחן מסכם', 'מבדק'].map((k) => (
-              <button key={k} onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }}
-                className={`flex-1 rounded-[12px] border-[1.5px] py-2.5 text-[14.5px] font-semibold transition ${
-                  kind === k ? 'border-primary text-primary' : 'border-line text-ink'}`}
-                style={kind === k ? { background: 'var(--primary-soft)' } : {}}>{k}</button>
-            ))}
+            {['מבחן מסכם', 'מבדק'].map((k) => {
+              const d = k === 'מבדק' ? quiz.date : exam.date
+              return (
+                <button key={k} onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }}
+                  className={`flex-1 rounded-[12px] border-[1.5px] py-2 text-[14px] font-semibold transition ${
+                    kind === k ? 'border-primary text-primary' : 'border-line text-ink'}`}
+                  style={kind === k ? { background: 'var(--primary-soft)' } : {}}>
+                  {k}
+                  <div className="text-[11px] font-normal text-muted">{d ? new Date(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'ללא תאריך'}</div>
+                </button>
+              )
+            })}
           </div>
+          <div className="text-[12px] text-muted mt-1.5">אפשר להגדיר תאריך גם למבדק וגם למבחן — שניהם יופיעו בבית ובלוח המבחנים.</div>
         </div>
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך המבחן</label>
-            <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
+            <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך ה{kind}</label>
+            <input type="date" className="field" value={date} onChange={(e) => setSlot({ date: e.target.value })} />
           </div>
           <div className="w-[130px]">
             <label className="block text-[13.5px] font-bold text-muted mb-1.5">מתחילים ללמוד</label>
@@ -167,7 +183,7 @@ export default function Planner({ nav, params }) {
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">מיקוד החומר (חופשי)</label>
           <textarea className="field" style={{ minHeight: 70 }} value={scope}
-            onChange={(e) => setScope(e.target.value)}
+            onChange={(e) => setSlot({ scope: e.target.value })}
             placeholder="מה בדיוק במבחן? אפשר להעתיק את מה שהמורה שלחה…" />
           <div className="mt-2">
             <label className="text-[13px] font-semibold text-primary cursor-pointer inline-flex items-center gap-1.5">
