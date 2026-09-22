@@ -13,9 +13,10 @@ const MIN_EFF = 3
 export const GRAD = 3 // הצלחות שנדרשות כדי שפריט "ייטמע" (עקומת למידה איטית יותר)
 
 // attempts: [{ correct: bool, difficulty: 'קל'|'בינוני'|'קשה', ts: number(ms) }]
-export function mastery(attempts = []) {
+// ref = "עכשיו" לחישוב — ברירת מחדל הרגע הנוכחי; מאפשר לחשב שליטה היסטורית לנקודת זמן.
+export function mastery(attempts = [], ref = Date.now()) {
   if (!attempts.length) return { pct: null, state: 'new', due: false }
-  const now = Date.now()
+  const now = ref
   let wsum = 0, wc = 0, last = 0
   for (const a of attempts) {
     const ageDays = Math.max(0, (now - a.ts) / 86400000)
