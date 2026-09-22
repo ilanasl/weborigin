@@ -869,9 +869,9 @@ async function encodeCapped(canvas,fmt,kb){
   if(!kb) return { blob:await encode(canvas,fmt,0), fmt, fell:false };
   if(fmt!=="png") return { blob:await encode(canvas,fmt,kb), fmt, fell:false };
   const png=await encode(canvas,"png",0);
-  if(png.size<=kb*1024) return { blob:png, fmt:"png", fell:false };
-  const jpg=await encode(canvas,"jpeg",kb);
-  return { blob:jpg, fmt:"jpeg", fell:true };
+  // Always keep PNG — never auto-convert to JPG. The weight is just a target;
+  // `over` flags when a PNG is above it, but the file stays a real PNG.
+  return { blob:png, fmt:"png", fell:false, over:png.size>kb*1024 };
 }
 function extOf(fmt){return fmt==="jpeg"?"jpg":fmt;}
 let downloadsCap=null;
@@ -953,14 +953,14 @@ function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw
 })();
 // A short unique stamp (MMDD-HHMMSS-xx) so downloaded files never overwrite each other.
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2,4)}`;}
-async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const {blob,fmt,fell}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${extOf(fmt)}`};}
+async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);const {blob,fmt,fell,over}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,over,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${extOf(fmt)}`};}
 // Always a real browser download (into the Downloads folder). Defaults to BOTH sizes.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
   await fontsReady;const f=currentFmt();const sfx=stamp();
   for(const size of (sizes||["desktop","mobile"])){
-    const {blob,name,fell}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
-    log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${fell?` (PNG was over ≤${f.kb}KB → saved as JPG)`:(f.kb?` ✓ ≤${f.kb}KB`:"")}`);
+    const {blob,name,over}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
+    log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${f.kb?(over?` (PNG, over ${f.kb}KB target)`:` ✓ ≤${f.kb}KB`):""}`);
   }
 }
 
@@ -983,10 +983,10 @@ document.getElementById("run").addEventListener("click",async()=>{
     const sfx=stamp();
     for(const size of ["desktop","mobile"]){
       const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint);
-      const {blob,fmt:usedFmt,fell}=await encodeCapped(canvas,fmt,kb);
+      const {blob,fmt:usedFmt,over}=await encodeCapped(canvas,fmt,kb);
       const name=`${tpl.id}-${size}-${sfx}.${extOf(usedFmt)}`;
       const r=await saveBlob(blob,name);
-      log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})${fell?` · PNG>≤${kb}KB → JPG`:""}`);
+      log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})${over?` · PNG over ${kb}KB target`:""}`);
     }
   }
   log("Done.");
@@ -1234,9 +1234,9 @@ Promise.all([
     const keep=results.filter(r=>r.sel&&r.canvas); if(!keep.length){$('im-dlstat').textContent='nothing selected';return;}
     const fmt=($('im-fmt')||{}).value||'png';
     const kbRaw=parseInt(($('im-kb')||{}).value,10), kb=isNaN(kbRaw)?0:kbRaw;
-    const sfx=stamp(); let n=0, fellAny=false;
-    for(const r of keep){const {blob,fmt:usedFmt,fell}=await encodeCapped(r.canvas,fmt,kb);if(fell)fellAny=true;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${sfx}-${++n}.${extOf(usedFmt)}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
-    $('im-dlstat').textContent=`downloaded ${keep.length}`+(fellAny?` (some PNG were over ≤${kb}KB → saved as JPG)`:'');
+    const sfx=stamp(); let n=0, overAny=false;
+    for(const r of keep){const {blob,fmt:usedFmt,over}=await encodeCapped(r.canvas,fmt,kb);if(over)overAny=true;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${sfx}-${++n}.${extOf(usedFmt)}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
+    $('im-dlstat').textContent=`downloaded ${keep.length}`+(overAny?` (some PNG over ${kb}KB target — kept as PNG)`:'');
   }
 
   window.AdImages={ onReady(){ /* engine filled by health block */ } };
