@@ -18,6 +18,10 @@ export default function Explain({ nav, params }) {
   const [showHist, setShowHist] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [topics, setTopics] = useState([])
+  const [addIdx, setAddIdx] = useState(null)   // אינדקס ההודעה שמוסיפים ממנה לסיכומים
+  const [addTopic, setAddTopic] = useState('')
+  const [saved, setSaved] = useState({})       // idx -> נוסף
   const endRef = useRef(null)
 
   async function loadHistory() {
@@ -26,6 +30,21 @@ export default function Explain({ nav, params }) {
     setHistory(data || [])
   }
   useEffect(() => { loadHistory() }, [subjectId])
+  useEffect(() => {
+    supabase.from('topics').select('id, name').eq('subject_id', subjectId).order('created_at')
+      .then(({ data }) => setTopics(data || []))
+  }, [subjectId])
+
+  async function saveSummary(i) {
+    const topicId = addTopic || topics[0]?.id
+    if (!topicId) return
+    const topicName = topics.find((t) => t.id === topicId)?.name || ''
+    await supabase.from('materials').insert({
+      subject_id: subjectId, topic_id: topicId, title: `סיכום מהשיחה — ${topicName}`,
+      kind: 'text', summary_md: msgs[i].text,
+    })
+    setSaved((s) => ({ ...s, [i]: true })); setAddIdx(null)
+  }
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, busy])
 
   async function persist(next) {
@@ -108,6 +127,24 @@ export default function Explain({ nav, params }) {
           <div key={i} className={`bubble ${m.who}`}>
             {m.who === 'ai' && <div className="who">מורה 🤖</div>}
             {m.who === 'ai' ? <Markdown text={m.text} /> : m.text}
+            {m.who === 'ai' && i > 0 && (
+              saved[i] ? (
+                <div className="text-good text-[12px] font-semibold mt-2">✓ נוסף לסיכומים של הנושא</div>
+              ) : addIdx === i ? (
+                <div className="mt-2 pt-2 border-t border-line flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-muted">לאיזה נושא?</span>
+                  <select className="field !py-1.5 !w-auto text-[13px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)}>
+                    {topics.length === 0 && <option value="">אין נושאים</option>}
+                    {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <button className="text-[12.5px] font-bold text-primary" onClick={() => saveSummary(i)} disabled={!topics.length}>שמור</button>
+                  <button className="text-[12.5px] font-semibold text-muted" onClick={() => setAddIdx(null)}>ביטול</button>
+                </div>
+              ) : (
+                <button className="text-[12px] text-primary font-semibold mt-2 hover:underline"
+                  onClick={() => { setAddIdx(i); setAddTopic(topics[0]?.id || '') }}>➕ הוסף לסיכומים שלי</button>
+              )
+            )}
           </div>
         ))}
         {busy && <div className="bubble ai"><div className="who">מורה 🤖</div>חושב…</div>}
