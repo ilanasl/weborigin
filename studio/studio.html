@@ -423,7 +423,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
   if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
-      if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } } if(!start&&hexLum(col)>=0.6)start="#ffffff";
+      if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } }
       ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,startColor:start,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
