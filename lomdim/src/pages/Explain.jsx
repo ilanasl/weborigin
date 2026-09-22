@@ -86,6 +86,8 @@ export default function Explain({ nav, params }) {
 
   // תגובות-המשך מופיעות רק כשכבר יש חילופי דברים והמורה ענה אחרון
   const showFollowups = msgs.length > 1 && msgs[msgs.length - 1].who === 'ai' && !busy
+  // הודעת פתיחה גנרית — לא מציעים עליה "הוסף לסיכומים"
+  const isIntro = (m) => m.who === 'ai' && /מה לא ברור/.test(m.text || '')
 
   return (
     <div className="pt-2">
@@ -127,7 +129,7 @@ export default function Explain({ nav, params }) {
           <div key={i} className={`bubble ${m.who}`}>
             {m.who === 'ai' && <div className="who">מורה 🤖</div>}
             {m.who === 'ai' ? <Markdown text={m.text} /> : m.text}
-            {m.who === 'ai' && i > 0 && (
+            {m.who === 'ai' && !isIntro(m) && (
               saved[i] ? (
                 <div className="text-good text-[12px] font-semibold mt-2">✓ נוסף לסיכומים של הנושא</div>
               ) : addIdx === i ? (
