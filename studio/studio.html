@@ -145,6 +145,7 @@
   <label class="f"><span>Max weight (KB)</span>
     <input type="number" id="kb" placeholder="off" style="width:110px"></label>
   <div class="actions">
+    <button class="ghost" id="savedBtn" title="Your saved banners — reload any into the editor">📁 Saved</button>
     <button class="ghost" id="selAll">Select all</button>
     <button class="ghost" id="clr">Clear</button>
     <button class="btn big" id="run">Run selected</button>
@@ -605,6 +606,7 @@ TEMPLATES.forEach(tpl=>{
     <div class="card-foot">
       <div class="card-btns">
         <button class="tiny c-dl" title="Downloads both desktop + mobile in one click">⬇ Download</button>
+        <button class="tiny c-save" title="Save this banner (image + all edits) to reload later">💾 Save</button>
         <button class="tiny c-edit">Edit</button>
         <button class="tiny c-text">Text</button>
         <button class="tiny c-reset">Reset</button>
@@ -636,23 +638,27 @@ TEMPLATES.forEach(tpl=>{
   }
   tintChk.addEventListener("change",()=>{st.over.overlay.desktop.auto=tintChk.checked;st.over.overlay.mobile.auto=tintChk.checked;refresh();});
   selEl.addEventListener("change",()=>{st.selected=selEl.checked;refresh();});
-  card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,refresh));
+  const afterEdit=()=>{refresh();autoSaveBanner(tpl,st);};
+  card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,afterEdit));
   card.querySelectorAll(".c-pv").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();st.previewSize=b.dataset.s;card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x===b));drawThumb(canvasEl,tpl,st);}));
-  fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();});
-  clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();});
+  fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();autoSaveBanner(tpl,st);});
+  clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();forgetAuto(tpl);});
   logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
   clearLogo.addEventListener("click",()=>{st.logo=null;st.logoImg=null;refresh();});
   card.querySelector(".c-logosz").addEventListener("input",e=>{st.over.logoScale=+e.target.value;drawThumb(canvasEl,tpl,st);});
-  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();});
+  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();forgetAuto(tpl);});
   textBtn.addEventListener("click",()=>openTextModal(tpl,st,refresh));
-  card.querySelector(".c-edit").addEventListener("click",e=>{e.stopPropagation();openEditor(tpl,st,refresh);});
+  card.querySelector(".c-edit").addEventListener("click",e=>{e.stopPropagation();openEditor(tpl,st,afterEdit);});
   card.querySelector(".c-dl").addEventListener("click",()=>downloadOne(tpl,st));
+  card.querySelector(".c-save").addEventListener("click",async e=>{const b=e.currentTarget;const id=await saveSnapshot(tpl,st);if(id){b.textContent="✓ Saved";setTimeout(()=>b.textContent="💾 Save",1200);}});
   // topic / prompt / AI generate
   const topicEl=card.querySelector(".c-topic"), promptEl=card.querySelector(".c-prompt");
   topicEl.value=st.topic||""; promptEl.value=st.customPrompt||"";
   topicEl.title=st.topic||""; promptEl.title=st.customPrompt||"";
   topicEl.addEventListener("input",()=>{st.topic=topicEl.value;topicEl.title=topicEl.value;});
   promptEl.addEventListener("input",()=>{st.customPrompt=promptEl.value;promptEl.title=promptEl.value;});
+  // let restore-from-bank redraw this card (thumb + inputs)
+  cardRefresh[tpl.id]=()=>{ topicEl.value=st.topic||""; promptEl.value=st.customPrompt||""; topicEl.title=st.topic||""; promptEl.title=st.customPrompt||""; refresh(); };
   const savedSel=card.querySelector(".c-saved"), saveBtn=card.querySelector(".c-savetopic");
   savedSel.dataset.tid=tpl.id;
   saveBtn.addEventListener("click",()=>{ if(!(st.topic||"").trim()){saveBtn.textContent="type a topic";setTimeout(()=>saveBtn.textContent="💾 Save",1200);return;} addSavedTopic(st.topic,st.customPrompt); saveBtn.textContent="✓ Saved"; setTimeout(()=>saveBtn.textContent="💾 Save",1200); });
@@ -663,7 +669,7 @@ TEMPLATES.forEach(tpl=>{
   const genBtn=card.querySelector(".c-gen"), genStat=card.querySelector(".c-genstat");
   genBtn.addEventListener("click",async()=>{
     genBtn.disabled=true; genStat.textContent="Generating…";
-    try{ await aiGenerate(tpl,st); refresh(); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done")+(st._arNote?" · 21:9 rejected":""); }
+    try{ await aiGenerate(tpl,st); refresh(); autoSaveBanner(tpl,st); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done")+(st._arNote?" · 21:9 rejected":""); }
     catch(e){ genStat.textContent="✗ "+(e.message||"failed"); }
     genBtn.disabled=false;
   });
@@ -671,6 +677,9 @@ TEMPLATES.forEach(tpl=>{
 // remove exact-duplicate saved topics (same topic + prompt) once at startup
 (function dedupeSavedTopics(){const l=loadSavedTopics();const seen=new Set();const out=[];for(const e of l){const k=(e.topic||"")+" "+(e.prompt||"");if(!seen.has(k)){seen.add(k);out.push(e);}}if(out.length!==l.length)persistSavedTopics(out);})();
 refreshSavedSelects();
+// bring back the last state of every banner (survives refresh / tool updates / restart)
+restoreAutoSaved();
+{const sb=document.getElementById("savedBtn"); if(sb) sb.addEventListener("click",openSavedGallery);}
 
 function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
 
@@ -854,6 +863,61 @@ async function saveBlob(blob,name){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();return "downloaded";
 }
 
+/* ---- Saved banners bank (IndexedDB): raw AI image + ALL edits, reloadable ---- */
+const BankDB={db:null,
+  open(){return this.db?Promise.resolve(this.db):new Promise((res,rej)=>{let r;try{r=indexedDB.open("bannerStudio",1);}catch(e){return rej(e);}r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("banners"))d.createObjectStore("banners",{keyPath:"id"});};r.onsuccess=()=>{this.db=r.result;res(this.db);};r.onerror=()=>rej(r.error);});},
+  async put(rec){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("banners","readwrite");t.objectStore("banners").put(rec);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});},
+  async all(){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("banners","readonly"),rq=t.objectStore("banners").getAll();rq.onsuccess=()=>res(rq.result||[]);rq.onerror=()=>rej(rq.error);});},
+  async del(id){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("banners","readwrite");t.objectStore("banners").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
+};
+const cardRefresh={}; // tpl.id -> redraw its card + inputs
+function snapRecord(tpl,st,id,snapshot){return {id,tpl:tpl.id,tplName:tpl.name,snapshot,when:Date.now(),
+  name:(st.topic||"").trim()||tpl.name, topic:st.topic||"", customPrompt:st.customPrompt||"",
+  uploaded:st.uploaded||null, logo:st.logo||null,
+  over:JSON.parse(JSON.stringify(st.over||{})), text:JSON.parse(JSON.stringify(st.text||{enabled:false,texts:{}}))};}
+async function autoSaveBanner(tpl,st){ if(!st.uploaded) return; try{await BankDB.put(snapRecord(tpl,st,"auto:"+tpl.id,false));}catch(_){}}
+async function saveSnapshot(tpl,st){ if(!st.uploaded){alert("Generate or upload an image for this banner first.");return null;} const id="snap:"+Date.now()+":"+tpl.id; try{await BankDB.put(snapRecord(tpl,st,id,true));return id;}catch(_){return null;}}
+async function forgetAuto(tpl){ try{await BankDB.del("auto:"+tpl.id);}catch(_){}}
+async function restoreRecord(rec){
+  const tpl=TEMPLATES.find(t=>t.id===rec.tpl); if(!tpl||!rec.uploaded) return null;
+  const st=state[tpl.id];
+  st.uploaded=rec.uploaded; st.img=await loadImage(rec.uploaded);
+  st.accent=getAccent(st.img); st.tint=tintFromImage(st.img);
+  st.over=rec.over||initOverrides(tpl); st.text=rec.text||{enabled:false,texts:{}};
+  st.topic=rec.topic||""; st.customPrompt=rec.customPrompt||"";
+  st.logo=rec.logo||null; st.logoImg=rec.logo?await loadImage(rec.logo):null;
+  if(cardRefresh[tpl.id]) cardRefresh[tpl.id]();
+  return tpl;
+}
+async function restoreAutoSaved(){ try{const all=await BankDB.all();for(const r of all){if(r.id&&r.id.indexOf("auto:")===0)await restoreRecord(r);}}catch(_){}}
+async function openSavedGallery(){
+  let all=[]; try{all=await BankDB.all();}catch(_){}
+  all.sort((a,b)=>(b.when||0)-(a.when||0));
+  const back=document.createElement("div");back.className="backdrop";
+  back.innerHTML=`<div class="modal"><div class="modal-h" style="display:flex;justify-content:space-between;align-items:center"><b>📁 Saved banners</b><button class="ghost sg-x">✕</button></div><div class="sg-list" style="display:flex;flex-direction:column;gap:10px;margin-top:12px"></div><div class="muted" style="font-size:12px;margin-top:10px">💾 = you saved · 🕘 = auto-saved (last state). Click a banner to load it back into the editor with all its edits.</div></div>`;
+  const list=back.querySelector(".sg-list");
+  if(!all.length) list.innerHTML='<div class="muted" style="text-align:center;padding:22px">No saved banners yet. Use <b>💾 Save</b> on a banner card.</div>';
+  for(const rec of all){
+    const tpl=TEMPLATES.find(t=>t.id===rec.tpl); if(!tpl||!rec.uploaded) continue;
+    const row=document.createElement("div");row.style.cssText="display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:10px;padding:8px";
+    const cv=document.createElement("canvas");cv.style.cssText="width:120px;height:auto;border-radius:6px;cursor:pointer;flex:0 0 auto";
+    const meta=document.createElement("div");meta.style.cssText="flex:1;min-width:0";
+    meta.innerHTML=`<div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rec.snapshot?"💾":"🕘"} ${String(rec.name||tpl.name).replace(/</g,"&lt;")}</div><div class="muted" style="font-size:11px">${tpl.name} · ${new Date(rec.when||0).toLocaleString()}</div>`;
+    const btns=document.createElement("div");btns.style.cssText="display:flex;gap:6px;flex:0 0 auto";
+    const load=document.createElement("button");load.className="tiny";load.textContent="↥ Load";
+    const del=document.createElement("button");del.className="tiny";del.textContent="🗑";
+    btns.appendChild(load);btns.appendChild(del);
+    row.appendChild(cv);row.appendChild(meta);row.appendChild(btns);list.appendChild(row);
+    (async()=>{try{const img=await loadImage(rec.uploaded);const c=renderBanner(tpl,"desktop",img,rec.text&&rec.text.enabled?rec.text.texts:{},!!(rec.text&&rec.text.enabled),rec.logo?await loadImage(rec.logo):null,getAccent(img),rec.over,tintFromImage(img));cv.width=c.width;cv.height=c.height;cv.getContext("2d").drawImage(c,0,0);}catch(_){}})();
+    const doLoad=async()=>{const t=await restoreRecord(rec);back.remove();if(t){const st=state[t.id];openEditor(t,st,()=>{if(cardRefresh[t.id])cardRefresh[t.id]();autoSaveBanner(t,st);});}};
+    cv.addEventListener("click",doLoad); load.addEventListener("click",doLoad);
+    del.addEventListener("click",async()=>{try{await BankDB.del(rec.id);}catch(_){}row.remove();});
+  }
+  back.addEventListener("click",e=>{if(e.target===back)back.remove();});
+  back.querySelector(".sg-x").addEventListener("click",()=>back.remove());
+  document.body.appendChild(back);
+}
+
 /* ---- Single-banner export (Download button) ---- */
 function browserDownload(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}},1500);}
 function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);return {fmt,kb:isNaN(kbRaw)?0:kbRaw,ext:fmt==="jpeg"?"jpg":fmt};}
@@ -896,7 +960,7 @@ document.getElementById("run").addEventListener("click",async()=>{
   for(const tpl of chosen){
     const st=state[tpl.id];
     if(!st.img){
-      if(LOCAL.on){ try{ log(`✨ ${tpl.name} — generating with AI…`); await aiGenerate(tpl,st); const cc=document.querySelector(`.card[data-id="${tpl.id}"]`); }catch(e){ log(`✗ ${tpl.name}: ${e.message||"AI failed"}`); continue; } }
+      if(LOCAL.on){ try{ log(`✨ ${tpl.name} — generating with AI…`); await aiGenerate(tpl,st); autoSaveBanner(tpl,st); if(cardRefresh[tpl.id])cardRefresh[tpl.id](); }catch(e){ log(`✗ ${tpl.name}: ${e.message||"AI failed"}`); continue; } }
       else { log(`⚠ ${tpl.name}: no image — upload one, or run the local app for AI. Skipped.`); continue; }
     }
     const sfx=stamp();
