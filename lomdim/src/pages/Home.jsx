@@ -131,8 +131,8 @@ export default function Home({ nav }) {
         <button className="btn btn-wide" onClick={() => nav.go('examBoard')}>
           🗓️ לוח המבחנים והלו״ז
         </button>
-        <button className="btn btn-wide" onClick={() => nav.go('soon', { title: 'דוח יומי להורה' })}>
-          👨‍👩‍👦 דוח יומי להורה
+        <button className="btn btn-wide" onClick={() => nav.go('parentReport')}>
+          👨‍👩‍👦 דוח הורה
         </button>
       </div>
     </div>
