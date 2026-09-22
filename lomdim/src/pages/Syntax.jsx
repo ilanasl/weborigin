@@ -4,11 +4,11 @@ import { generateSentenceTags } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 
 const ROLES = {
-  syntax: ['נושא', 'נשוא', 'מושא', 'לוואי', 'תיאור'],
+  syntax: ['נושא', 'נשוא', 'נשוא מורחב', 'משלים שם', 'משלים פועל'],
   pos: ['פועל', 'שם עצם', 'שם תואר', 'מילת קישור'],
 }
 const COLOR = {
-  'נושא': '#4A55C7', 'נשוא': '#B15A2B', 'מושא': '#3F8F63', 'לוואי': '#6D4BB0', 'תיאור': '#3B7C88',
+  'נושא': '#4A55C7', 'נשוא': '#B15A2B', 'נשוא מורחב': '#B0506A', 'משלים שם': '#6D4BB0', 'משלים פועל': '#3F8F63',
   'פועל': '#B15A2B', 'שם עצם': '#4A55C7', 'שם תואר': '#3F8F63', 'מילת קישור': '#6C7080',
 }
 
@@ -18,30 +18,58 @@ export default function Syntax({ nav, params }) {
   const roles = ROLES[mode] || ROLES.syntax
   const [items, setItems] = useState([])
   const [idx, setIdx] = useState(0)
-  const [picks, setPicks] = useState({})   // token index -> chosen role
-  const [sel, setSel] = useState(null)      // token currently selected for tagging
+  const [picks, setPicks] = useState({})
+  const [sel, setSel] = useState(null)
   const [checked, setChecked] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [err, setErr] = useState('')
 
-  async function gen() {
-    setLoading(true); setErr('')
+  // מייצר מנה חדשה של משפטים ושומר אותם (לא ייעלמו)
+  async function genMore(initial) {
+    setGenerating(true); setErr('')
     try {
       const { items: got } = await generateSentenceTags({ subjectName, topicName, mode, count: 6, learner: profile })
       const clean = (got || []).filter((it) => Array.isArray(it.tokens) && it.tokens.length)
       if (!clean.length) throw new Error('no_items')
-      setItems(clean); setIdx(0); setPicks({}); setSel(null); setChecked(false)
+      const rows = clean.map((it) => ({
+        subject_id: subjectId, topic_id: topicId || null, mode,
+        sentence: it.sentence || '', tokens: it.tokens, explain: it.explain || '',
+      }))
+      const { data: ins } = await supabase.from('syntax_items').insert(rows).select('*')
+      const added = ins || []
+      if (initial) { setItems(added); setIdx(0); setPicks({}); setSel(null); setChecked(false) }
+      else setItems((prev) => [...prev, ...added])
     } catch (e) {
       setErr('יצירת המשפטים נכשלה. נסו שוב עוד רגע. ' + String(e?.message || e))
-    } finally { setLoading(false) }
+    } finally { setGenerating(false); setLoading(false) }
   }
-  useEffect(() => { gen() }, [subjectId, topicId, mode])
 
-  if (loading) return <div className="text-muted pt-4">מכין משפטים לתרגול…</div>
-  if (err) return (
+  // טוען משפטים שעדיין לא נענו — ממשיכים מאיפה שעצרנו; אם אין — מייצר
+  async function loadItems() {
+    setLoading(true)
+    let q = supabase.from('syntax_items').select('*')
+      .eq('subject_id', subjectId).eq('mode', mode).eq('done', false)
+    if (topicId) q = q.eq('topic_id', topicId)
+    const { data } = await q.order('created_at').limit(30)
+    if (data && data.length) {
+      setItems(data); setIdx(0); setPicks({}); setSel(null); setChecked(false); setLoading(false)
+    } else {
+      await genMore(true)
+    }
+  }
+  useEffect(() => { loadItems() }, [subjectId, topicId, mode])
+
+  if (loading) return <div className="text-muted pt-4">{generating ? 'מכין משפטים לתרגול…' : 'טוען…'}</div>
+  if (err && !items.length) return (
     <div className="pt-4">
       <div className="text-bad text-[14px] mb-3">{err}</div>
-      <button className="btn btn-primary" onClick={gen}>נסו שוב</button>
+      <button className="btn btn-primary" onClick={() => genMore(true)}>נסו שוב</button>
+    </div>
+  )
+  if (!items.length) return (
+    <div className="empty pt-10"><div className="big">🧩</div>אין משפטים כרגע.<br />
+      <button className="btn btn-primary mt-3" onClick={() => genMore(true)}>צור משפטים לתרגול</button>
     </div>
   )
 
@@ -59,17 +87,15 @@ export default function Syntax({ nav, params }) {
   async function check() {
     setChecked(true)
     const ok = correctCount === tokens.length
-    // רישום ניסיון לנושא (למודל השליטה)
     if (topicId) {
-      await supabase.from('attempts').insert({
-        subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני',
-      }).catch(() => {})
+      await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני' }).catch(() => {})
     }
+    if (item?.id) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id).catch(() => {})
   }
 
-  function next() {
+  async function next() {
     if (idx + 1 < items.length) { setIdx(idx + 1); setPicks({}); setSel(null); setChecked(false) }
-    else gen()
+    else { await genMore(false); setIdx(idx + 1); setPicks({}); setSel(null); setChecked(false) }
   }
 
   return (
@@ -77,7 +103,7 @@ export default function Syntax({ nav, params }) {
       <h1 className="text-[22px] font-black mb-1">{mode === 'pos' ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
       <div className="text-muted text-[13.5px] mb-1">{subjectName}{topicName ? ` · ${topicName}` : ''}</div>
       <div className="text-muted text-[12.5px] mb-4">
-        {mode === 'pos' ? 'הקישו על כל מילה ובחרו את חלק הדיבר שלה.' : 'הקישו על כל מילה ובחרו את תפקידה התחבירי. טיפ: קודם הנשוא, אז הנושא, ואז המשלימים.'}
+        {mode === 'pos' ? 'הקישו על כל מילה ובחרו את חלק הדיבר שלה.' : 'הקישו על כל מילה ובחרו את תפקידה. טיפ: קודם הנשוא, אז הנושא, ואז המשלימים.'}
       </div>
 
       {/* המשפט — מילים לחיצות */}
@@ -115,7 +141,7 @@ export default function Syntax({ nav, params }) {
           <div className="flex flex-wrap gap-2 justify-center">
             {roles.map((r) => (
               <button key={r} onClick={() => choose(r)} disabled={sel == null}
-                className="rounded-[999px] px-3.5 py-2 text-[14px] font-bold border-[1.5px] disabled:opacity-40"
+                className="rounded-[999px] px-3.5 py-2 text-[13.5px] font-bold border-[1.5px] disabled:opacity-40"
                 style={{ borderColor: COLOR[r], color: COLOR[r] }}>{r}</button>
             ))}
           </div>
@@ -139,8 +165,8 @@ export default function Syntax({ nav, params }) {
             {allTagged ? '✓ בדוק' : 'סמנו את כל המילים'}
           </button>
         ) : (
-          <button className="btn btn-primary btn-wide" onClick={next}>
-            {idx + 1 < items.length ? 'המשפט הבא ←' : '✨ עוד משפטים'}
+          <button className="btn btn-primary btn-wide" onClick={next} disabled={generating}>
+            {generating ? 'מכין…' : (idx + 1 < items.length ? 'המשפט הבא ←' : '✨ עוד משפטים')}
           </button>
         )}
       </div>
