@@ -218,9 +218,9 @@ const TEMPLATES = [
     bgPos:{desktop:"right", mobile:"center"},
     logo:{x:2,y:14,widthPct:11,anchor:"top-left", mobile:{x:5,y:9,widthPct:24}},
     defaultTopic:"a happy family in front of a suburban home, bright daylight, lifestyle photo",
-    composition:"A natural, candid lifestyle photo set at a welcoming suburban house, shot at a MEDIUM-WIDE distance (faces small in the frame — absolutely NOT a close-up). Whatever the scene, place the people / main subject on the RIGHT side and keep the LEFT ~55% as calm, softly-lit house facade, lawn or open space for a dark text panel. Leave GENEROUS empty space above the people: the entire TOP THIRD is open sky and roofline with nothing important, and calm lawn fills the bottom third. Keep every head within the vertical CENTER band of the frame — NEVER in the top third — with clear space above it, so a short, wide banner that keeps only the middle strip still shows every head complete. Photorealistic, bright natural daylight, one continuous candid photo, no collage.",
+    composition:"A natural, candid lifestyle photo set at a welcoming suburban house, shot at a MEDIUM-WIDE distance (faces small in the frame — absolutely NOT a close-up). Whatever the scene, place the people / main subject on the RIGHT side and keep the LEFT ~55% SOFT, open and low-detail — soft sky, gentle out-of-focus greenery or a plain softly-lit wall, with NO busy structures, windows or hard edges — so it dissolves cleanly into a colour panel for text. Leave GENEROUS empty space above the people: the entire TOP THIRD is open sky and roofline with nothing important, and calm lawn fills the bottom third. Keep every head within the vertical CENTER band of the frame — NEVER in the top third — with clear space above it, so a short, wide banner that keeps only the middle strip still shows every head complete. Photorealistic, bright natural daylight, one continuous candid photo, no collage.",
     overlay:{desktop:{color:"#0a111c",opacity:.92,gradient:true,coverage:"left",hold:14,fade:66},
-             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:26,fade:80}},
+             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:32,fade:82}},
     elements:[
       {key:"headline",label:"Headline",val:"Top Home Warranty Companies 2026",size:46,weight:800,color:"#ffffff",align:"left",x:15.5,y:26,anchor:"top-left",maxW:52,lh:1.05,
        mobile:{size:30,x:5,y:24,maxW:46,lh:1.1,color:"#16324a"}},
@@ -767,6 +767,7 @@ function openEditor(tpl,st,onClose){
   html+=`<div class="f e-ovmanual"><span>Overlay color (HEX)</span><div class="e-inline"><input type="color" class="e-ovc"><input type="text" class="e-ovh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   html+=`<label class="f"><span>Overlay strength <b class="e-ovov"></b></span><input type="range" class="e-ovo" min="0" max="1" step="0.02"></label>`;
   html+=`<label class="f"><span>Solid area <b class="e-ovhv"></b></span><input type="range" class="e-ovhold" min="0" max="100" step="1"></label>`;
+  html+=`<label class="f"><span>Fade end (softness) <b class="e-ovfv"></b></span><input type="range" class="e-ovfade" min="0" max="100" step="1"></label>`;
   html+=`<div class="e-sec">Text</div><label class="chk cwhite"><input type="checkbox" class="e-showtext" ${st.text.enabled?"checked":""}> Bake text into the exported file</label><div class="e-texts"></div>`;
   if(hasBtn) html+=`<label class="chk cwhite"><input type="checkbox" class="e-btnauto"> Button color: auto from image</label><div class="f e-btnman"><span>Button color (HEX)</span><div class="e-inline"><input type="color" class="e-btnc"><input type="text" class="e-btnh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   controls.innerHTML=html;
@@ -804,6 +805,7 @@ function openEditor(tpl,st,onClose){
     q(".e-ovc").value=ov.color;q(".e-ovh").value=ov.color.toUpperCase();
     q(".e-ovo").value=ov.opacity;q(".e-ovov").textContent=Math.round(ov.opacity*100)+"%";
     q(".e-ovhold").value=ov.hold;q(".e-ovhv").textContent=Math.round(ov.hold)+"%";
+    {const fv=(ov.fade!=null?ov.fade:100);q(".e-ovfade").value=fv;q(".e-ovfv").textContent=Math.round(fv)+"%";}
     q(".e-posx").value=(o.anchorX&&o.anchorX[size]!=null)?o.anchorX[size]:50;
     q(".e-posy").value=(o.anchorY&&o.anchorY[size]!=null)?o.anchorY[size]:50;
     q(".e-zoom").value=o.zoom;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";
@@ -832,6 +834,7 @@ function openEditor(tpl,st,onClose){
   q(".e-ovh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay[size].color=v;o.overlay[size].userColor=true;q(".e-ovc").value=v;draw();}});
   q(".e-ovo").addEventListener("input",e=>{o.overlay[size].opacity=+e.target.value;q(".e-ovov").textContent=Math.round(o.overlay[size].opacity*100)+"%";draw();});
   q(".e-ovhold").addEventListener("input",e=>{o.overlay[size].hold=+e.target.value;q(".e-ovhv").textContent=Math.round(o.overlay[size].hold)+"%";draw();});
+  q(".e-ovfade").addEventListener("input",e=>{o.overlay[size].fade=+e.target.value;q(".e-ovfv").textContent=Math.round(o.overlay[size].fade)+"%";draw();});
   if(hasBtn){
     q(".e-btnauto").addEventListener("change",e=>{o.buttonAuto=e.target.checked;q(".e-btnman").style.display=o.buttonAuto?"none":"";draw();});
     q(".e-btnc").addEventListener("input",e=>{o.buttonColor=e.target.value;q(".e-btnh").value=e.target.value.toUpperCase();draw();});
