@@ -208,9 +208,7 @@ export default function TopicSummary({ nav, params }) {
         </div>
       )}
 
-      {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
-
-      {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
+      {/* סיכומים שהוספתי (מהצ'אט) — ישר מתחת לסיכום הראשי; קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
         <>
           <div className="list-title">סיכומים שהוספתי</div>
@@ -226,6 +224,8 @@ export default function TopicSummary({ nav, params }) {
           ))}
         </>
       )}
+
+      {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
 
       <div className="action-row mt-3">
         <button className="btn" onClick={generate} disabled={busy}>
