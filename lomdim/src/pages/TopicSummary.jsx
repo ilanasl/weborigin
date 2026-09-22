@@ -208,7 +208,19 @@ export default function TopicSummary({ nav, params }) {
         </div>
       )}
 
-      {/* סיכומים שהוספתי (מהצ'אט) — ישר מתחת לסיכום הראשי; קבועים, לא נמחקים ב"סכם מחדש" */}
+      {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
+
+      <div className="action-row mt-3">
+        <button className="btn" onClick={generate} disabled={busy}>
+          {busy ? 'מכין…' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
+        </button>
+        <button className="btn btn-primary" disabled={qCount === 0}
+          onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
+          🎯 תרגל נושא זה
+        </button>
+      </div>
+
+      {/* סיכומים שהוספתי (מהצ'אט) — מתחת לכפתורים; קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
         <>
           <div className="list-title">סיכומים שהוספתי</div>
@@ -224,18 +236,6 @@ export default function TopicSummary({ nav, params }) {
           ))}
         </>
       )}
-
-      {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
-
-      <div className="action-row mt-3">
-        <button className="btn" onClick={generate} disabled={busy}>
-          {busy ? 'מכין…' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
-        </button>
-        <button className="btn btn-primary" disabled={qCount === 0}
-          onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
-          🎯 תרגל נושא זה
-        </button>
-      </div>
     </div>
   )
 }
