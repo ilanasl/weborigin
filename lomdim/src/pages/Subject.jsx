@@ -149,7 +149,7 @@ export default function Subject({ nav, params }) {
               <div className="nm">
                 {t.name}
                 {t.in_exam && <span className="scope-in">✓ במבחן</span>}
-                {t.m.due && <span className="due">לחזרה היום</span>}
+                {t.m.due && <span className="due">🔁 חזרה שוטפת</span>}
                 {t.origin === 'חזרה' && <span className="scope-out">חזרה</span>}
               </div>
               {t.m.pct == null ? (
