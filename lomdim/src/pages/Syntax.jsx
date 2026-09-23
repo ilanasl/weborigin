@@ -90,7 +90,8 @@ export default function Syntax({ nav, params }) {
     if (topicId) {
       await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני' }).catch(() => {})
     }
-    if (item?.id) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id).catch(() => {})
+    // רק משפט שנענה נכון "מסתיים" ולא חוזר; טעות נשארת (done=false) ותחזור בכניסה הבאה — חיזוק ממוקד
+    if (item?.id && ok) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id).catch(() => {})
   }
 
   async function next() {
