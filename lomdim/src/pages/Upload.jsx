@@ -30,7 +30,7 @@ export default function Upload({ nav, params }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
   const [topicsList, setTopicsList] = useState([])
-  const [chosenTopic, setChosenTopic] = useState('')
+  const [chosen, setChosen] = useState([])   // [{ name, summary_md, questions, flashcards }]
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
 
@@ -74,7 +74,10 @@ export default function Upload({ nav, params }) {
         })
       }
       setResult(out)
-      setChosenTopic(out.topic || '')
+      setChosen((out.topics || []).map((t) => ({
+        name: t.topic || '', summary_md: t.summary_md || '',
+        questions: t.questions || [], flashcards: t.flashcards || [],
+      })))
     } catch (e) {
       const msg = String(e)
       setErr(msg.includes('parse_failed')
@@ -83,57 +86,55 @@ export default function Upload({ nav, params }) {
     } finally { setBusy(false) }
   }
 
+  async function ensureTopic(name, origin) {
+    const { data: exist } = await supabase.from('topics')
+      .select('id').eq('subject_id', subjectId).eq('name', name).maybeSingle()
+    if (exist) return exist.id
+    const { data: ins } = await supabase.from('topics')
+      .insert({ subject_id: subjectId, name, origin }).select('id').single()
+    return ins?.id
+  }
+
   async function save() {
-    if (!result) return
+    const active = chosen.filter((c) => c.name.trim())
+    if (!active.length) return
     setBusy(true); setErr('')
     try {
       const { data: userData } = await supabase.auth.getUser()
       const uid = userData.user?.id
       const origin = lastYear ? 'חזרה' : 'השנה'
+      const kind = isText(file) ? 'text' : file?.type === 'application/pdf' ? 'pdf' : 'image'
 
-      // 1) נושא — לפי הבחירה שלך (אפשר לשנות/לבחור קיים)
-      const topicName = (chosenTopic || result.topic || '').trim()
-      let topicId = null
-      if (topicName) {
-        const { data: exist } = await supabase.from('topics')
-          .select('id').eq('subject_id', subjectId).eq('name', topicName).maybeSingle()
-        if (exist) topicId = exist.id
-        else {
-          const { data: ins } = await supabase.from('topics')
-            .insert({ subject_id: subjectId, name: topicName, origin }).select('id').single()
-          topicId = ins?.id
-        }
-      }
-
-      // 2) העלאת הקובץ לאחסון (לא חוסם אם נכשל)
+      // העלאת הקובץ פעם אחת
       let storagePath = null
       if (file && uid && !isText(file)) {
         storagePath = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}`
         await supabase.storage.from('materials').upload(storagePath, file).catch(() => {})
       }
 
-      // 3) חומר + סיכום + חתימת תוכן
-      const kind = isText(file) ? 'text' : file?.type === 'application/pdf' ? 'pdf' : 'image'
-      const { data: mat } = await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, title: topicName || 'חומר',
-        kind, storage_path: storagePath, origin,
-        summary_md: onlyPractice ? '' : (result.summary_md || ''),
-        content_hash: hash, source_text: result.source_text || null,
-      }).select('id').single()
-
-      // 4) שאלות
-      if (Array.isArray(result.questions) && result.questions.length) {
-        await supabase.from('questions').insert(result.questions.map((q) => ({
-          subject_id: subjectId, topic_id: topicId, material_id: mat?.id,
-          q: q.q, choices: q.choices, answer: q.answer,
-          difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
-        })))
-      }
-      // 5) כרטיסיות
-      if (Array.isArray(result.flashcards) && result.flashcards.length) {
-        await supabase.from('flashcards').insert(result.flashcards.map((c) => ({
-          subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
-        })))
+      // כל נושא שזוהה נשמר בנפרד עם השאלות/הכרטיסיות שלו
+      for (let i = 0; i < active.length; i++) {
+        const ct = active[i]
+        const topicId = await ensureTopic(ct.name.trim(), origin)
+        const { data: mat } = await supabase.from('materials').insert({
+          subject_id: subjectId, topic_id: topicId, title: ct.name.trim(),
+          kind, storage_path: i === 0 ? storagePath : null, origin,
+          summary_md: onlyPractice ? '' : (ct.summary_md || ''),
+          content_hash: i === 0 ? hash : null,
+          source_text: i === 0 ? (result.source_text || null) : null,
+        }).select('id').single()
+        if (Array.isArray(ct.questions) && ct.questions.length) {
+          await supabase.from('questions').insert(ct.questions.map((q) => ({
+            subject_id: subjectId, topic_id: topicId, material_id: mat?.id,
+            q: q.q, choices: q.choices, answer: q.answer,
+            difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
+          })))
+        }
+        if (Array.isArray(ct.flashcards) && ct.flashcards.length) {
+          await supabase.from('flashcards').insert(ct.flashcards.map((c) => ({
+            subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
+          })))
+        }
       }
       nav.reset('subject', { id: subjectId })
     } catch (e) {
@@ -183,29 +184,33 @@ export default function Upload({ nav, params }) {
       {result && (
         <div className="card mt-3">
           <div className="text-good font-extrabold mb-1">✅ נותח</div>
-          <div className="text-[13.5px] text-muted mb-3">
-            נוצרו: {result.questions?.length || 0} שאלות · {result.flashcards?.length || 0} כרטיסיות.
+          <div className="text-[13px] text-muted mb-3">
+            {chosen.length > 1 ? `זוהו ${chosen.length} נושאים בדף הזה — כל אחד יישמר בנפרד.` : 'זוהה נושא אחד.'} אפשר לשנות שמות או לבחור נושא קיים.
           </div>
 
-          {/* אישור / בחירת נושא */}
-          <label className="block text-[13.5px] font-bold text-muted mb-1.5">לאיזה נושא לשייך? (המערכת זיהתה — אפשר לשנות)</label>
-          {topicsList.length > 0 && (
-            <select className="field mb-2" value={topicsList.includes(chosenTopic) ? chosenTopic : ''}
-              onChange={(e) => { if (e.target.value) setChosenTopic(e.target.value) }}>
-              <option value="">— בחרו נושא קיים —</option>
-              {topicsList.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
-          <input className="field" value={chosenTopic} onChange={(e) => setChosenTopic(e.target.value)}
-            placeholder="שם הנושא" />
-          <div className="text-[12px] text-muted mt-1">בחרו נושא קיים מהרשימה, או הקלידו שם חדש.</div>
+          <datalist id="existing-topics">
+            {topicsList.map((t) => <option key={t} value={t} />)}
+          </datalist>
 
-          {!onlyPractice && result.summary_md && (
-            <div className="mt-3 pt-3 border-t border-line text-[14.5px] leading-relaxed">
-              <Markdown text={result.summary_md} />
+          {chosen.map((ct, i) => (
+            <div key={i} className="mb-3 pb-3 border-b border-line last:border-0">
+              <label className="block text-[13px] font-bold text-muted mb-1.5">נושא {chosen.length > 1 ? i + 1 : ''}</label>
+              <input className="field" list="existing-topics" value={ct.name}
+                onChange={(e) => setChosen((arr) => arr.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                placeholder="שם הנושא" />
+              <div className="text-[12px] text-muted mt-1">
+                {ct.questions?.length || 0} שאלות · {ct.flashcards?.length || 0} כרטיסיות
+              </div>
+              {!onlyPractice && ct.summary_md && (
+                <details className="mt-2">
+                  <summary className="text-[12.5px] text-primary font-semibold cursor-pointer">הצג סיכום</summary>
+                  <div className="mt-2 text-[14px] leading-relaxed"><Markdown text={ct.summary_md} /></div>
+                </details>
+              )}
             </div>
-          )}
-          <button className="btn btn-primary btn-wide mt-4" onClick={save} disabled={busy || !chosenTopic.trim()}>
+          ))}
+
+          <button className="btn btn-primary btn-wide mt-1" onClick={save} disabled={busy || !chosen.some((c) => c.name.trim())}>
             {busy ? 'שומר…' : 'שמור למקצוע'}
           </button>
         </div>
