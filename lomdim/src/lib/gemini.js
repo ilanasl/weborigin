@@ -65,15 +65,16 @@ function buildParts(payload) {
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
-      `החזר JSON בלבד: {"topic":"שם נושא קצר",` +
+      `החזר JSON בלבד: {"topics":[{"topic":"שם נושא קצר",` +
       (noSummary
         ? `"summary_md":"",`
         : `"summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",`) +
-      `"source_text":"אם החומר הוא שיר או יצירה ספרותית — כתוב/י כאן את הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת השאר/י ריק.",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
-      `"flashcards":[{"front":"מושג","back":"הגדרה","context":"הקשר קצר לפני החשיפה — מאיזה שיר/יצירה או תת-נושא הכרטיסייה שואלת (למשל: מתוך השיר 'שמו של השיר', או שם תת-הנושא). אם ברור לגמרי מהנושא — השאר/י ריק."}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
+      `"flashcards":[{"front":"מושג","back":"הגדרה","context":"הקשר קצר לפני החשיפה — מאיזה שיר/יצירה או תת-נושא הכרטיסייה שואלת. אם ברור מהנושא — ריק."}]}],` +
+      `"source_text":"אם החומר הוא שיר או יצירה ספרותית — הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת ריק."}. ` +
+      `בדרך כלל נושא אחד. אבל אם הדף כולל בבירור שני נושאים שונים ונפרדים — החזר/י שני איברים במערך topics, כל אחד עם השאלות והכרטיסיות שלו. לכל נושא: 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) +
-      ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו (נושא, נשוא, מושא, לוואי וכו').` })
+      ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו.` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
@@ -262,7 +263,14 @@ const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
 
 export const analyzeMaterial = async (p) => {
   const out = deepClean(await call({ task: 'analyze_material', ...p }))
-  return { ...out, questions: shuffleQuestions(out.questions) }
+  // תמיכה בשני הפורמטים: topics[] חדש, או topic יחיד ישן
+  const raw = Array.isArray(out.topics) && out.topics.length
+    ? out.topics
+    : (out.topic ? [{ topic: out.topic, summary_md: out.summary_md, questions: out.questions, flashcards: out.flashcards }] : [])
+  const topics = raw
+    .filter((t) => t && t.topic)
+    .map((t) => ({ ...t, questions: shuffleQuestions(t.questions || []), flashcards: t.flashcards || [] }))
+  return { topics, source_text: out.source_text || '' }
 }
 export const generateQuestions = async (p) => {
   const out = deepClean(await call({ task: 'generate_questions', ...p }))
@@ -283,10 +291,13 @@ export const generateSentenceTags = async (p) => deepClean(await call({ task: 't
 // הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת
 export const renikudQuestions = async (items) => deepClean(await call({ task: 'renikud', items }))
 
-// סיכום עיוני מסודר לנושא (משתמש במשימת explain — לא דורש עדכון של פונקציית ה-Edge)
-export const topicSummary = async ({ subjectName, topicName, learner }) => {
-  const question =
-    `כתוב סיכום עיוני מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ט'. ` +
+// סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials }) => {
+  const hasSource = sourceMaterials && sourceMaterials.trim()
+  const intro = hasSource
+    ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום עיוני אחד מסודר, מקיף ואקטואלי — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. הישאר/י נאמן/ה לחומר שהועלה ואל תמציא/י מעבר לו.\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 12000)}"""\n\n`
+    : `כתוב סיכום עיוני מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ט'. `
+  const question = intro +
     `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא. (2) לכל מושג מרכזי — מה זה, על איזו שאלה הוא עונה, ודוגמה. ` +
     `(3) דגשים וטעויות נפוצות למבחן. (4) כשמתאים — השתמש בטבלת Markdown להשוואה, עם עמודות שמתאימות לנושא: לרוב "מושג | מה זה | על איזו שאלה עונה | דוגמה", ובנושאים כמו שם המספר "מספר | זכר | נקבה". ` +
     TONE_RULE + ' ' + NIKUD_RULE + ' ' +

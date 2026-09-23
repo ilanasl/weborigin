@@ -9,9 +9,15 @@ export default function TopicSummary({ nav, params }) {
   const { profile } = useAuth()
   const [summary, setSummary] = useState(null)
   const [notes, setNotes] = useState([])
+  const [aggSource, setAggSource] = useState('')
   const [sourceText, setSourceText] = useState(null)
   const [showSource, setShowSource] = useState(false)
   const [qCount, setQCount] = useState(0)
+  // ניהול נושא
+  const [otherTopics, setOtherTopics] = useState([])
+  const [showManage, setShowManage] = useState(false)
+  const [renameVal, setRenameVal] = useState(topicName || '')
+  const [mergeTarget, setMergeTarget] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -60,20 +66,22 @@ export default function TopicSummary({ nav, params }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: mats }, { data: notesData }, { data: src }, { count }] = await Promise.all([
-      // הסיכום הראשי — לא כולל סיכומים שנוספו מהצ'אט (kind='note')
-      supabase.from('materials').select('summary_md, created_at').eq('topic_id', topicId).neq('kind', 'note')
-        .not('summary_md', 'is', null).order('created_at', { ascending: false }).limit(1),
-      // סיכומים שהוספתי (מהצ'אט) — קבועים, נפרדים
-      supabase.from('materials').select('id, title, summary_md, created_at').eq('topic_id', topicId).eq('kind', 'note')
-        .order('created_at', { ascending: false }),
-      supabase.from('materials').select('source_text').eq('topic_id', topicId)
-        .not('source_text', 'is', null).order('created_at', { ascending: false }).limit(1),
+    const [{ data: allMats }, { count }, { data: tps }] = await Promise.all([
+      supabase.from('materials').select('id, kind, title, summary_md, source_text, created_at')
+        .eq('topic_id', topicId).order('created_at', { ascending: false }),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', topicId),
+      supabase.from('topics').select('id, name').eq('subject_id', subjectId),
     ])
-    setSummary(mats?.[0]?.summary_md || null)
-    setNotes(notesData || [])
-    setSourceText(src?.[0]?.source_text || null)
+    const mats = allMats || []
+    // סיכום מאוחד (kind='summary') מוצג ראשון; אחרת הסיכום העדכני מהדפים שהועלו
+    const consolidated = mats.find((m) => m.kind === 'summary' && m.summary_md)
+    const pages = mats.filter((m) => m.kind !== 'summary' && m.kind !== 'note')
+    setSummary(consolidated?.summary_md || pages.find((m) => m.summary_md)?.summary_md || null)
+    setNotes(mats.filter((m) => m.kind === 'note' && m.summary_md))
+    setSourceText(mats.find((m) => m.source_text)?.source_text || null)
+    // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
+    setAggSource(pages.map((m) => [m.summary_md, m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
+    setOtherTopics((tps || []).filter((t) => t.id !== topicId))
     setQCount(count || 0)
     setLoading(false)
   }
@@ -102,14 +110,35 @@ export default function TopicSummary({ nav, params }) {
   async function generate() {
     setBusy(true); setErr('')
     try {
-      const { summary_md } = await topicSummary({ subjectName, topicName, learner: profile })
+      // מאחד את כל החומרים שהועלו לנושא לסיכום אחד (אם אין — סיכום כללי)
+      const { summary_md } = await topicSummary({ subjectName, topicName, learner: profile, sourceMaterials: aggSource })
+      await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
       await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'text', summary_md,
+        subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
       })
       await load()
     } catch (e) {
       setErr('יצירת הסיכום נכשלה. נסו שוב עוד רגע. ' + String(e))
     } finally { setBusy(false) }
+  }
+
+  async function renameTopic() {
+    const nm = renameVal.trim()
+    if (!nm || nm === topicName) { setShowManage(false); return }
+    await supabase.from('topics').update({ name: nm }).eq('id', topicId)
+    nav.reset('subject', { id: subjectId })
+  }
+
+  async function mergeInto() {
+    if (!mergeTarget) return
+    if (!window.confirm('להעביר את כל התוכן של הנושא הזה לנושא שנבחר ולמחוק את הנושא הזה?')) return
+    setBusy(true)
+    for (const tbl of ['questions', 'flashcards', 'materials', 'attempts']) {
+      await supabase.from(tbl).update({ topic_id: mergeTarget }).eq('topic_id', topicId).catch(() => {})
+    }
+    await supabase.from('syntax_items').update({ topic_id: mergeTarget }).eq('topic_id', topicId).catch(() => {})
+    await supabase.from('topics').delete().eq('id', topicId)
+    nav.reset('subject', { id: subjectId })
   }
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
@@ -212,13 +241,14 @@ export default function TopicSummary({ nav, params }) {
 
       <div className="action-row mt-3">
         <button className="btn" onClick={generate} disabled={busy}>
-          {busy ? 'מכין…' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
+          {busy ? 'מכין…' : aggSource ? '✨ אחד סיכום מהחומרים' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
         </button>
         <button className="btn btn-primary" disabled={qCount === 0}
           onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
           🎯 תרגל נושא זה
         </button>
       </div>
+      {aggSource && <div className="text-[12px] text-muted mt-1.5">"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>}
 
       {/* סיכומים שהוספתי (מהצ'אט) — מתחת לכפתורים; קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
@@ -235,6 +265,37 @@ export default function TopicSummary({ nav, params }) {
             </div>
           ))}
         </>
+      )}
+
+      {/* ניהול נושא — שינוי שם / מיזוג */}
+      <button className="text-muted text-[12.5px] font-semibold mt-4 hover:text-primary w-full text-start"
+        onClick={() => setShowManage((v) => !v)}>
+        {showManage ? 'הסתר ▲' : '⚙︎ ניהול הנושא (שינוי שם / מיזוג) ▼'}
+      </button>
+      {showManage && (
+        <div className="card mt-2 flex flex-col gap-3">
+          <div>
+            <label className="block text-[13px] font-bold text-muted mb-1.5">שם הנושא</label>
+            <div className="flex gap-2">
+              <input className="field flex-1" value={renameVal} onChange={(e) => setRenameVal(e.target.value)} />
+              <button className="btn" onClick={renameTopic} disabled={busy}>שמור שם</button>
+            </div>
+          </div>
+          {otherTopics.length > 0 && (
+            <div>
+              <label className="block text-[13px] font-bold text-muted mb-1.5">מיזוג לנושא אחר</label>
+              <div className="text-[12px] text-muted mb-1.5">מעביר את כל השאלות, החומרים והכרטיסיות לנושא שנבחר, ומוחק את הנושא הזה.</div>
+              <div className="flex gap-2">
+                <select className="field flex-1" value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)}>
+                  <option value="">— בחרו נושא יעד —</option>
+                  {otherTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <button className="btn" style={{ color: 'var(--bad)', borderColor: 'color-mix(in srgb,var(--bad) 40%,var(--line))' }}
+                  onClick={mergeInto} disabled={busy || !mergeTarget}>מזג</button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
