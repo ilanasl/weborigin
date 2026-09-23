@@ -147,7 +147,7 @@ export default function TopicSummary({ nav, params }) {
   return (
     <div className="pt-2">
       <h1 className="text-[22px] font-black mb-1">{topicName}</h1>
-      <div className="text-muted text-[13.5px] mb-4">{subjectName} · חומר לחזרה</div>
+      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
 
       {sourceText && !pasteMode ? (
         <>
@@ -276,36 +276,6 @@ export default function TopicSummary({ nav, params }) {
         </>
       )}
 
-      {/* ניהול נושא — שינוי שם / מיזוג */}
-      <button className="text-muted text-[12.5px] font-semibold mt-4 hover:text-primary w-full text-start"
-        onClick={() => setShowManage((v) => !v)}>
-        {showManage ? 'הסתר ▲' : '⚙︎ ניהול הנושא (שינוי שם / מיזוג) ▼'}
-      </button>
-      {showManage && (
-        <div className="card mt-2 flex flex-col gap-3">
-          <div>
-            <label className="block text-[13px] font-bold text-muted mb-1.5">שם הנושא</label>
-            <div className="flex gap-2">
-              <input className="field flex-1" value={renameVal} onChange={(e) => setRenameVal(e.target.value)} />
-              <button className="btn" onClick={renameTopic} disabled={busy}>שמור שם</button>
-            </div>
-          </div>
-          {otherTopics.length > 0 && (
-            <div>
-              <label className="block text-[13px] font-bold text-muted mb-1.5">מיזוג לנושא אחר</label>
-              <div className="text-[12px] text-muted mb-1.5">מעביר את כל השאלות, החומרים והכרטיסיות לנושא שנבחר, ומוחק את הנושא הזה.</div>
-              <div className="flex gap-2">
-                <select className="field flex-1" value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)}>
-                  <option value="">— בחרו נושא יעד —</option>
-                  {otherTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-                <button className="btn" style={{ color: 'var(--bad)', borderColor: 'color-mix(in srgb,var(--bad) 40%,var(--line))' }}
-                  onClick={mergeInto} disabled={busy || !mergeTarget}>מזג</button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

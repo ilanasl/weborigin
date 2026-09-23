@@ -49,6 +49,14 @@ export default function Subject({ nav, params }) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
+  // שיוך חומר לנושא אחר — מעביר גם את השאלות שנוצרו ממנו
+  async function moveMaterialTopic(m, topicId) {
+    if (!topicId || topicId === m.topic_id) return
+    await supabase.from('materials').update({ topic_id: topicId }).eq('id', m.id)
+    await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id).catch(() => {})
+    load()
+  }
+
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
   const name = subject.name
@@ -185,16 +193,27 @@ export default function Subject({ nav, params }) {
         ) : (
           <div className="timeline mb-3">
             {materials.map((m) => (
-              <button key={m.id} className="tl-item w-full text-start" disabled={!m.storage_path}
-                onClick={() => openMaterial(m)}>
+              <div key={m.id} className="tl-item">
                 <div className="d">{new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</div>
                 <div className="t">
-                  {m.title || 'חומר'}{' '}
-                  <span className={`mat-origin ${m.origin === 'חזרה' ? 'o-old' : 'o-new'}`}>{m.origin || 'השנה'}</span>
-                  {m.storage_path && <span className="text-muted text-[12px]"> · צפה 👁</span>}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold">{m.title || 'חומר'}</span>
+                    {m.storage_path && (
+                      <button className="text-primary text-[12px] font-semibold" onClick={() => openMaterial(m)}>👁 צפה</button>
+                    )}
+                  </div>
+                  {/* שיוך לנושא — ניתן לשינוי מכאן */}
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <span className="text-[11.5px] text-muted">נושא:</span>
+                    <select className="field !py-1 !px-2 text-[12.5px] !w-auto" value={m.topic_id || ''}
+                      onChange={(e) => moveMaterialTopic(m, e.target.value)}>
+                      {!m.topic_id && <option value="">— ללא —</option>}
+                      {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}</div>
-              </button>
+              </div>
             ))}
           </div>
         ))}
