@@ -18,6 +18,7 @@ export default function TopicSummary({ nav, params }) {
   const [showManage, setShowManage] = useState(false)
   const [renameVal, setRenameVal] = useState(topicName || '')
   const [mergeTarget, setMergeTarget] = useState('')
+  const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -111,7 +112,7 @@ export default function TopicSummary({ nav, params }) {
     setBusy(true); setErr('')
     try {
       // מאחד את כל החומרים שהועלו לנושא לסיכום אחד (אם אין — סיכום כללי)
-      const { summary_md } = await topicSummary({ subjectName, topicName, learner: profile, sourceMaterials: aggSource })
+      const { summary_md } = await topicSummary({ subjectName, topicName, learner: profile, sourceMaterials: aggSource, enrich })
       await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
       await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
@@ -248,7 +249,15 @@ export default function TopicSummary({ nav, params }) {
           🎯 תרגל נושא זה
         </button>
       </div>
-      {aggSource && <div className="text-[12px] text-muted mt-1.5">"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>}
+      {aggSource && (
+        <div className="mt-2">
+          <div className="text-[12px] text-muted mb-1.5">"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>
+          <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
+            <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[17px] h-[17px]" />
+            להשלים גם מהידע הכללי (לא רק מהחומר שלי)
+          </label>
+        </div>
+      )}
 
       {/* סיכומים שהוספתי (מהצ'אט) — מתחת לכפתורים; קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
