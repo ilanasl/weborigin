@@ -155,6 +155,41 @@ create table if not exists syntax_items (
   created_at timestamptz default now()
 );
 
+-- ── מטבעות ותגמול ──
+-- יומן מטבעות: כל רווח/הוצאה הוא שורה. היתרה = sum(amount). שורות לא נמחקות → מטבעות לא "נעלמים".
+create table if not exists coin_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  amount int not null,          -- חיובי = הרוויח, שלילי = פדה
+  reason text not null,         -- 'practice' | 'daily_goal' | 'streak' | 'mastery' | 'redeem'
+  label text,                   -- טקסט להצגה
+  ref text,                     -- מזהה עזר (למשל topic_id למניעת כפילות ב-mastery)
+  created_at timestamptz default now()
+);
+create index if not exists coin_events_user_created on coin_events (user_id, created_at desc);
+
+-- קטלוג הפרסים שההורה מגדיר
+create table if not exists rewards (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  title text not null,
+  cost int not null check (cost > 0),
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
+-- בקשות פדיון — נכנסות כ'pending' ויורדות מהיתרה רק כשההורה מאשר
+create table if not exists redemptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  reward_id uuid references rewards on delete set null,
+  title text not null,          -- צילום שם הפרס בזמן הבקשה
+  cost int not null,
+  status text default 'pending',-- 'pending' | 'approved' | 'rejected'
+  created_at timestamptz default now(),
+  decided_at timestamptz
+);
+
 -- ── RLS — כל משתמש רואה ומנהל רק את השורות שלו ──
 -- (כתוב במפורש לכל טבלה כדי שירוץ חלק גם בעורך ה-SQL של Supabase)
 alter table profiles     enable row level security;
@@ -168,6 +203,9 @@ alter table flashcards   enable row level security;
 alter table review_items enable row level security;
 alter table past_exams   enable row level security;
 alter table syntax_items enable row level security;
+alter table coin_events  enable row level security;
+alter table rewards      enable row level security;
+alter table redemptions  enable row level security;
 
 drop policy if exists own_all on profiles;
 create policy own_all on profiles     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -191,6 +229,12 @@ drop policy if exists own_all on past_exams;
 create policy own_all on past_exams   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists own_all on syntax_items;
 create policy own_all on syntax_items for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on coin_events;
+create policy own_all on coin_events  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on rewards;
+create policy own_all on rewards      for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on redemptions;
+create policy own_all on redemptions  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── אחסון תמונות ──
 insert into storage.buckets (id, name, public)

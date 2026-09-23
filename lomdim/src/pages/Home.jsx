@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { readiness } from '../lib/mastery'
+import { coinBalance } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 
 // פלטת פסטלים רכים לאריחי המקצועות
@@ -18,16 +19,19 @@ const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : 
 export default function Home({ nav }) {
   const { profile } = useAuth()
   const [subjects, setSubjects] = useState([])
+  const [coins, setCoins] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function load() {
     setLoading(true)
-    const [{ data: subs }, { data: att }, { data: tp }, { data: mt }] = await Promise.all([
+    const [{ data: subs }, { data: att }, { data: tp }, { data: mt }, bal] = await Promise.all([
       supabase.from('subjects').select('*').order('created_at'),
       supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
       supabase.from('topics').select('id, subject_id'),
       supabase.from('materials').select('id, subject_id, storage_path, content_hash'),
+      coinBalance(),
     ])
+    setCoins(bal)
     const list = (subs || []).map((s) => {
       const byTopic = {}
       for (const a of att || []) {
@@ -81,6 +85,12 @@ export default function Home({ nav }) {
         {!profile && (
           <button className="streak-line mt-3" onClick={() => nav.go('settings')}>
             👤 מי מתרגל? הגדירו שם ומין ›
+          </button>
+        )}
+        {coins != null && (
+          <button onClick={() => nav.go('store')}
+            className="mt-3 inline-flex items-center gap-2 rounded-full border border-line bg-accent-soft px-3.5 py-1.5 text-[14px] font-bold text-accent">
+            🪙 <span className="tnum">{coins}</span> מטבעות · חנות הפרסים ›
           </button>
         )}
       </div>
