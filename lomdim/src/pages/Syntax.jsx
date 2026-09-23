@@ -157,9 +157,18 @@ export default function Syntax({ nav, params }) {
                   color: 'var(--ink)',
                 }}>
                 {t.w}
-                {pick && <span className="block text-[10.5px] font-bold" style={{ color: right ? 'var(--good)' : wrong ? 'var(--bad)' : COLOR[pick] }}>
-                  {pick}{wrong ? ` → ${t.role}` : ''}
-                </span>}
+                {pick && (
+                  wrong ? (
+                    <span className="block text-[10.5px] font-bold leading-tight">
+                      <span style={{ color: 'var(--bad)', textDecoration: 'line-through' }}>{pick}</span>{' '}
+                      <span style={{ color: 'var(--good)' }}>{t.role} ✓</span>
+                    </span>
+                  ) : (
+                    <span className="block text-[10.5px] font-bold" style={{ color: right ? 'var(--good)' : COLOR[pick] }}>
+                      {pick}{right ? ' ✓' : ''}
+                    </span>
+                  )
+                )}
               </button>
             )
           })}
