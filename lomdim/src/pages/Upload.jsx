@@ -26,8 +26,11 @@ export default function Upload({ nav, params }) {
   const [file, setFile] = useState(null)
   const [hash, setHash] = useState(null)
   const [lastYear, setLastYear] = useState(false)
+  const [onlyPractice, setOnlyPractice] = useState(false)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)
+  const [topicsList, setTopicsList] = useState([])
+  const [chosenTopic, setChosenTopic] = useState('')
   const [err, setErr] = useState('')
   const [note, setNote] = useState('')
 
@@ -61,15 +64,17 @@ export default function Upload({ nav, params }) {
     try {
       const { data: tp } = await supabase.from('topics').select('name').eq('subject_id', subjectId)
       const knownTopics = (tp || []).map((t) => t.name)
+      setTopicsList(knownTopics)
       let out
       if (isText(file)) {
-        out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, learner: profile })
+        out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, learner: profile, noSummary: onlyPractice })
       } else {
         out = await analyzeMaterial({
-          imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, knownTopics, learner: profile,
+          imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, knownTopics, learner: profile, noSummary: onlyPractice,
         })
       }
       setResult(out)
+      setChosenTopic(out.topic || '')
     } catch (e) {
       const msg = String(e)
       setErr(msg.includes('parse_failed')
@@ -86,15 +91,16 @@ export default function Upload({ nav, params }) {
       const uid = userData.user?.id
       const origin = lastYear ? 'חזרה' : 'השנה'
 
-      // 1) נושא — קיים או חדש
+      // 1) נושא — לפי הבחירה שלך (אפשר לשנות/לבחור קיים)
+      const topicName = (chosenTopic || result.topic || '').trim()
       let topicId = null
-      if (result.topic) {
+      if (topicName) {
         const { data: exist } = await supabase.from('topics')
-          .select('id').eq('subject_id', subjectId).eq('name', result.topic).maybeSingle()
+          .select('id').eq('subject_id', subjectId).eq('name', topicName).maybeSingle()
         if (exist) topicId = exist.id
         else {
           const { data: ins } = await supabase.from('topics')
-            .insert({ subject_id: subjectId, name: result.topic, origin }).select('id').single()
+            .insert({ subject_id: subjectId, name: topicName, origin }).select('id').single()
           topicId = ins?.id
         }
       }
@@ -109,8 +115,9 @@ export default function Upload({ nav, params }) {
       // 3) חומר + סיכום + חתימת תוכן
       const kind = isText(file) ? 'text' : file?.type === 'application/pdf' ? 'pdf' : 'image'
       const { data: mat } = await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, title: result.topic || 'חומר',
-        kind, storage_path: storagePath, origin, summary_md: result.summary_md || '',
+        subject_id: subjectId, topic_id: topicId, title: topicName || 'חומר',
+        kind, storage_path: storagePath, origin,
+        summary_md: onlyPractice ? '' : (result.summary_md || ''),
         content_hash: hash, source_text: result.source_text || null,
       }).select('id').single()
 
@@ -156,6 +163,13 @@ export default function Upload({ nav, params }) {
         </label>
         <div className="text-[12px] text-muted mt-1">לסמן רק בהתחלה — בהמשך המערכת תזהה לבד.</div>
 
+        <label className="flex items-center gap-2 mt-3 text-[14.5px] font-semibold cursor-pointer">
+          <input type="checkbox" checked={onlyPractice} onChange={(e) => setOnlyPractice(e.target.checked)}
+            className="w-[18px] h-[18px]" />
+          רק תרגולים (בלי סיכום)
+        </label>
+        <div className="text-[12px] text-muted mt-1">מכין רק שאלות וכרטיסיות, בלי לייצר סיכום עיוני — טוב אם כבר יש לך סיכומים.</div>
+
         {note && <div className="text-accent text-[13.5px] mt-3 bg-accent-soft rounded-[10px] p-2.5">ℹ️ {note}</div>}
 
         {!result && (
@@ -168,15 +182,30 @@ export default function Upload({ nav, params }) {
 
       {result && (
         <div className="card mt-3">
-          <div className="text-good font-extrabold mb-1">✅ נותח — זיהוי אוטומטי</div>
-          <div className="text-[15px]">נושא שזוהה: <b>{result.topic}</b></div>
-          <div className="text-[13.5px] text-muted mt-1">
+          <div className="text-good font-extrabold mb-1">✅ נותח</div>
+          <div className="text-[13.5px] text-muted mb-3">
             נוצרו: {result.questions?.length || 0} שאלות · {result.flashcards?.length || 0} כרטיסיות.
           </div>
-          <div className="mt-3 pt-3 border-t border-line text-[14.5px] leading-relaxed">
-            <Markdown text={result.summary_md} />
-          </div>
-          <button className="btn btn-primary btn-wide mt-4" onClick={save} disabled={busy}>
+
+          {/* אישור / בחירת נושא */}
+          <label className="block text-[13.5px] font-bold text-muted mb-1.5">לאיזה נושא לשייך? (המערכת זיהתה — אפשר לשנות)</label>
+          {topicsList.length > 0 && (
+            <select className="field mb-2" value={topicsList.includes(chosenTopic) ? chosenTopic : ''}
+              onChange={(e) => { if (e.target.value) setChosenTopic(e.target.value) }}>
+              <option value="">— בחרו נושא קיים —</option>
+              {topicsList.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+          <input className="field" value={chosenTopic} onChange={(e) => setChosenTopic(e.target.value)}
+            placeholder="שם הנושא" />
+          <div className="text-[12px] text-muted mt-1">בחרו נושא קיים מהרשימה, או הקלידו שם חדש.</div>
+
+          {!onlyPractice && result.summary_md && (
+            <div className="mt-3 pt-3 border-t border-line text-[14.5px] leading-relaxed">
+              <Markdown text={result.summary_md} />
+            </div>
+          )}
+          <button className="btn btn-primary btn-wide mt-4" onClick={save} disabled={busy || !chosenTopic.trim()}>
             {busy ? 'שומר…' : 'שמור למקצוע'}
           </button>
         </div>

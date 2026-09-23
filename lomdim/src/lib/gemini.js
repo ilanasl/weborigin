@@ -61,11 +61,14 @@ function buildParts(payload) {
   const img = (b64, mt) => ({ inlineData: { mimeType: mt || 'image/jpeg', data: b64 } })
 
   if (task === 'analyze_material') {
-    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner } = payload
+    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner, noSummary } = payload
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
-      `החזר JSON בלבד: {"topic":"שם נושא קצר","summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",` +
+      `החזר JSON בלבד: {"topic":"שם נושא קצר",` +
+      (noSummary
+        ? `"summary_md":"",`
+        : `"summary_md":"סיכום עיוני מסודר ב-Markdown: כלל/הגדרה, ולכל מושג — מה זה + על איזו שאלה עונה + דוגמה, דגשים וטעויות נפוצות, וטבלת השוואה (Markdown) כשמשווים מושגים דומים",`) +
       `"source_text":"אם החומר הוא שיר או יצירה ספרותית — כתוב/י כאן את הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת השאר/י ריק.",` +
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה","context":"הקשר קצר לפני החשיפה — מאיזה שיר/יצירה או תת-נושא הכרטיסייה שואלת (למשל: מתוך השיר 'שמו של השיר', או שם תת-הנושא). אם ברור לגמרי מהנושא — השאר/י ריק."}]}. צור 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
