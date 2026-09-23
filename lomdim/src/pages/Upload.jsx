@@ -61,6 +61,10 @@ export default function Upload({ nav, params }) {
     if (problems.length) setErr(problems.join('\n'))
   }
 
+  function removeFile(i) {
+    setFiles((arr) => arr.filter((_, j) => j !== i))
+  }
+
   async function analyze() {
     if (!files.length) return
     setBusy(true); setErr('')
@@ -189,6 +193,8 @@ export default function Upload({ nav, params }) {
                   <span>{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'}</span>
                   <span className="flex-1 truncate">{fe.file.name}</span>
                   {fe.dupe && <span className="text-accent text-[12px] font-semibold whitespace-nowrap">כבר הועלה</span>}
+                  <button onClick={() => removeFile(i)} aria-label="הסר קובץ"
+                    className="w-6 h-6 grid place-items-center rounded-full border border-line text-muted hover:text-bad hover:border-bad text-[13px] leading-none shrink-0">✕</button>
                 </li>
               ))}
             </ul>
