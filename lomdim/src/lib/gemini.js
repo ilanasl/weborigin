@@ -72,7 +72,8 @@ function buildParts(payload) {
       `"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"קל|בינוני|קשה","explain":"","hint":""}],` +
       `"flashcards":[{"front":"מושג","back":"הגדרה","context":"הקשר קצר לפני החשיפה — מאיזה שיר/יצירה או תת-נושא הכרטיסייה שואלת. אם ברור מהנושא — ריק."}]}],` +
       `"source_text":"אם החומר הוא שיר או יצירה ספרותית — הטקסט המלא מילה-במילה ובשורות המקוריות, בלי לשנות ובלי לקצר. אחרת ריק."}. ` +
-      `בדרך כלל נושא אחד. אבל אם הדף כולל בבירור שני נושאים שונים ונפרדים — החזר/י שני איברים במערך topics, כל אחד עם השאלות והכרטיסיות שלו. לכל נושא: 5 שאלות (4 מסיחים) ו-4 כרטיסיות. ` +
+      `בדרך כלל נושא אחד. אבל אם הדף כולל בבירור שני נושאים שונים ונפרדים — החזר/י שני איברים במערך topics, כל אחד עם השאלות והכרטיסיות שלו. ` +
+      `כמות השאלות והכרטיסיות תלויה בכמות התוכן בפועל, לא מספר קבוע: דף עשיר → יותר. לכל נושא בין 5 ל-12 שאלות אמריקאיות (4 אפשרויות בכל אחת) ובין 4 ל-10 כרטיסיות — צור/י אחת לכל מושג/כלל/דגש ממשי שבחומר, בלי להמציא תוכן שלא נמצא בו ובלי לחזור על אותה נקודה. ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + NIKUD_RULE + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + learnerRule(learner) +
       ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו.` })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
@@ -259,7 +260,24 @@ async function callFn(payload) {
   return parsed
 }
 
-const call = (payload) => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// שגיאות חולפות ששווה לנסות עליהן שוב: עומס זמני על המודל, קצב, או JSON שלא נפרס
+const isRetryable = (e) => /parse_failed|overload|unavailable|timeout|network|failed to fetch|\b(429|500|502|503|504)\b/i.test(String(e))
+
+// ניסיון חוזר אוטומטי — קריטי כשמעלים כמה קבצים ברצף וחלקם נתקלים בשגיאה חולפת
+async function call(payload) {
+  const run = () => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
+  let lastErr
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await run() }
+    catch (e) {
+      lastErr = e
+      if (attempt === 2 || !isRetryable(e)) throw e
+      await sleep(700 * Math.pow(2, attempt) + Math.random() * 400) // 0.7s, ~1.4s
+    }
+  }
+  throw lastErr
+}
 
 export const analyzeMaterial = async (p) => {
   const out = deepClean(await call({ task: 'analyze_material', ...p }))
