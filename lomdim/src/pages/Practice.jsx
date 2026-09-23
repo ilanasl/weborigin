@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
+import { settleSession } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 
@@ -25,6 +26,7 @@ export default function Practice({ nav, params }) {
   const [correct, setCorrect] = useState(0)
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
+  const [reward, setReward] = useState(null)   // { earned, events } — מטבעות שנצברו בסבב
 
   useEffect(() => {
     (async () => {
@@ -50,6 +52,18 @@ export default function Practice({ nav, params }) {
         <div className="text-5xl mb-2">{pct >= 80 ? '🏆' : pct >= 50 ? '💪' : '🌱'}</div>
         <div className="font-disp font-black text-5xl text-primary tnum">{correct}/{queue.length}</div>
         <div className="text-muted mt-1">{pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון' : 'שווה לחזור ולנסות שוב'}</div>
+        {reward && reward.earned > 0 && (
+          <div className="mt-5 mx-auto max-w-[300px] rounded-[16px] bg-accent-soft border border-line p-4">
+            <div className="font-disp font-black text-[22px] text-accent tnum">🪙 +{reward.earned}</div>
+            <div className="flex flex-col gap-0.5 mt-1.5 text-[13px] text-muted">
+              {reward.events.map((e, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span>{e.label}</span><span className="tnum font-semibold">+{e.amount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <button className="btn btn-primary btn-wide mt-6" onClick={() => nav.back()}>חזרה למקצוע</button>
       </div>
     )
@@ -93,8 +107,13 @@ export default function Practice({ nav, params }) {
         .insert(ins.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
     } catch { /* לא חוסם את התרגול */ }
   }
-  function next() {
-    if (idx >= queue.length - 1) { setDone(true); return }
+  async function next() {
+    if (idx >= queue.length - 1) {
+      setDone(true)
+      const r = await settleSession({ subjectId, topicId, correctCount: correct })
+      setReward(r)
+      return
+    }
     setIdx(idx + 1); setPicked(null); setShowHint(false)
   }
 

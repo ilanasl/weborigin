@@ -17,6 +17,7 @@ import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
 import CheckExercise from './pages/CheckExercise'
 import PastExams from './pages/PastExams'
+import Store from './pages/Store'
 import Soon from './pages/Soon'
 import Settings from './pages/Settings'
 
@@ -40,7 +41,7 @@ const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
   practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax,
-  parentReport: ParentReport, soon: Soon,
+  parentReport: ParentReport, store: Store, soon: Soon,
   settings: Settings,
 }
 
