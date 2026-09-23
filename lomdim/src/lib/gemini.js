@@ -292,10 +292,14 @@ export const generateSentenceTags = async (p) => deepClean(await call({ task: 't
 export const renikudQuestions = async (items) => deepClean(await call({ task: 'renikud', items }))
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
-export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials }) => {
+// enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich }) => {
   const hasSource = sourceMaterials && sourceMaterials.trim()
+  const faith = enrich
+    ? `בסס/י את הסיכום על החומר שהועלה, ומותר להשלים ולהעשיר מהידע הכללי במקומות שחסרים או לא ברורים.`
+    : `הסתמך/י אך ורק על החומר שהועלה — אל תוסיף/י מידע, מושגים או דוגמאות שאינם מופיעים בו.`
   const intro = hasSource
-    ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום עיוני אחד מסודר, מקיף ואקטואלי — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. הישאר/י נאמן/ה לחומר שהועלה ואל תמציא/י מעבר לו.\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 12000)}"""\n\n`
+    ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום עיוני אחד מסודר, מקיף ואקטואלי — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. ${faith}\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 12000)}"""\n\n`
     : `כתוב סיכום עיוני מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ט'. `
   const question = intro +
     `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא. (2) לכל מושג מרכזי — מה זה, על איזו שאלה הוא עונה, ודוגמה. ` +

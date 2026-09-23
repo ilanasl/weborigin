@@ -35,11 +35,19 @@ export default function Subject({ nav, params }) {
     }
     setSubject(s)
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
-    setMaterials((mt || []).filter((m) => m.kind !== 'check' && m.kind !== 'note'))
+    // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
+    setMaterials((mt || []).filter((m) => m.storage_path || m.content_hash))
     setQCount(qc || 0); setFcCount(fc || 0); setRvCount(rc || 0)
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
+
+  // פתיחת הקובץ המקורי שהועלה (URL חתום זמני)
+  async function openMaterial(m) {
+    if (!m.storage_path) return
+    const { data } = await supabase.storage.from('materials').createSignedUrl(m.storage_path, 120)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
 
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
@@ -177,14 +185,16 @@ export default function Subject({ nav, params }) {
         ) : (
           <div className="timeline mb-3">
             {materials.map((m) => (
-              <div key={m.id} className="tl-item">
+              <button key={m.id} className="tl-item w-full text-start" disabled={!m.storage_path}
+                onClick={() => openMaterial(m)}>
                 <div className="d">{new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</div>
                 <div className="t">
                   {m.title || 'חומר'}{' '}
                   <span className={`mat-origin ${m.origin === 'חזרה' ? 'o-old' : 'o-new'}`}>{m.origin || 'השנה'}</span>
+                  {m.storage_path && <span className="text-muted text-[12px]"> · צפה 👁</span>}
                 </div>
                 <div className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}</div>
-              </div>
+              </button>
             ))}
           </div>
         ))}
