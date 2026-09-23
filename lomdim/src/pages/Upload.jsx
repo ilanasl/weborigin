@@ -76,6 +76,8 @@ export default function Upload({ nav, params }) {
       const flat = []
       for (let fi = 0; fi < files.length; fi++) {
         const { file } = files[fi]
+        // קובץ שכבר הועלה למקצוע — מדלגים אוטומטית (לא מנתחים ולא שומרים שוב)
+        if (files[fi].dupe) { res[fi] = { source_text: null, topics: [], error: null, skipped: true }; continue }
         try {
           let out
           if (isText(file)) {
@@ -168,6 +170,7 @@ export default function Upload({ nav, params }) {
   }
 
   const dupeCount = files.filter((f) => f.dupe).length
+  const analyzable = files.length - dupeCount   // כמה באמת ינותחו (בלי הכפולים)
 
   return (
     <div className="pt-2">
@@ -199,7 +202,7 @@ export default function Upload({ nav, params }) {
               ))}
             </ul>
             {dupeCount > 0 && (
-              <div className="text-accent text-[12.5px] mt-1.5">ℹ️ {dupeCount} מהקבצים כבר הועלו למקצוע — אפשר להסירם ולבחור מחדש אם לא צריך שוב.</div>
+              <div className="text-accent text-[12.5px] mt-1.5">ℹ️ {dupeCount} מהקבצים כבר הועלו למקצוע — נדלג עליהם אוטומטית{analyzable > 0 ? `, וננתח את ${analyzable} החדשים` : ''}.</div>
             )}
           </div>
         )}
@@ -219,8 +222,8 @@ export default function Upload({ nav, params }) {
         <div className="text-[12px] text-muted mt-1">חומר חדש שצריך ללמוד ממנו → תנו לו לסכם. דף תרגילים / חומר שכבר סיכמת → סמנו כאן.</div>
 
         {!results && (
-          <button className="btn btn-primary btn-wide mt-4" onClick={analyze} disabled={!files.length || busy}>
-            {busy ? `מנתח…` : files.length > 1 ? `נתח ${files.length} קבצים` : 'נתח חומר'}
+          <button className="btn btn-primary btn-wide mt-4" onClick={analyze} disabled={!analyzable || busy}>
+            {busy ? `מנתח…` : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `נתח ${analyzable} קבצים` : 'נתח חומר'}
           </button>
         )}
         {err && <div className="text-bad text-[13.5px] mt-3 leading-relaxed whitespace-pre-line">{err}</div>}
@@ -230,7 +233,7 @@ export default function Upload({ nav, params }) {
         <div className="card mt-3">
           <div className="text-good font-extrabold mb-1">✅ נותח</div>
           <div className="text-[13px] text-muted mb-3">
-            {files.length > 1 ? `${files.length} קבצים נותחו. ` : ''}
+            {analyzable > 1 ? `${analyzable} קבצים נותחו. ` : ''}
             אפשר לשנות שמות או לבחור נושא קיים — נושאים בעלי אותו שם יתאחדו אוטומטית.
           </div>
 
@@ -248,7 +251,9 @@ export default function Upload({ nav, params }) {
                     <span className="truncate">{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'} {fe.file.name}</span>
                   </div>
                 )}
-                {r?.error ? (
+                {r?.skipped ? (
+                  <div className="text-muted text-[13px] mb-2">כבר הועלה למקצוע — דילגנו.</div>
+                ) : r?.error ? (
                   <div className="text-bad text-[13px] mb-2">ניתוח נכשל לקובץ זה — נסו לצלם ברור יותר.</div>
                 ) : rows.length === 0 ? (
                   <div className="text-muted text-[13px] mb-2">לא זוהה תוכן.</div>
