@@ -12,6 +12,8 @@ const COLOR = {
   'פועל': '#B15A2B', 'שם עצם': '#4A55C7', 'שם תואר': '#3F8F63', 'מילת קישור': '#6C7080',
 }
 
+const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
+
 export default function Syntax({ nav, params }) {
   const { subjectId, subjectName, topicId, topicName, mode = 'syntax' } = params
   const { profile } = useAuth()
@@ -84,14 +86,45 @@ export default function Syntax({ nav, params }) {
     setSel(null)
   }
 
+  async function ensureTopic(nm) {
+    const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', nm).maybeSingle()
+    if (ex) return ex.id
+    const { data: ins } = await supabase.from('topics').insert({ subject_id: subjectId, name: nm, origin: 'השנה' }).select('id').single()
+    return ins?.id
+  }
+
+  // מהמילים שטעו בהן — יוצר שאלות אמריקאיות ("מה התפקיד של X?") ומכניס ל"לחיזוק"
+  async function spawnReinforce() {
+    try {
+      const wrong = tokens.filter((t, i) => picks[i] !== t.role)
+      const src = (wrong.length ? wrong : tokens).slice(0, 4)
+      if (!src.length) return
+      const tid = topicId || await ensureTopic('ניתוח משפט')
+      const rows = src.map((t) => {
+        const distractors = shuffle(roles.filter((r) => r !== t.role)).slice(0, 3)
+        const choices = shuffle([t.role, ...distractors])
+        return {
+          subject_id: subjectId, topic_id: tid,
+          q: `במשפט: "${item.sentence}" — מה התפקיד התחבירי של המילה "${t.w}"?`,
+          choices, answer: choices.indexOf(t.role),
+          difficulty: 'בינוני', explain: `התפקיד של "${t.w}" במשפט הוא ${t.role}.`, hint: '',
+        }
+      })
+      const { data: ins } = await supabase.from('questions').insert(rows).select('id')
+      if (ins?.length) await supabase.from('review_items')
+        .insert(ins.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
+    } catch { /* לא חוסם את התרגול */ }
+  }
+
   async function check() {
     setChecked(true)
     const ok = correctCount === tokens.length
     if (topicId) {
       await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני' }).catch(() => {})
     }
-    // רק משפט שנענה נכון "מסתיים" ולא חוזר; טעות נשארת (done=false) ותחזור בכניסה הבאה — חיזוק ממוקד
+    // רק משפט שנענה נכון "מסתיים" ולא חוזר; טעות נשארת (done=false) ותחזור בכניסה הבאה
     if (item?.id && ok) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id).catch(() => {})
+    if (!ok) spawnReinforce() // טעות → שאלות אמריקאיות ל"לחיזוק"
   }
 
   async function next() {
