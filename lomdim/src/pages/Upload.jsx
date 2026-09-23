@@ -65,6 +65,8 @@ export default function Upload({ nav, params }) {
     setFiles((arr) => arr.filter((_, j) => j !== i))
   }
 
+  const setName = (ci, val) => setChosen((arr) => arr.map((x, j) => j === ci ? { ...x, name: val } : x))
+
   async function analyze() {
     if (!files.length) return
     setBusy(true); setErr('')
@@ -237,10 +239,6 @@ export default function Upload({ nav, params }) {
             אפשר לשנות שמות או לבחור נושא קיים — נושאים בעלי אותו שם יתאחדו אוטומטית.
           </div>
 
-          <datalist id="existing-topics">
-            {topicsList.map((t) => <option key={t} value={t} />)}
-          </datalist>
-
           {files.map((fe, fi) => {
             const rows = chosen.map((c, ci) => ({ c, ci })).filter((x) => x.c.fileIdx === fi)
             const r = results[fi]
@@ -262,10 +260,21 @@ export default function Upload({ nav, params }) {
                     <label className="block text-[13px] font-bold text-muted mb-1.5">
                       נושא {rows.length > 1 ? k + 1 : ''}
                     </label>
-                    <input className="field" list="existing-topics" value={c.name}
-                      onChange={(e) => setChosen((arr) => arr.map((x, j) => j === ci ? { ...x, name: e.target.value } : x))}
-                      placeholder="שם הנושא" />
-                    <div className="text-[12px] text-muted mt-1">
+                    <input className="field" value={c.name}
+                      onChange={(e) => setName(ci, e.target.value)}
+                      placeholder="שם הנושא — או בחר/י מהקיימים למטה" />
+                    {topicsList.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        <span className="text-[11.5px] text-muted">קיימים:</span>
+                        {topicsList.map((t) => (
+                          <button key={t} type="button" onClick={() => setName(ci, t)}
+                            className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${c.name === t ? 'bg-primary text-white border-primary font-semibold' : 'border-line text-muted'}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-[12px] text-muted mt-1.5">
                       {c.questions?.length || 0} שאלות · {c.flashcards?.length || 0} כרטיסיות
                     </div>
                     {!onlyPractice && c.summary_md && (
