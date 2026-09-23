@@ -52,9 +52,14 @@ export default function Subject({ nav, params }) {
   // שיוך חומר לנושא אחר — מעביר גם את השאלות שנוצרו ממנו
   async function moveMaterialTopic(m, topicId) {
     if (!topicId || topicId === m.topic_id) return
-    await supabase.from('materials').update({ topic_id: topicId }).eq('id', m.id)
-    await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id).catch(() => {})
-    load()
+    // עדכון מיידי במסך כדי שהבחירה תישאר גם לפני שהטעינה מסתיימת
+    setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: topicId } : x))
+    const { error } = await supabase.from('materials').update({ topic_id: topicId }).eq('id', m.id)
+    if (error) { await load(); return }
+    try {
+      await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id)
+    } catch { /* אם אין שאלות מקושרות — לא נורא */ }
+    await load()
   }
 
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
