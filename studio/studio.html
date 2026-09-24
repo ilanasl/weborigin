@@ -689,7 +689,7 @@ TEMPLATES.forEach(tpl=>{
   genBtn.addEventListener("click",async()=>{
     genBtn.disabled=true; genStat.textContent="Generating…";
     try{ await aiGenerate(tpl,st); refresh(); autoSaveBanner(tpl,st); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done")+(st._arNote?" · 21:9 rejected":""); }
-    catch(e){ genStat.textContent="✗ "+(e.message||"failed"); }
+    catch(e){ if(isCreditErr(e.message)){genStat.innerHTML=creditHTML();} else {genStat.textContent="✗ "+(e.message||"failed");} }
     genBtn.disabled=false;
   });
 });
@@ -856,6 +856,9 @@ function openEditor(tpl,st,onClose){
 }
 
 /* ---- Encode + save ---- */
+// Recognise a Gemini/OpenAI "out of credit / billing" failure so we can show a clear message.
+function isCreditErr(m){return /RESOURCE_EXHAUSTED|credits?\s*(are\s*)?depleted|prepayment|billing|insufficient|quota|\b402\b|\b429\b/i.test(String(m||""));}
+function creditHTML(){return '⚠ נגמר הקרדיט ב-Gemini API. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#2f86ff;font-weight:700">לחצו כאן לטעינת קרדיט</a> · או עברו ל-GPT בבורר המנועים.';}
 function toBlob(c,type,q){return new Promise(r=>c.toBlob(r,type,q));}
 function flatten(c,bg){const o=document.createElement("canvas");o.width=c.width;o.height=c.height;const x=o.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,o.width,o.height);x.drawImage(c,0,0);return o;}
 async function encode(canvas,fmt,kb){
@@ -1246,7 +1249,9 @@ Promise.all([
       try{ r.canvas=await genImage(cleanPrompt(r.idea),r.w,r.h); }catch(e){ r.error=e.message; }
       done++; renderResults();
     }
-    $('im-stat').textContent=`done — ${results.filter(r=>r.canvas).length}/${results.length} created. Tick the ones to keep and download.`;
+    const created=results.filter(r=>r.canvas).length;
+    if(created===0 && results.some(r=>isCreditErr(r.error))){ $('im-stat').innerHTML=creditHTML(); }
+    else { $('im-stat').textContent=`done — ${created}/${results.length} created. Tick the ones to keep and download.`; }
     $('im-run').disabled=false;
   }
 
