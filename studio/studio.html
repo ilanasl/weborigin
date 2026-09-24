@@ -1094,7 +1094,8 @@ Promise.all([
   function refreshSizes(){
     const box=$('im-sizes'); box.innerHTML='';
     sizes.forEach((s,i)=>{const r=document.createElement('div');r.className='im-sizerow';
-      r.innerHTML=`<b>${s.w}×${s.h}</b> · ${s.count} image${s.count>1?'s':''}<button class="x" title="remove">✕</button>`;
+      r.innerHTML=`<b>${s.w}×${s.h}</b> · <input type="number" class="szc" min="1" max="30" value="${s.count}" style="width:54px" title="how many images at this size — edit me"> imgs<button class="x" title="remove">✕</button>`;
+      r.querySelector('.szc').addEventListener('input',e=>{s.count=Math.max(1,Math.min(30,parseInt(e.target.value,10)||1));});
       r.querySelector('.x').addEventListener('click',()=>{sizes.splice(i,1);refreshSizes();});
       box.appendChild(r);});
   }
