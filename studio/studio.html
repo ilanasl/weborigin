@@ -1183,6 +1183,7 @@ Promise.all([
       const card=document.createElement('div');card.className='im-card'+(r.sel?' sel':'');
       const thumb=document.createElement('div');thumb.className='im-thumb';thumb.style.aspectRatio=r.w+'/'+r.h;
       if(r.canvas){const cv=document.createElement('canvas');cv.width=r.w;cv.height=r.h;cv.getContext('2d').drawImage(r.canvas,0,0);thumb.appendChild(cv);thumb.style.cursor='zoom-in';thumb.title='click to enlarge';thumb.addEventListener('click',()=>openLightbox(r));}
+      else if(r.error){thumb.innerHTML='';const s=document.createElement('span');s.className='spin';s.style.cssText='color:#e0574e;padding:10px;text-align:center;font-size:11px;line-height:1.4';s.textContent='✗ '+String(r.error).slice(0,160);thumb.appendChild(s);}
       else thumb.innerHTML='<span class="spin">…</span>';
       const meta=document.createElement('div');meta.className='im-meta';
       meta.innerHTML=`<label class="chk"><input type="checkbox" ${r.sel?'checked':''}> keep</label><span class="sz">${r.w}×${r.h}</span><button class="re pin" title="save this prompt to your notebook">📌</button><button class="re rm" title="remove">✕</button><button class="re regen" title="regenerate">↻</button>`;
