@@ -184,6 +184,7 @@
         <label class="f im-qwrap" id="im-qwrap" hidden><span>GPT quality</span><select id="im-quality"><option value="high">High (sharpest)</option><option value="medium" selected>Medium</option><option value="low">Low (cheapest)</option></select></label>
         <label class="f"><span>Download as</span><select id="im-fmt"><option value="png" selected>PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option></select></label>
         <label class="f"><span>Max weight (KB)</span><input type="number" id="im-kb" placeholder="off"></label>
+        <label class="f"><span>Min weight (KB)</span><input type="number" id="im-kbmin" placeholder="off" title="target floor — warns if a PNG comes out lighter than this"></label>
       </div>
       <div class="im-actions">
         <button class="ghost" id="im-suggest">💡 Suggest ideas</button>
@@ -971,6 +972,9 @@ function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw
   };
   setup("fmt","kb","png",2000,"bs_fmt","bs_kb");        // banners
   setup("im-fmt","im-kb","png",1000,"bs_im_fmt","bs_im_kb"); // ad images
+  // ad-image min-weight floor (default 450KB)
+  (function(){const el=document.getElementById("im-kbmin"); if(!el) return; let s=null; try{s=localStorage.getItem("bs_im_kbmin");}catch(_){}
+    el.value=(s!==null&&s!=="")?s:450; el.addEventListener("input",()=>{try{localStorage.setItem("bs_im_kbmin",el.value);}catch(_){}});})();
 })();
 // A short unique stamp (MMDD-HHMMSS-xx) so downloaded files never overwrite each other.
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2,4)}`;}
@@ -1261,9 +1265,10 @@ Promise.all([
     const keep=results.filter(r=>r.sel&&r.canvas); if(!keep.length){$('im-dlstat').textContent='nothing selected';return;}
     const fmt=($('im-fmt')||{}).value||'png';
     const kbRaw=parseInt(($('im-kb')||{}).value,10), kb=isNaN(kbRaw)?0:kbRaw;
-    const sfx=stamp(); let n=0, overAny=false;
-    for(const r of keep){const {blob,fmt:usedFmt,over}=await encodeCapped(r.canvas,fmt,kb);if(over)overAny=true;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${sfx}-${++n}.${extOf(usedFmt)}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
-    $('im-dlstat').textContent=`downloaded ${keep.length}`+(overAny?` (some PNG over ${kb}KB target — kept as PNG)`:'');
+    const kbminRaw=parseInt(($('im-kbmin')||{}).value,10), kbmin=isNaN(kbminRaw)?0:kbminRaw;
+    const sfx=stamp(); let n=0, overAny=false, underAny=false;
+    for(const r of keep){const {blob,fmt:usedFmt,over}=await encodeCapped(r.canvas,fmt,kb);if(over)overAny=true;if(kbmin&&blob.size<kbmin*1024)underAny=true;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`adimage-${r.w}x${r.h}-${sfx}-${++n}.${extOf(usedFmt)}`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}} ,1500);}
+    $('im-dlstat').textContent=`downloaded ${keep.length}`+(overAny?` · some over ${kb}KB (kept as PNG)`:'')+(underAny?` · ⚠ some under ${kbmin}KB — simple image, regenerate for more detail`:'');
   }
 
   window.AdImages={ onReady(){ /* engine filled by health block */ } };
