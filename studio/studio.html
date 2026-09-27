@@ -440,7 +440,10 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
-    const el=resolveEl(raw,size),text=(texts&&texts[raw.key]!=null?texts[raw.key]:el.val);
+    let el=resolveEl(raw,size);const text=(texts&&texts[raw.key]!=null?texts[raw.key]:el.val);
+    const so=(over.sizes&&over.sizes[size]&&over.sizes[size][raw.key]);
+    const pad=(over.pads&&over.pads[size]&&over.pads[size][raw.key]);
+    if(so!=null||pad) el=Object.assign({},el,(so!=null?{size:so}:{}),(pad?{padX:pad.padX,padY:pad.padY}:{}));
     const po=(over.pos&&over.pos[size]&&over.pos[size][raw.key])||{};
     const px=po.x!=null?po.x:el.x, py=po.y!=null?po.y:el.y;
     if(el.type==="button"){const btn=over.buttonAuto===false?(over.buttonColor||el.btnColor):accent;drawButton(ctx,Object.assign({},el,{x:px,y:py}),text,dim.w,dim.h,btn,font);continue;}
@@ -465,7 +468,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -754,6 +757,8 @@ function openEditor(tpl,st,onClose){
   const hasBtn=tpl.elements.some(e=>e.type==="button");
   const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
   if(hasBottom&&!o.overlay2){o.overlay2={desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)};}
+  if(!o.sizes)o.sizes={desktop:{},mobile:{}};
+  if(!o.pads)o.pads={desktop:{},mobile:{}};
   const back=document.createElement("div");back.className="backdrop";
   back.innerHTML=`<div class="modal editor">
     <div class="modal-h"><b>Edit — ${tpl.name}</b><button class="ghost e-x">✕</button></div>
@@ -809,20 +814,39 @@ function openEditor(tpl,st,onClose){
     const ci=document.createElement("input");ci.type="color";
     const hx=document.createElement("input");hx.type="text";hx.maxLength=7;hx.style.cssText="width:74px;text-transform:uppercase";
     inline.appendChild(ta);inline.appendChild(ci);inline.appendChild(hx);wrap.appendChild(sp);wrap.appendChild(inline);
-    // position sliders (X across, Y down) — for placement + spacing
+    // font size
+    const szr=document.createElement("div");szr.className="e-inline";
+    const szl=document.createElement("span");szl.className="pxl";szl.textContent="Size";
+    const rs=document.createElement("input");rs.type="range";rs.min=8;rs.max=120;rs.step=1;rs.style.flex="1";
+    szr.appendChild(szl);szr.appendChild(rs);wrap.appendChild(szr);
+    // position sliders (X across, Y down) + a Center button for X
     const posr=document.createElement("div");posr.className="e-inline e-posrow";
     const lx=document.createElement("span");lx.className="pxl";lx.textContent="X";
     const rx=document.createElement("input");rx.type="range";rx.min=0;rx.max=100;rx.step=1;
+    const bc=document.createElement("button");bc.type="button";bc.className="tiny";bc.textContent="⌖";bc.title="center horizontally";
     const ly=document.createElement("span");ly.className="pxl";ly.textContent="Y";
     const ry=document.createElement("input");ry.type="range";ry.min=0;ry.max=100;ry.step=1;
-    posr.appendChild(ly);posr.appendChild(ry);posr.appendChild(lx);posr.appendChild(rx);wrap.appendChild(posr);
+    posr.appendChild(ly);posr.appendChild(ry);posr.appendChild(lx);posr.appendChild(rx);posr.appendChild(bc);wrap.appendChild(posr);
+    // button padding
+    let rpx=null,rpy=null;
+    if(el.type==="button"){
+      const pr=document.createElement("div");pr.className="e-inline";
+      const pl=document.createElement("span");pl.className="pxl";pl.textContent="Pad X";
+      rpx=document.createElement("input");rpx.type="range";rpx.min=4;rpx.max=60;rpx.step=1;rpx.style.flex="1";
+      const pl2=document.createElement("span");pl2.className="pxl";pl2.textContent="Y";
+      rpy=document.createElement("input");rpy.type="range";rpy.min=2;rpy.max=40;rpy.step=1;rpy.style.flex="1";
+      pr.appendChild(pl);pr.appendChild(rpx);pr.appendChild(pl2);pr.appendChild(rpy);wrap.appendChild(pr);
+    }
     trow.appendChild(wrap);
     ta.addEventListener("input",()=>{st.text.texts[el.key]=ta.value;draw();});
     ci.addEventListener("input",()=>{o.colors[size][el.key]=ci.value;hx.value=ci.value.toUpperCase();draw();});
     hx.addEventListener("input",()=>{const v=normHex(hx.value);if(v){o.colors[size][el.key]=v;ci.value=v;draw();}});
     rx.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
     ry.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{y:+ry.value});draw();});
-    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry});
+    rs.addEventListener("input",()=>{o.sizes[size][el.key]=+rs.value;draw();});
+    bc.addEventListener("click",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:50});rx.value=50;draw();});
+    if(rpx&&rpy){const setPad=()=>{o.pads[size][el.key]={padX:+rpx.value,padY:+rpy.value};draw();};rpx.addEventListener("input",setPad);rpy.addEventListener("input",setPad);}
+    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy});
   });
 
   function syncSize(){
@@ -846,7 +870,9 @@ function openEditor(tpl,st,onClose){
     [...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));
     q(".e-logox").value=o.logoX;
     textColorEls.forEach(({el,ci,hx})=>{const v=o.colors[size][el.key]||el.color;ci.value=v;hx.value=v.toUpperCase();});
-    posEls.forEach(({el,rx,ry})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;});
+    posEls.forEach(({el,rx,ry,rs,rpx,rpy})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
+      if(rs){rs.value=(o.sizes[size]&&o.sizes[size][el.key]!=null)?o.sizes[size][el.key]:rEl.size;}
+      if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
   }
   q(".e-font").value=o.font;
   q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
@@ -872,8 +898,8 @@ function openEditor(tpl,st,onClose){
     q(".e-ov2c").addEventListener("input",e=>{o.overlay2[size].color=e.target.value;q(".e-ov2h").value=e.target.value.toUpperCase();draw();});
     q(".e-ov2h").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay2[size].color=v;q(".e-ov2c").value=v;draw();}});
     q(".e-ov2o").addEventListener("input",e=>{o.overlay2[size].opacity=+e.target.value;q(".e-ov2ov").textContent=Math.round(o.overlay2[size].opacity*100)+"%";draw();});
-    q(".e-ov2hold").addEventListener("input",e=>{o.overlay2[size].hold=+e.target.value;q(".e-ov2hv").textContent=Math.round(o.overlay2[size].hold)+"%";draw();});
-    q(".e-ov2fade").addEventListener("input",e=>{o.overlay2[size].fade=+e.target.value;q(".e-ov2fv").textContent=Math.round(o.overlay2[size].fade)+"%";draw();});
+    q(".e-ov2hold").addEventListener("input",e=>{var b=o.overlay2[size];b.hold=+e.target.value;var f=(b.fade!=null?b.fade:100);if(f<b.hold+5){f=Math.min(100,b.hold+5);b.fade=f;q(".e-ov2fade").value=f;q(".e-ov2fv").textContent=Math.round(f)+"%";}q(".e-ov2hv").textContent=Math.round(b.hold)+"%";draw();});
+    q(".e-ov2fade").addEventListener("input",e=>{var b=o.overlay2[size];b.fade=+e.target.value;if(b.fade<b.hold+5){b.hold=Math.max(0,b.fade-5);q(".e-ov2hold").value=b.hold;q(".e-ov2hv").textContent=Math.round(b.hold)+"%";}q(".e-ov2fv").textContent=Math.round(b.fade)+"%";draw();});
     q(".e-ov2auto").addEventListener("change",e=>{o.overlay2[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay2[size].autoLogo=false;const l=q(".e-ov2autologo");if(l)l.checked=false;}q(".e-ov2man").style.display=(o.overlay2[size].auto||o.overlay2[size].autoLogo)?"none":"";draw();});
     if(hasLogoTint) q(".e-ov2autologo").addEventListener("change",e=>{o.overlay2[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay2[size].auto=false;q(".e-ov2auto").checked=false;}q(".e-ov2man").style.display=(o.overlay2[size].auto||o.overlay2[size].autoLogo)?"none":"";draw();});
   }
