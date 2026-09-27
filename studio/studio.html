@@ -422,8 +422,13 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   // but a colour the user set by hand (or auto-tint) wins over the auto-match.
   const ovs=over.overlay&&over.overlay[size];
   const userSetColor=!!(ovs&&(ovs.userColor||ovs.auto||ovs.autoLogo));
-  const matchColor=(tpl.matchBg&&image&&!userSetColor)?sampleEdge(image):null;
-  if(matchColor||tpl.bgColor){ctx.fillStyle=matchColor||tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
+  // Fill the canvas with the image's OWN edge colour so a zoomed-out (smaller) image
+  // meets the fill seamlessly — no hard line at the photo's edge.
+  const edgeColor=(tpl.matchBg&&image)?sampleEdge(image):null;
+  const bgFill=edgeColor||tpl.bgColor;
+  if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
+  // The overlay colour auto-matches the photo only when the user hasn't set one.
+  const matchColor=(edgeColor&&!userSetColor)?edgeColor:null;
   if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
