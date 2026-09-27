@@ -246,6 +246,8 @@ const TEMPLATES = [
     composition:"A tall vertical image. A smiling woman shown LARGE and CLOSE, from about the waist up, filling most of the width in the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless studio background of ONE flat solid colour — nothing at all in the top half. Make her big and prominent, not small. Photorealistic, bright even studio light, no text.",
     overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72},
              mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72}},
+    bottomOverlay:{color:"#ece4d6",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
+    logoTint:true,
     elements:[
       {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:24,anchor:"center",maxW:86},
       {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:33,anchor:"center",maxW:80,lh:1.15},
@@ -419,7 +421,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   // matchBg blends a solid top into the photo by sampling the image's own background colour —
   // but a colour the user set by hand (or auto-tint) wins over the auto-match.
   const ovs=over.overlay&&over.overlay[size];
-  const userSetColor=!!(ovs&&(ovs.userColor||ovs.auto));
+  const userSetColor=!!(ovs&&(ovs.userColor||ovs.auto||ovs.autoLogo));
   const matchColor=(tpl.matchBg&&image&&!userSetColor)?sampleEdge(image):null;
   if(matchColor||tpl.bgColor){ctx.fillStyle=matchColor||tpl.bgColor;ctx.fillRect(0,0,dim.w,dim.h);}
   if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
@@ -427,8 +429,14 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
   if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
-      if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } }
+      if(s.autoLogo&&logoImg){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); start="#ffffff"; } else { col=darken(getAccent(logoImg),58); } }
+      else if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } }
       ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,startColor:start,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
+  // Optional second (bottom) overlay — blends the bottom of the image into a colour.
+  if(over.overlay2&&over.overlay2[size]){const b2=over.overlay2[size]; if(b2.opacity>0){ let col2=b2.color;
+      if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
+      else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
+      drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
   if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
@@ -453,10 +461,11 @@ const FONTS=["Open Sans","Montserrat","Poppins","Inter","Roboto","Lato","Oswald"
 const loadedFonts=new Set(["Inter","Open Sans","Montserrat","Poppins"]);
 function loadFont(f){if(loadedFonts.has(f))return;loadedFonts.add(f);const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f.replace(/\s+/g,"+")+":wght@400;500;600;700;800;900&display=swap";document.head.appendChild(l);}
 function initOverrides(tpl){
-  const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,fade:o.fade,auto:false};}
+  const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,fade:o.fade,auto:false,autoLogo:false};}
+  const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -743,6 +752,8 @@ function normHex(v){v=String(v).trim();if(v[0]!=="#")v="#"+v;return /^#[0-9a-fA-
 function openEditor(tpl,st,onClose){
   let size="desktop";const o=st.over;
   const hasBtn=tpl.elements.some(e=>e.type==="button");
+  const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
+  if(hasBottom&&!o.overlay2){o.overlay2={desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)};}
   const back=document.createElement("div");back.className="backdrop";
   back.innerHTML=`<div class="modal editor">
     <div class="modal-h"><b>Edit — ${tpl.name}</b><button class="ghost e-x">✕</button></div>
@@ -762,17 +773,27 @@ function openEditor(tpl,st,onClose){
   let html="";
   html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*"></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label></div>`;
   html+=`<label class="f"><span>Logo size <b class="e-logoszv"></b></span><input type="range" class="e-logosz" min="0.4" max="2" step="0.05"></label>`;
-  html+=`<label class="f"><span>Logo position (left–right)</span><input type="range" class="e-logox" min="0" max="100" step="1"></label>`;
+  html+=`<div class="f"><span>Logo position (left–right)</span><div class="e-inline"><input type="range" class="e-logox" min="0" max="100" step="1" style="flex:1"><button class="tiny e-logoctr" title="center the logo">Center</button></div></div>`;
   html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>… fine (up–down)</span><input type="range" class="e-posy" min="0" max="100" step="1"></label>`;
-  html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — enlarge to reposition</span><input type="range" class="e-zoom" min="1" max="2.5" step="0.05"></label>`;
+  html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
+  if(hasLogoTint) html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovautologo"> Overlay color: auto tint from logo</label>`;
   html+=`<div class="f e-ovmanual"><span>Overlay color (HEX)</span><div class="e-inline"><input type="color" class="e-ovc"><input type="text" class="e-ovh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   html+=`<label class="f"><span>Overlay strength <b class="e-ovov"></b></span><input type="range" class="e-ovo" min="0" max="1" step="0.02"></label>`;
   html+=`<label class="f"><span>Solid area <b class="e-ovhv"></b></span><input type="range" class="e-ovhold" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>Fade end (photo clean past here) <b class="e-ovfv"></b></span><input type="range" class="e-ovfade" min="0" max="100" step="1"></label>`;
+  if(hasBottom){
+    html+=`<div class="e-sec">Bottom overlay</div>`;
+    html+=`<label class="chk cwhite"><input type="checkbox" class="e-ov2auto"> Bottom color: auto tint from image</label>`;
+    if(hasLogoTint) html+=`<label class="chk cwhite"><input type="checkbox" class="e-ov2autologo"> Bottom color: auto tint from logo</label>`;
+    html+=`<div class="f e-ov2man"><span>Bottom color (HEX)</span><div class="e-inline"><input type="color" class="e-ov2c"><input type="text" class="e-ov2h" maxlength="7" style="text-transform:uppercase"></div></div>`;
+    html+=`<label class="f"><span>Bottom strength <b class="e-ov2ov"></b></span><input type="range" class="e-ov2o" min="0" max="1" step="0.02"></label>`;
+    html+=`<label class="f"><span>Bottom solid area <b class="e-ov2hv"></b></span><input type="range" class="e-ov2hold" min="0" max="100" step="1"></label>`;
+    html+=`<label class="f"><span>Bottom fade end <b class="e-ov2fv"></b></span><input type="range" class="e-ov2fade" min="0" max="100" step="1"></label>`;
+  }
   html+=`<div class="e-sec">Text</div><label class="chk cwhite"><input type="checkbox" class="e-showtext" ${st.text.enabled?"checked":""}> Bake text into the exported file</label><div class="e-texts"></div>`;
   if(hasBtn) html+=`<label class="chk cwhite"><input type="checkbox" class="e-btnauto"> Button color: auto from image</label><div class="f e-btnman"><span>Button color (HEX)</span><div class="e-inline"><input type="color" class="e-btnc"><input type="text" class="e-btnh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   controls.innerHTML=html;
@@ -806,8 +827,16 @@ function openEditor(tpl,st,onClose){
 
   function syncSize(){
     const ov=o.overlay[size];
-    q(".e-ovauto").checked=!!ov.auto;q(".e-ovmanual").style.display=ov.auto?"none":"";
+    q(".e-ovauto").checked=!!ov.auto;if(hasLogoTint)q(".e-ovautologo").checked=!!ov.autoLogo;
+    q(".e-ovmanual").style.display=(ov.auto||ov.autoLogo)?"none":"";
     q(".e-ovc").value=ov.color;q(".e-ovh").value=ov.color.toUpperCase();
+    if(hasBottom){const b2=o.overlay2[size];
+      q(".e-ov2c").value=b2.color;q(".e-ov2h").value=b2.color.toUpperCase();
+      q(".e-ov2o").value=b2.opacity;q(".e-ov2ov").textContent=Math.round(b2.opacity*100)+"%";
+      q(".e-ov2hold").value=b2.hold||0;q(".e-ov2hv").textContent=Math.round(b2.hold||0)+"%";
+      {const f2=(b2.fade!=null?b2.fade:100);q(".e-ov2fade").value=f2;q(".e-ov2fv").textContent=Math.round(f2)+"%";}
+      q(".e-ov2auto").checked=!!b2.auto;if(hasLogoTint)q(".e-ov2autologo").checked=!!b2.autoLogo;
+      q(".e-ov2man").style.display=(b2.auto||b2.autoLogo)?"none":"";}
     q(".e-ovo").value=ov.opacity;q(".e-ovov").textContent=Math.round(ov.opacity*100)+"%";
     q(".e-ovhold").value=ov.hold;q(".e-ovhv").textContent=Math.round(ov.hold)+"%";
     {const fv=(ov.fade!=null?ov.fade:100);q(".e-ovfade").value=fv;q(".e-ovfv").textContent=Math.round(fv)+"%";}
@@ -833,10 +862,21 @@ function openEditor(tpl,st,onClose){
   q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;syncSize();draw();});
   q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
+  q(".e-logoctr").addEventListener("click",()=>{o.logoX=50;q(".e-logox").value=50;draw();});
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
-  q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;q(".e-ovmanual").style.display=e.target.checked?"none":"";draw();});
+  q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay[size].autoLogo=false;const l=q(".e-ovautologo");if(l)l.checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
+  if(hasLogoTint) q(".e-ovautologo").addEventListener("change",e=>{o.overlay[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay[size].auto=false;q(".e-ovauto").checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;o.overlay[size].userColor=true;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
   q(".e-ovh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay[size].color=v;o.overlay[size].userColor=true;q(".e-ovc").value=v;draw();}});
+  if(hasBottom){
+    q(".e-ov2c").addEventListener("input",e=>{o.overlay2[size].color=e.target.value;q(".e-ov2h").value=e.target.value.toUpperCase();draw();});
+    q(".e-ov2h").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.overlay2[size].color=v;q(".e-ov2c").value=v;draw();}});
+    q(".e-ov2o").addEventListener("input",e=>{o.overlay2[size].opacity=+e.target.value;q(".e-ov2ov").textContent=Math.round(o.overlay2[size].opacity*100)+"%";draw();});
+    q(".e-ov2hold").addEventListener("input",e=>{o.overlay2[size].hold=+e.target.value;q(".e-ov2hv").textContent=Math.round(o.overlay2[size].hold)+"%";draw();});
+    q(".e-ov2fade").addEventListener("input",e=>{o.overlay2[size].fade=+e.target.value;q(".e-ov2fv").textContent=Math.round(o.overlay2[size].fade)+"%";draw();});
+    q(".e-ov2auto").addEventListener("change",e=>{o.overlay2[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay2[size].autoLogo=false;const l=q(".e-ov2autologo");if(l)l.checked=false;}q(".e-ov2man").style.display=(o.overlay2[size].auto||o.overlay2[size].autoLogo)?"none":"";draw();});
+    if(hasLogoTint) q(".e-ov2autologo").addEventListener("change",e=>{o.overlay2[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay2[size].auto=false;q(".e-ov2auto").checked=false;}q(".e-ov2man").style.display=(o.overlay2[size].auto||o.overlay2[size].autoLogo)?"none":"";draw();});
+  }
   q(".e-ovo").addEventListener("input",e=>{o.overlay[size].opacity=+e.target.value;q(".e-ovov").textContent=Math.round(o.overlay[size].opacity*100)+"%";draw();});
   q(".e-ovhold").addEventListener("input",e=>{var _o=o.overlay[size];_o.hold=+e.target.value;var _f=(_o.fade!=null?_o.fade:100);if(_f<_o.hold+5){_f=Math.min(100,_o.hold+5);_o.fade=_f;q(".e-ovfade").value=_f;q(".e-ovfv").textContent=Math.round(_f)+"%";}q(".e-ovhv").textContent=Math.round(_o.hold)+"%";draw();});
   q(".e-ovfade").addEventListener("input",e=>{var _o=o.overlay[size];_o.fade=+e.target.value;if(_o.fade<_o.hold+5){_o.hold=Math.max(0,_o.fade-5);q(".e-ovhold").value=_o.hold;q(".e-ovhv").textContent=Math.round(_o.hold)+"%";}q(".e-ovfv").textContent=Math.round(_o.fade)+"%";draw();});
