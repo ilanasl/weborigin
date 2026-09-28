@@ -670,6 +670,7 @@ TEMPLATES.forEach(tpl=>{
       <label class="mini">Upload logo<input type="file" class="c-logofile" accept="image/*"></label>
       <button class="tiny c-clearlogo" hidden>Remove</button>
     </div>
+    ${tpl.secondLayer?`<div class="src"><span class="lab">Subject: <b class="c-subjlab">none</b></span><label class="mini">Upload subject<input type="file" class="c-subjfile" accept="image/*"></label><button class="tiny c-clearsubj" hidden>Remove</button></div>`:''}
     <div class="src c-logoszrow" hidden><span class="lab">Logo size</span><input type="range" class="c-logosz" min="0.4" max="2" step="0.05" style="flex:1"></div>
     <label class="chk"><input type="checkbox" class="c-tint"> Auto tint overlay from image</label>
     ${tpl.transparentOK?'<label class="chk"><input type="checkbox" class="c-transparent"> Transparent background (GPT — subject floats on your panel colour)</label>':''}
@@ -707,6 +708,7 @@ TEMPLATES.forEach(tpl=>{
     logoLab.textContent=st.logo?"added":"none";
     clearLogo.hidden=!st.logo;
     card.querySelector(".c-logoszrow").hidden=!st.logo;
+    {const sl=card.querySelector(".c-subjlab"),sc=card.querySelector(".c-clearsubj");if(sl)sl.textContent=st.uploaded2?"added":"none";if(sc)sc.hidden=!st.uploaded2;}
     card.querySelector(".c-logosz").value=st.over.logoScale;
     tintChk.checked=st.over.overlay.desktop.auto;
     textBtn.classList.toggle("on",st.text.enabled);
@@ -722,6 +724,9 @@ TEMPLATES.forEach(tpl=>{
   clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();forgetAuto(tpl);});
   logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
   clearLogo.addEventListener("click",()=>{st.logo=null;st.logoImg=null;refresh();});
+  {const sf=card.querySelector(".c-subjfile"),cs=card.querySelector(".c-clearsubj");
+   if(sf)sf.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded2=url;st.img2=await loadImage(url);e.target.value="";refresh();});
+   if(cs)cs.addEventListener("click",()=>{st.uploaded2=null;st.img2=null;refresh();});}
   card.querySelector(".c-logosz").addEventListener("input",e=>{st.over.logoScale=+e.target.value;drawThumb(canvasEl,tpl,st);});
   resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();forgetAuto(tpl);});
   textBtn.addEventListener("click",()=>openTextModal(tpl,st,refresh));
