@@ -499,7 +499,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
       else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
       drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
-  if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));let lspec=resolveLogo(tpl.logo,size);if(over&&over.logoCenter){const lp=(lspec.anchor||"top-left").split("-");lspec=Object.assign({},lspec,{anchor:lp[0]+"-center"});}drawLogo(ctx,logoImg,dim.w,dim.h,lspec,over.logoScale,lx);}
+  if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));let lspec=resolveLogo(tpl.logo,size);const lal=(over&&over.logoAlign)||((lspec.anchor||"").indexOf("center")>=0?"center":((lspec.anchor||"").indexOf("right")>=0?"right":"left"));const lp=(lspec.anchor||"top-left").split("-");lspec=Object.assign({},lspec,{anchor:lp[0]+"-"+lal});drawLogo(ctx,logoImg,dim.w,dim.h,lspec,over.logoScale,lx);}
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
     if(raw.splitOnly&&!(over&&over.split))continue;
@@ -535,7 +535,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoCenter:false,halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -875,7 +875,7 @@ function openEditor(tpl,st,onClose){
     html+=`</div>`;
   }
   html+=`<label class="f"><span>Logo size <b class="e-logoszv"></b></span><input type="range" class="e-logosz" min="0.4" max="2" step="0.05"></label>`;
-  html+=`<div class="f"><span>Logo position (left–right)</span><div class="e-inline"><input type="range" class="e-logox" min="0" max="100" step="1" style="flex:1"><button class="tiny e-logoctr" title="center the logo">Center</button></div></div>`;
+  html+=`<div class="f"><span>Logo position (left–right)</span><div class="e-inline"><input type="range" class="e-logox" min="0" max="100" step="1" style="flex:1"><button class="tiny e-logol" title="align logo left">Left</button><button class="tiny e-logoctr" title="center the logo">Center</button><button class="tiny e-logor" title="align logo right">Right</button></div></div>`;
   html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>… fine (up–down) (100+ = off bottom)</span><input type="range" class="e-posy" min="0" max="120" step="1"></label>`;
@@ -929,10 +929,12 @@ function openEditor(tpl,st,onClose){
     const posr=document.createElement("div");posr.className="e-inline e-posrow";
     const lx=document.createElement("span");lx.className="pxl";lx.textContent="X";
     const rx=document.createElement("input");rx.type="range";rx.min=0;rx.max=100;rx.step=1;
-    const bc=document.createElement("button");bc.type="button";bc.className="tiny";bc.textContent="⌖";bc.title="center horizontally";
+    const bL=document.createElement("button");bL.type="button";bL.className="tiny";bL.textContent="⇤";bL.title="align left";
+    const bC=document.createElement("button");bC.type="button";bC.className="tiny";bC.textContent="⌖";bC.title="center";
+    const bR=document.createElement("button");bR.type="button";bR.className="tiny";bR.textContent="⇥";bR.title="align right";
     const ly=document.createElement("span");ly.className="pxl";ly.textContent="Y";
     const ry=document.createElement("input");ry.type="range";ry.min=0;ry.max=100;ry.step=1;
-    posr.appendChild(ly);posr.appendChild(ry);posr.appendChild(lx);posr.appendChild(rx);posr.appendChild(bc);wrap.appendChild(posr);
+    posr.appendChild(ly);posr.appendChild(ry);posr.appendChild(lx);posr.appendChild(rx);posr.appendChild(bL);posr.appendChild(bC);posr.appendChild(bR);wrap.appendChild(posr);
     // button padding
     let rpx=null,rpy=null;
     if(el.type==="button"){
@@ -947,13 +949,16 @@ function openEditor(tpl,st,onClose){
     ta.addEventListener("input",()=>{st.text.texts[el.key]=ta.value;draw();});
     ci.addEventListener("input",()=>{o.colors[size][el.key]=ci.value;hx.value=ci.value.toUpperCase();draw();});
     hx.addEventListener("input",()=>{const v=normHex(hx.value);if(v){o.colors[size][el.key]=v;ci.value=v;draw();}});
-    rx.addEventListener("input",()=>{if(o.halign&&o.halign[size])o.halign[size][el.key]=null;o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
+    rx.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
     ry.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{y:+ry.value});draw();});
     rs.addEventListener("input",()=>{o.sizes[size][el.key]=+rs.value;draw();});
     bk.addEventListener("change",()=>{o.bold[size][el.key]=bk.checked;draw();});
-    bc.addEventListener("click",()=>{o.halign[size][el.key]="center";o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:50});rx.value=50;draw();});
+    const setAlign=(a,xv)=>{o.halign[size][el.key]=a;o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:xv});rx.value=xv;[[bL,"left"],[bC,"center"],[bR,"right"]].forEach(([b,k])=>b.classList.toggle("on",k===a));draw();};
+    bL.addEventListener("click",()=>setAlign("left",5));
+    bC.addEventListener("click",()=>setAlign("center",50));
+    bR.addEventListener("click",()=>setAlign("right",95));
     if(rpx&&rpy){const setPad=()=>{o.pads[size][el.key]={padX:+rpx.value,padY:+rpy.value};draw();};rpx.addEventListener("input",setPad);rpy.addEventListener("input",setPad);}
-    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy,bk});
+    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy,bk,bL,bC,bR});
   });
 
   function syncSize(){
@@ -977,7 +982,8 @@ function openEditor(tpl,st,onClose){
     [...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));
     q(".e-logox").value=o.logoX;
     textColorEls.forEach(({el,ci,hx})=>{const v=o.colors[size][el.key]||el.color;ci.value=v;hx.value=v.toUpperCase();});
-    posEls.forEach(({el,rx,ry,rs,rpx,rpy,bk})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
+    posEls.forEach(({el,rx,ry,rs,rpx,rpy,bk,bL,bC,bR})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
+      if(bL&&bC&&bR){const an=(rEl.anchor||"top-left");const def=an.indexOf("center")>=0?"center":an.indexOf("right")>=0?"right":"left";const ha=(o.halign[size]&&o.halign[size][el.key])||def;bL.classList.toggle("on",ha==="left");bC.classList.toggle("on",ha==="center");bR.classList.toggle("on",ha==="right");}
       if(bk){const bov=(o.bold[size]&&o.bold[size][el.key]);bk.checked=(bov!=null)?bov:((rEl.weight||400)>=600);}
       if(rs){rs.value=(o.sizes[size]&&o.sizes[size][el.key]!=null)?o.sizes[size][el.key]:rEl.size;}
       if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
@@ -986,7 +992,7 @@ function openEditor(tpl,st,onClose){
   function syncStatic(){
     q(".e-font").value=o.font;
     q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
-    q(".e-logox").value=o.logoX;
+    q(".e-logox").value=o.logoX;syncLogoAlign();
     if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
     if(tpl.splittable){q(".e-split").checked=!!o.split;const pr=o.panelColorR||tpl.panelColorR||"#eeeeee";q(".e-panelcr").value=pr;q(".e-panelhr").value=pr.toUpperCase();const sa=(o.splitAt!=null?o.splitAt:50);q(".e-splitat").value=sa;q(".e-splitv").textContent=sa+"%";}
     if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
@@ -996,7 +1002,7 @@ function openEditor(tpl,st,onClose){
   }
   syncStatic(); applySplit();
   // Keep Split-mode and Fade-mode settings independent — swap a snapshot on toggle.
-  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoCenter","halign","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoAlign","halign","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
   function snapMode(){const s={};MODE_FIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!==null)s[k]=JSON.parse(JSON.stringify(o[k]));});return s;}
   function loadMode(s){if(!s)return;MODE_FIELDS.forEach(k=>{if(s[k]!==undefined)o[k]=JSON.parse(JSON.stringify(s[k]));});}
 
@@ -1009,8 +1015,12 @@ function openEditor(tpl,st,onClose){
   q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;[...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));draw();});
   q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;draw();});
   q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
-  q(".e-logox").addEventListener("input",e=>{o.logoCenter=false;o.logoX=+e.target.value;draw();});
-  q(".e-logoctr").addEventListener("click",()=>{o.logoCenter=true;o.logoX=50;q(".e-logox").value=50;draw();});
+  function syncLogoAlign(){const a=o.logoAlign||"left";[["e-logol","left"],["e-logoctr","center"],["e-logor","right"]].forEach(([c,k])=>{const b=controls.querySelector("."+c);if(b)b.classList.toggle("on",k===a);});}
+  const setLogoAlign=(a,xv)=>{o.logoAlign=a;o.logoX=xv;q(".e-logox").value=xv;syncLogoAlign();draw();};
+  q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
+  q(".e-logol").addEventListener("click",()=>setLogoAlign("left",5));
+  q(".e-logoctr").addEventListener("click",()=>setLogoAlign("center",50));
+  q(".e-logor").addEventListener("click",()=>setLogoAlign("right",95));
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
   if(tpl.panelBg){q(".e-panelc").addEventListener("input",e=>{o.panelColor=e.target.value;q(".e-panelh").value=e.target.value.toUpperCase();draw();});q(".e-panelh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColor=v;q(".e-panelc").value=v;draw();}});}
   if(tpl.splittable){
