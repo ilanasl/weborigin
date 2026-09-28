@@ -259,6 +259,28 @@ const TEMPLATES = [
     ]
   },
   {
+    // Landscape popup (Adoric-style): logo + text + button on the LEFT, uploaded product on the RIGHT.
+    // Reuses the same panel-gradient + upload-product + optional subject machinery as the Sidebar.
+    id:"popup-product", name:"Popup (Product)", font:"Poppins",
+    sizes:{desktop:{w:700,h:500}, mobile:{w:700,h:500}},
+    bgPos:{desktop:"center", mobile:"center"},
+    bgColor:"#e9eef7", panelBg:true,
+    productBox:{x:52,y:8,w:46,h:86}, productContain:true, productShadow:true,
+    secondLayer:true, subjectBox:{x:46,y:2,w:54,h:96},
+    logo:{x:5,y:9,widthPct:40,anchor:"top-left", mobile:{x:5,y:9,widthPct:40,anchor:"top-left"}},
+    logoTint:true, transparentOK:true,
+    defaultTopic:"two medication vials, clean product photo, plain background",
+    composition:"A tall isolated product or subject with a clean plain background, suitable to place on the right side of a landscape banner. Photorealistic, soft even studio light. No text.",
+    overlay:{desktop:{color:"#e9eef7",opacity:0,gradient:true,coverage:"left",hold:40,fade:72},
+             mobile:{color:"#e9eef7",opacity:0,gradient:true,coverage:"left",hold:40,fade:72}},
+    bottomOverlay:{color:"#e9eef7",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
+    elements:[
+      {key:"eyebrow",label:"Eyebrow",val:"Fall Discounts Applied!",size:26,weight:600,color:"#1a2b45",align:"left",x:5,y:26,anchor:"top-left",maxW:44,lh:1.15},
+      {key:"offer",label:"Offer (bold)",val:"SAVE $150 instantly",size:34,weight:800,color:"#0b1f3a",align:"left",x:5,y:40,anchor:"top-left",maxW:44,lh:1.1},
+      {type:"button",key:"cta",label:"Button text",val:"Claim Offer",size:19,weight:700,color:"#ffffff",x:5,y:72,anchor:"top-left",btnColor:"#1e3a5f",padX:26,padY:14,radius:8}
+    ]
+  },
+  {
     id:"gold-popup", name:"Popup (Split)", font:"Poppins",
     sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
     // White card on the left; the image fills the right side.
