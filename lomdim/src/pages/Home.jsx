@@ -48,7 +48,10 @@ export default function Home({ nav }) {
         ...s,
         ready: readiness(Object.values(byTopic)),
         nTopics: (tp || []).filter((t) => t.subject_id === s.id).length,
-        nMaterials: (mt || []).filter((m) => m.subject_id === s.id && (m.storage_path || m.content_hash)).length,
+        // דף שמשויך לכמה נושאים נספר פעם אחת
+        nMaterials: new Set((mt || [])
+          .filter((m) => m.subject_id === s.id && (m.storage_path || m.content_hash))
+          .map((m) => m.storage_path || (m.content_hash || '').split(':')[0] || m.id)).size,
         exams,
         examDays: exams[0]?.days ?? null,
       }

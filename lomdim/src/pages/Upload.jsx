@@ -147,9 +147,10 @@ export default function Upload({ nav, params }) {
         usedFirst[fi] = true
         const { data: mat } = await supabase.from('materials').insert({
           subject_id: subjectId, topic_id: topicId, title: ct.name.trim(),
-          kind: files[fi].kind, storage_path: first ? (storagePaths[fi] || null) : null, origin,
+          // כל הנושאים של אותו דף מצביעים על אותו קובץ, כדי שכולם יופיעו ב"החומרים שהעליתי"
+          kind: files[fi].kind, storage_path: storagePaths[fi] || null, origin,
           summary_md: onlyPractice ? '' : (ct.summary_md || ''),
-          content_hash: first ? (files[fi].hash || null) : null,
+          content_hash: files[fi].hash ? (first ? files[fi].hash : `${files[fi].hash}:${topicId}`) : null,
           source_text: first ? (results[fi]?.source_text || null) : null,
         }).select('id').single()
         if (Array.isArray(ct.questions) && ct.questions.length) {
