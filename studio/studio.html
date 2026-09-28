@@ -488,17 +488,18 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
+  const splitOn=(over&&over.split&&tpl.splittable);
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
-  if(ovl){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
+  if(ovl&&!splitOn){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
       if(s.autoLogo&&logoImg){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); start="#ffffff"; } else { col=darken(getAccent(logoImg),58); } }
       else if(s.auto&&image){ if(hexLum(ovl.color)>=0.6){ col=paleTint(avgColor(image)||getAccent(image),0.55); start="#ffffff"; } else { col=darken(getAccent(image),58); } }
       ovl={coverage:ovl.coverage,gradient:ovl.gradient,color:col,startColor:start,opacity:s.opacity,hold:s.hold,fade:(s.fade!=null?s.fade:ovl.fade)};} if(matchColor)ovl=Object.assign({},ovl,{color:matchColor}); drawOverlay(ctx,ovl,dim.w,dim.h); }
   // Optional second (bottom) overlay — blends the bottom of the image into a colour.
-  if(over.overlay2&&over.overlay2[size]){const b2=over.overlay2[size]; if(b2.opacity>0){ let col2=b2.color;
+  if(over.overlay2&&over.overlay2[size]&&!splitOn){const b2=over.overlay2[size]; if(b2.opacity>0){ let col2=b2.color;
       if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
       else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
       drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
-  if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,lx);}
+  if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));let lspec=resolveLogo(tpl.logo,size);if(over&&over.logoCenter){const lp=(lspec.anchor||"top-left").split("-");lspec=Object.assign({},lspec,{anchor:lp[0]+"-center"});}drawLogo(ctx,logoImg,dim.w,dim.h,lspec,over.logoScale,lx);}
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
     if(raw.splitOnly&&!(over&&over.split))continue;
@@ -514,7 +515,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     if(over&&over.split&&tpl.splittable){px=splitHalfX(px,!!raw.splitOnly,(over.splitAt!=null?over.splitAt:50));}
     if(el.type==="button"){const btn=over.buttonAuto===false?(over.buttonColor||el.btnColor):accent;drawButton(ctx,Object.assign({},el,{x:px,y:py}),text,dim.w,dim.h,btn,font);continue;}
     const col=(over.colors&&over.colors[size]&&over.colors[size][raw.key])||el.color;
-    const parts=el.anchor==="center"?["center","center"]:(el.anchor||"top-left").split("-");const v=parts[0],h=parts[1];
+    const parts=el.anchor==="center"?["center","center"]:(el.anchor||"top-left").split("-");const v=parts[0];let h=parts[1];const ha=(over.halign&&over.halign[size]&&over.halign[size][raw.key]);if(ha)h=ha;
     ctx.font=`${el.weight||400} ${el.size}px "${font}", sans-serif`;ctx.fillStyle=col;ctx.textAlign=h;
     const disp=el.upper?String(text).toUpperCase():text;const maxW=((el.maxW||90)/100)*dim.w;const lh=(el.lh||1.15)*el.size;
     const lines=wrapLines(ctx,disp,maxW);const totalH=lines.length*lh;const bx=px/100*dim.w,by=py/100*dim.h;
@@ -534,7 +535,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoCenter:false,halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -946,11 +947,11 @@ function openEditor(tpl,st,onClose){
     ta.addEventListener("input",()=>{st.text.texts[el.key]=ta.value;draw();});
     ci.addEventListener("input",()=>{o.colors[size][el.key]=ci.value;hx.value=ci.value.toUpperCase();draw();});
     hx.addEventListener("input",()=>{const v=normHex(hx.value);if(v){o.colors[size][el.key]=v;ci.value=v;draw();}});
-    rx.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
+    rx.addEventListener("input",()=>{if(o.halign&&o.halign[size])o.halign[size][el.key]=null;o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
     ry.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{y:+ry.value});draw();});
     rs.addEventListener("input",()=>{o.sizes[size][el.key]=+rs.value;draw();});
     bk.addEventListener("change",()=>{o.bold[size][el.key]=bk.checked;draw();});
-    bc.addEventListener("click",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:50});rx.value=50;draw();});
+    bc.addEventListener("click",()=>{o.halign[size][el.key]="center";o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:50});rx.value=50;draw();});
     if(rpx&&rpy){const setPad=()=>{o.pads[size][el.key]={padX:+rpx.value,padY:+rpy.value};draw();};rpx.addEventListener("input",setPad);rpy.addEventListener("input",setPad);}
     textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy,bk});
   });
@@ -995,7 +996,7 @@ function openEditor(tpl,st,onClose){
   }
   syncStatic(); applySplit();
   // Keep Split-mode and Fade-mode settings independent — swap a snapshot on toggle.
-  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoCenter","halign","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
   function snapMode(){const s={};MODE_FIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!==null)s[k]=JSON.parse(JSON.stringify(o[k]));});return s;}
   function loadMode(s){if(!s)return;MODE_FIELDS.forEach(k=>{if(s[k]!==undefined)o[k]=JSON.parse(JSON.stringify(s[k]));});}
 
@@ -1008,8 +1009,8 @@ function openEditor(tpl,st,onClose){
   q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;[...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));draw();});
   q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;draw();});
   q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
-  q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
-  q(".e-logoctr").addEventListener("click",()=>{o.logoX=50;q(".e-logox").value=50;draw();});
+  q(".e-logox").addEventListener("input",e=>{o.logoCenter=false;o.logoX=+e.target.value;draw();});
+  q(".e-logoctr").addEventListener("click",()=>{o.logoCenter=true;o.logoX=50;q(".e-logox").value=50;draw();});
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
   if(tpl.panelBg){q(".e-panelc").addEventListener("input",e=>{o.panelColor=e.target.value;q(".e-panelh").value=e.target.value.toUpperCase();draw();});q(".e-panelh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColor=v;q(".e-panelc").value=v;draw();}});}
   if(tpl.splittable){
