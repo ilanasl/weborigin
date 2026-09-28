@@ -265,7 +265,7 @@ const TEMPLATES = [
     sizes:{desktop:{w:700,h:500}, mobile:{w:700,h:500}},
     bgPos:{desktop:"center", mobile:"center"},
     bgColor:"#e9eef7", panelBg:true,
-    splittable:true, panelColorR:"#e7dfd0", splitAt:54,
+    splittable:true, panelColorR:"#e7dfd0", splitAt:50,
     productBox:{x:52,y:8,w:46,h:86}, productContain:true, productShadow:true,
     secondLayer:true, subjectBox:{x:46,y:2,w:54,h:96},
     logo:{x:5,y:9,widthPct:40,anchor:"top-left", mobile:{x:5,y:9,widthPct:40,anchor:"top-left"}},
@@ -279,9 +279,9 @@ const TEMPLATES = [
       {key:"eyebrow",label:"Eyebrow",val:"Fall Discounts Applied!",size:26,weight:600,color:"#1a2b45",align:"left",x:5,y:26,anchor:"top-left",maxW:44,lh:1.15},
       {key:"offer",label:"Offer (bold)",val:"SAVE $150 instantly",size:34,weight:800,color:"#0b1f3a",align:"left",x:5,y:40,anchor:"top-left",maxW:44,lh:1.1},
       {type:"button",key:"cta",label:"Button text",val:"Claim Offer",size:19,weight:700,color:"#ffffff",x:5,y:72,anchor:"top-left",btnColor:"#1e3a5f",padX:26,padY:14,radius:8},
-      {key:"stars",label:"Stars (right)",val:"★★★★★",size:26,weight:400,color:"#e0a53a",align:"center",x:77,y:84,anchor:"center",maxW:46,splitOnly:true},
-      {key:"rating",label:"Rating line (right)",val:"4.9 Excellent Rating",size:18,weight:700,color:"#2b2b2b",align:"center",x:77,y:90,anchor:"center",maxW:48,splitOnly:true},
-      {key:"patients",label:"Patients line (right)",val:"350,000+ happy patients",size:15,weight:500,color:"#2b2b2b",align:"center",x:77,y:95,anchor:"center",maxW:50,splitOnly:true}
+      {key:"stars",label:"Stars (right)",val:"★★★★★",size:26,weight:400,color:"#e0a53a",align:"center",x:50,y:84,anchor:"center",maxW:46,splitOnly:true},
+      {key:"rating",label:"Rating line (right)",val:"4.9 Excellent Rating",size:18,weight:700,color:"#2b2b2b",align:"center",x:50,y:90,anchor:"center",maxW:48,splitOnly:true},
+      {key:"patients",label:"Patients line (right)",val:"350,000+ happy patients",size:15,weight:500,color:"#2b2b2b",align:"center",x:50,y:95,anchor:"center",maxW:50,splitOnly:true}
     ]
   },
   {
@@ -400,6 +400,8 @@ function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 // Fit an image INSIDE a box (preserve aspect, no crop) — for a transparent product/subject PNG.
 function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*((vy!=null?vy:100)/100);return{dx,dy,dw,dh};}
+// Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
+function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+pad):pad;const e=isRight?(100-pad):(splitAt-pad);return s+(xPct/100)*(e-s);}
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
 function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
 // Soft elliptical contact shadow under a product.
@@ -465,9 +467,10 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   if(tpl.panelBg){ // coloured panel with a subtle vertical gradient (light top -> base bottom)
     const pc=(over&&over.panelColor)||tpl.bgColor||"#ffffff";
     const paint=(x0,x1,col)=>{const pg=ctx.createLinearGradient(0,0,0,dim.h);pg.addColorStop(0,paleTint(col,0.28));pg.addColorStop(1,col);ctx.fillStyle=pg;ctx.fillRect(x0,0,x1-x0,dim.h);};
-    if(tpl.splittable&&over&&over.split){ // two-tone split panel: left colour + right colour
-      const sx=Math.round((over.splitAt!=null?over.splitAt:52)/100*dim.w);
-      paint(0,sx,pc); paint(sx,dim.w,(over.panelColorR||tpl.panelColorR||pc));
+    if(tpl.splittable&&over&&over.split){ // two-tone split panel: FLAT left colour + FLAT right colour (no gradient)
+      const sx=Math.round((over.splitAt!=null?over.splitAt:50)/100*dim.w);
+      ctx.fillStyle=pc;ctx.fillRect(0,0,sx,dim.h);
+      ctx.fillStyle=(over.panelColorR||tpl.panelColorR||pc);ctx.fillRect(sx,0,dim.w-sx,dim.h);
     } else { paint(0,dim.w,pc); }
   } else if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
   // The overlay colour auto-matches the photo only when the user hasn't set one.
@@ -495,7 +498,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
       else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
       drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
-  if(logoImg&&tpl.logo)drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,over.logoX);
+  if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));drawLogo(ctx,logoImg,dim.w,dim.h,resolveLogo(tpl.logo,size),over.logoScale,lx);}
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
     if(raw.splitOnly&&!(over&&over.split))continue;
@@ -505,7 +508,10 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     const bo=(over.bold&&over.bold[size]&&over.bold[size][raw.key]);
     if(so!=null||pad||bo!=null) el=Object.assign({},el,(so!=null?{size:so}:{}),(pad?{padX:pad.padX,padY:pad.padY}:{}),(bo!=null?{weight:(bo?700:400)}:{}));
     const po=(over.pos&&over.pos[size]&&over.pos[size][raw.key])||{};
-    const px=po.x!=null?po.x:el.x, py=po.y!=null?po.y:el.y;
+    let px=po.x!=null?po.x:el.x; const py=po.y!=null?po.y:el.y;
+    // In split mode every element sits in its own half (left text/logo -> left half, right text -> right half),
+    // with a side padding so nothing touches the banner edge or the divider.
+    if(over&&over.split&&tpl.splittable){px=splitHalfX(px,!!raw.splitOnly,(over.splitAt!=null?over.splitAt:50));}
     if(el.type==="button"){const btn=over.buttonAuto===false?(over.buttonColor||el.btnColor):accent;drawButton(ctx,Object.assign({},el,{x:px,y:py}),text,dim.w,dim.h,btn,font);continue;}
     const col=(over.colors&&over.colors[size]&&over.colors[size][raw.key])||el.color;
     const parts=el.anchor==="center"?["center","center"]:(el.anchor||"top-left").split("-");const v=parts[0],h=parts[1];
@@ -975,16 +981,23 @@ function openEditor(tpl,st,onClose){
       if(rs){rs.value=(o.sizes[size]&&o.sizes[size][el.key]!=null)?o.sizes[size][el.key]:rEl.size;}
       if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
   }
-  q(".e-font").value=o.font;
-  if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
-  if(tpl.splittable){q(".e-split").checked=!!o.split;const pr=o.panelColorR||tpl.panelColorR||"#eeeeee";q(".e-panelcr").value=pr;q(".e-panelhr").value=pr.toUpperCase();const sa=(o.splitAt!=null?o.splitAt:52);q(".e-splitat").value=sa;q(".e-splitv").textContent=sa+"%";}
   function applySplit(){const on=tpl.splittable&&!!o.split;controls.querySelectorAll(".e-adv").forEach(e=>e.style.display=on?"none":"");controls.querySelectorAll(".e-splitctl").forEach(e=>e.style.display=on?"":"none");controls.querySelectorAll(".e-splitonly").forEach(e=>e.style.display=on?"":"none");}
-  applySplit();
-  if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
-  if(tpl.secondLayer){q(".e-subjz").value=o.subjZoom||1;q(".e-subjzv").textContent=Math.round((o.subjZoom||1)*100)+"%";q(".e-subjx").value=(o.subjX!=null?o.subjX:50);q(".e-subjy").value=(o.subjY!=null?o.subjY:100);q(".e-subjr").value=(o.subjRotate||0);q(".e-subjrv").textContent=(o.subjRotate||0)+"°";}
-  if(tpl.productBox){q(".e-prodr").value=(o.productRotate||0);q(".e-prodrv").textContent=(o.productRotate||0)+"°";}
-  q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
-  if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
+  function syncStatic(){
+    q(".e-font").value=o.font;
+    q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
+    q(".e-logox").value=o.logoX;
+    if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
+    if(tpl.splittable){q(".e-split").checked=!!o.split;const pr=o.panelColorR||tpl.panelColorR||"#eeeeee";q(".e-panelcr").value=pr;q(".e-panelhr").value=pr.toUpperCase();const sa=(o.splitAt!=null?o.splitAt:50);q(".e-splitat").value=sa;q(".e-splitv").textContent=sa+"%";}
+    if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
+    if(tpl.secondLayer){q(".e-subjz").value=o.subjZoom||1;q(".e-subjzv").textContent=Math.round((o.subjZoom||1)*100)+"%";q(".e-subjx").value=(o.subjX!=null?o.subjX:50);q(".e-subjy").value=(o.subjY!=null?o.subjY:100);q(".e-subjr").value=(o.subjRotate||0);q(".e-subjrv").textContent=(o.subjRotate||0)+"°";}
+    if(tpl.productBox){q(".e-prodr").value=(o.productRotate||0);q(".e-prodrv").textContent=(o.productRotate||0)+"°";}
+    if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
+  }
+  syncStatic(); applySplit();
+  // Keep Split-mode and Fade-mode settings independent — swap a snapshot on toggle.
+  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+  function snapMode(){const s={};MODE_FIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!==null)s[k]=JSON.parse(JSON.stringify(o[k]));});return s;}
+  function loadMode(s){if(!s)return;MODE_FIELDS.forEach(k=>{if(s[k]!==undefined)o[k]=JSON.parse(JSON.stringify(s[k]));});}
 
   // listeners
   q(".e-showtext").addEventListener("change",e=>{st.text.enabled=e.target.checked;draw();});
@@ -1000,7 +1013,12 @@ function openEditor(tpl,st,onClose){
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
   if(tpl.panelBg){q(".e-panelc").addEventListener("input",e=>{o.panelColor=e.target.value;q(".e-panelh").value=e.target.value.toUpperCase();draw();});q(".e-panelh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColor=v;q(".e-panelc").value=v;draw();}});}
   if(tpl.splittable){
-    q(".e-split").addEventListener("change",e=>{o.split=e.target.checked;applySplit();draw();});
+    q(".e-split").addEventListener("change",e=>{
+      // Keep Split and Fade settings independent: save the mode we leave, restore the mode we enter.
+      if(e.target.checked){ o._fadeSnap=snapMode(); o.split=true; if(o._splitSnap)loadMode(o._splitSnap); }
+      else { o._splitSnap=snapMode(); o.split=false; if(o._fadeSnap)loadMode(o._fadeSnap); }
+      syncSize(); syncStatic(); applySplit(); draw();
+    });
     q(".e-panelcr").addEventListener("input",e=>{o.panelColorR=e.target.value;q(".e-panelhr").value=e.target.value.toUpperCase();draw();});
     q(".e-panelhr").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColorR=v;q(".e-panelcr").value=v;draw();}});
     q(".e-splitat").addEventListener("input",e=>{o.splitAt=+e.target.value;q(".e-splitv").textContent=o.splitAt+"%";draw();});
