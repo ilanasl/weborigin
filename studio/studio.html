@@ -247,7 +247,7 @@ const TEMPLATES = [
     overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72},
              mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72}},
     bottomOverlay:{color:"#ece4d6",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
-    logoTint:true,
+    logoTint:true, transparentOK:true,
     elements:[
       {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:24,anchor:"center",maxW:86},
       {key:"offer",label:"Offer (bold)",val:"$140 Off + Free Shipping",size:27,weight:800,color:"#0b1f3a",align:"center",x:50,y:33,anchor:"center",maxW:80,lh:1.15},
@@ -424,7 +424,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   const userSetColor=!!(ovs&&(ovs.userColor||ovs.auto||ovs.autoLogo));
   // Fill the canvas with the image's OWN edge colour so a zoomed-out (smaller) image
   // meets the fill seamlessly — no hard line at the photo's edge.
-  const edgeColor=(tpl.matchBg&&image)?sampleEdge(image):null;
+  const edgeColor=(tpl.matchBg&&image&&!(over&&over.imgTransparent))?sampleEdge(image):null;
   const bgFill=edgeColor||tpl.bgColor;
   if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
   // The overlay colour auto-matches the photo only when the user hasn't set one.
@@ -510,6 +510,15 @@ function bannerBriefFor(topic,extra){const hay=(topic+" "+(extra||""));return (B
 function buildAIPrompt(tpl,st){
   const topic=((st.topic&&st.topic.trim())||tpl.defaultTopic||"clean background").replace(/\.?\s*$/,".");
   const extra=(st.customPrompt&&st.customPrompt.trim())?(" "+st.customPrompt.trim().replace(/\.?\s*$/,".")):"";
+  if(st.transparent&&tpl.transparentOK){
+    return [
+      topic+extra,
+      "The subject is fully ISOLATED on a transparent background — a clean cut-out with crisp edges, NO background, NO floor, NO scene, NO colour behind it at all.",
+      "Place the subject centred in the LOWER portion of a tall vertical frame, sized to fill roughly the bottom 45-55%, with empty transparent space above it for text.",
+      "Realistic, correct human proportions, natural relaxed expression, soft even studio light, with only a soft subtle contact shadow directly under the subject. Never crop the top of the head, hair or raised hands.",
+      "Output a transparent PNG with ONLY the subject — no text, letters, numbers, logos, watermarks or background."
+    ].filter(Boolean).join(" ");
+  }
   const d=tpl.sizes.desktop;const ar=d.w/d.h;
   const shape=ar>=2.2?"a wide panoramic horizontal composition":(ar<=0.8?"a tall vertical composition":"a balanced composition");
   return [
@@ -526,14 +535,18 @@ async function aiGenerate(tpl,st){
   const d=tpl.sizes.desktop;
   // When the image is confined to a box, match the AI aspect ratio to the box.
   const box=tpl.imageBox, arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
-  const engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
+  let engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
+  const wantTransparent=!!(st.transparent&&tpl.transparentOK);
+  // Transparent cut-outs are only possible on GPT — force it when requested.
+  if(wantTransparent&&!(engine==='openai'||engine.startsWith('openai:'))) engine='openai';
   const isGpt=engine==='openai'||engine.startsWith('openai:');
   const body={prompt:buildAIPrompt(tpl,st),aspectRatio:nearestAspect(arW,arH),provider:isGpt?'openai':'gemini'};
-  if(isGpt){ body.quality=(document.getElementById('quality')||{}).value||'medium'; if(engine.startsWith('openai:'))body.model=engine.slice(7); } else body.model=engine;
+  if(isGpt){ body.quality=(document.getElementById('quality')||{}).value||'medium'; if(engine.startsWith('openai:'))body.model=engine.slice(7); if(wantTransparent)body.transparent=true; } else body.model=engine;
   const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await res.json().catch(()=>({}));
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
   st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
+  if(st.over)st.over.imgTransparent=wantTransparent;
 }
 function enableLocalMode(){
   document.querySelectorAll('.c-airow').forEach(e=>{e.hidden=false;});
@@ -634,6 +647,7 @@ TEMPLATES.forEach(tpl=>{
     </div>
     <div class="src c-logoszrow" hidden><span class="lab">Logo size</span><input type="range" class="c-logosz" min="0.4" max="2" step="0.05" style="flex:1"></div>
     <label class="chk"><input type="checkbox" class="c-tint"> Auto tint overlay from image</label>
+    ${tpl.transparentOK?'<label class="chk"><input type="checkbox" class="c-transparent"> Transparent background (GPT — subject floats on your panel colour)</label>':''}
     <label class="f"><span>Image topic <b class="c-ailbl muted">(AI — needs local app)</b></span>
       <input type="text" class="c-topic" placeholder="${tpl.defaultTopic}"></label>
     <label class="f"><span>Specific prompt (optional)</span>
@@ -674,6 +688,7 @@ TEMPLATES.forEach(tpl=>{
     drawThumb(canvasEl,tpl,st);
   }
   tintChk.addEventListener("change",()=>{st.over.overlay.desktop.auto=tintChk.checked;st.over.overlay.mobile.auto=tintChk.checked;refresh();});
+  {const tpEl=card.querySelector(".c-transparent"); if(tpEl)tpEl.addEventListener("change",()=>{st.transparent=tpEl.checked;});}
   selEl.addEventListener("change",()=>{st.selected=selEl.checked;refresh();});
   const afterEdit=()=>{refresh();autoSaveBanner(tpl,st);};
   card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,afterEdit));

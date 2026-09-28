@@ -100,7 +100,7 @@ async function generateImage(prompt, aspectRatio, model) {
 }
 
 // --- OpenAI (gpt-image-1) image generation ----------------------------------
-async function generateImageOpenAI(prompt, aspectRatio, quality, model) {
+async function generateImageOpenAI(prompt, aspectRatio, quality, model, transparent) {
   if (!hasOpenAI()) {
     throw new Error(
       "No OpenAI key. Add OPENAI_API_KEY to .env and restart."
@@ -123,7 +123,11 @@ async function generateImageOpenAI(prompt, aspectRatio, quality, model) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
     },
-    body: JSON.stringify({ model: mdl, prompt, size, quality: q, n: 1 }),
+    body: JSON.stringify(
+      transparent
+        ? { model: mdl, prompt, size, quality: q, n: 1, background: "transparent", output_format: "png" }
+        : { model: mdl, prompt, size, quality: q, n: 1 }
+    ),
   });
   const j = await resp.json().catch(() => ({}));
   if (!resp.ok) throw new Error(j?.error?.message || `OpenAI HTTP ${resp.status}`);
@@ -311,7 +315,7 @@ app.post("/api/generate-image", async (req, res) => {
     const provider = String(req.body?.provider || "gemini");
     res.json(
       provider === "openai"
-        ? await generateImageOpenAI(prompt, aspectRatio, req.body?.quality, req.body?.model)
+        ? await generateImageOpenAI(prompt, aspectRatio, req.body?.quality, req.body?.model, req.body?.transparent)
         : provider === "imagen"
         ? await generateImageImagen(prompt, aspectRatio)
         : await generateImage(prompt, aspectRatio, req.body?.model)
