@@ -239,14 +239,15 @@ const TEMPLATES = [
     id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins",
     sizes:{desktop:{w:320,h:800}, mobile:{w:320,h:800}},
     bgPos:{desktop:"center", mobile:"center"},
-    // matchBg samples the photo's own background colour so the solid top blends seamlessly.
-    bgColor:"#ece4d6", matchBg:true,
+    // Coloured PANEL with a subtle gradient; the uploaded product PNG sits at the bottom (contained, soft shadow).
+    bgColor:"#eaf0fb", panelBg:true,
+    productBox:{x:6,y:50,w:88,h:48}, productContain:true, productShadow:true,
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
     defaultTopic:"a smiling woman holding a slimming product, large, waist-up, plain solid background",
     composition:"A tall vertical image. A smiling woman shown LARGE and CLOSE, from about the waist up, filling most of the width in the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless studio background of ONE flat solid colour — nothing at all in the top half. Make her big and prominent, not small. Photorealistic, bright even studio light, no text.",
-    overlay:{desktop:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72},
-             mobile:{color:"#ece4d6",opacity:1,gradient:true,coverage:"top",hold:46,fade:72}},
-    bottomOverlay:{color:"#ece4d6",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
+    overlay:{desktop:{color:"#eaf0fb",opacity:0,gradient:true,coverage:"top",hold:46,fade:72},
+             mobile:{color:"#eaf0fb",opacity:0,gradient:true,coverage:"top",hold:46,fade:72}},
+    bottomOverlay:{color:"#eaf0fb",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
     logoTint:true, transparentOK:true,
     elements:[
       {key:"eyebrow",label:"Eyebrow",val:"Exclusive Offer!",size:22,weight:600,color:"#16324a",align:"center",x:50,y:24,anchor:"center",maxW:86},
@@ -368,6 +369,10 @@ function resolveEl(el,size){return size==="mobile"&&el.mobile?Object.assign({},e
 // hx/vy = pan 0..100; zoom>1 enlarges the image so there is room to pan
 function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=(W-dw)*(hx/100),dy=(H-dh)*(vy/100);ctx.drawImage(img,dx,dy,dw,dh);}
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+// Fit an image INSIDE a box (preserve aspect, no crop) — for a transparent product/subject PNG.
+function fitBox(img,x,y,w,h,scale,vy){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)/2,dy=y+(h-dh)*((vy!=null?vy:100)/100);return{dx,dy,dw,dh};}
+// Soft elliptical contact shadow under a product.
+function drawProductShadow(ctx,cx,by,rw){const rh=Math.max(4,rw*0.15);const g=ctx.createRadialGradient(cx,by,0,cx,by,rw);g.addColorStop(0,"rgba(18,22,32,0.22)");g.addColorStop(0.55,"rgba(18,22,32,0.10)");g.addColorStop(1,"rgba(18,22,32,0)");ctx.save();ctx.translate(cx,by);ctx.scale(1,rh/rw);ctx.beginPath();ctx.arc(0,0,rw,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
 function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
 function mixHex(a,b,t){var pa=/^#?([0-9a-f]{6})$/i.exec((a||"").replace("#","")),pb=/^#?([0-9a-f]{6})$/i.exec((b||"").replace("#",""));if(!pa||!pb)return b||a||"#ffffff";var na=parseInt(pa[1],16),nb=parseInt(pb[1],16),r=Math.round(((na>>16)&255)+(((nb>>16)&255)-((na>>16)&255))*t),gg=Math.round(((na>>8)&255)+(((nb>>8)&255)-((na>>8)&255))*t),bl=Math.round((na&255)+((nb&255)-(na&255))*t);return "#"+[r,gg,bl].map(function(x){return x.toString(16).padStart(2,"0");}).join("");}
@@ -426,10 +431,20 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint){
   // meets the fill seamlessly — no hard line at the photo's edge.
   const edgeColor=(tpl.matchBg&&image&&!(over&&over.imgTransparent))?sampleEdge(image):null;
   const bgFill=edgeColor||tpl.bgColor;
-  if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
+  if(tpl.panelBg){ // coloured panel with a subtle vertical gradient (light top -> base bottom)
+    const pc=(over&&over.panelColor)||tpl.bgColor||"#ffffff";
+    const pg=ctx.createLinearGradient(0,0,0,dim.h);pg.addColorStop(0,paleTint(pc,0.28));pg.addColorStop(1,pc);
+    ctx.fillStyle=pg;ctx.fillRect(0,0,dim.w,dim.h);
+  } else if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
   // The overlay colour auto-matches the photo only when the user hasn't set one.
   const matchColor=(edgeColor&&!userSetColor)?edgeColor:null;
-  if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+  if(tpl.productBox){ // uploaded product/subject: fit inside the bottom box (no crop) with a soft shadow
+    const b=tpl.productBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+    if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100);
+      if(tpl.productShadow)drawProductShadow(ctx,f.dx+f.dw/2,f.dy+f.dh*0.985,Math.max(20,f.dw*0.42));
+      ctx.drawImage(image,f.dx,f.dy,f.dw,f.dh);}
+    else placeholderBox(ctx,bx,by,bw,bh);}
+  else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
@@ -473,7 +488,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -804,6 +819,7 @@ function openEditor(tpl,st,onClose){
   html+=`<label class="f"><span>… fine (up–down)</span><input type="range" class="e-posy" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
+  if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
   if(hasLogoTint) html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovautologo"> Overlay color: auto tint from logo</label>`;
   html+=`<div class="f e-ovmanual"><span>Overlay color (HEX)</span><div class="e-inline"><input type="color" class="e-ovc"><input type="text" class="e-ovh" maxlength="7" style="text-transform:uppercase"></div></div>`;
@@ -895,6 +911,7 @@ function openEditor(tpl,st,onClose){
       if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
   }
   q(".e-font").value=o.font;
+  if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
   q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
   if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
 
@@ -910,6 +927,7 @@ function openEditor(tpl,st,onClose){
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
   q(".e-logoctr").addEventListener("click",()=>{o.logoX=50;q(".e-logox").value=50;draw();});
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
+  if(tpl.panelBg){q(".e-panelc").addEventListener("input",e=>{o.panelColor=e.target.value;q(".e-panelh").value=e.target.value.toUpperCase();draw();});q(".e-panelh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColor=v;q(".e-panelc").value=v;draw();}});}
   q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay[size].autoLogo=false;const l=q(".e-ovautologo");if(l)l.checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   if(hasLogoTint) q(".e-ovautologo").addEventListener("change",e=>{o.overlay[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay[size].auto=false;q(".e-ovauto").checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;o.overlay[size].userColor=true;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
