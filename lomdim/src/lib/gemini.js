@@ -61,9 +61,12 @@ function buildParts(payload) {
   const img = (b64, mt) => ({ inlineData: { mimeType: mt || 'image/jpeg', data: b64 } })
 
   if (task === 'analyze_material') {
-    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner, noSummary } = payload
+    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner, noSummary, focusTopic } = payload
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ט' במקצוע "${subjectName}". לפניך חומר לימוד. ` +
+      (focusTopic
+        ? `הדף הזה כולל כמה נושאים. התמקד/י אך ורק בחלק שעוסק בנושא "${focusTopic}" והתעלם/י משאר הדף. החזר/י בדיוק איבר אחד במערך topics, ושם הנושא יהיה בדיוק "${focusTopic}". `
+        : '') +
       (knownTopics.length ? `נושאים קיימים: ${knownTopics.join(', ')}. אם מתאים לאחד — החזר אותו שם בדיוק. ` : '') +
       `החזר JSON בלבד: {"topics":[{"topic":"שם נושא קצר",` +
       (noSummary
