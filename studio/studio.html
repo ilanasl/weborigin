@@ -841,6 +841,11 @@ function normHex(v){v=String(v).trim();if(v[0]!=="#")v="#"+v;return /^#[0-9a-fA-
 /* ---- Full per-banner editor ---- */
 function openEditor(tpl,st,onClose){
   let size="desktop";const o=st.over;
+  // Backfill fields added in newer versions so an older saved state can't blank the editor.
+  if(!o.halign||typeof o.halign!=="object") o.halign={desktop:{},mobile:{}};
+  if(!o.halign.desktop) o.halign.desktop={};
+  if(!o.halign.mobile) o.halign.mobile={};
+  if(o.logoAlign==null) o.logoAlign=(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left");
   const hasBtn=tpl.elements.some(e=>e.type==="button");
   const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
   if(hasBottom&&!o.overlay2){o.overlay2={desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)};}
@@ -983,7 +988,7 @@ function openEditor(tpl,st,onClose){
     q(".e-logox").value=o.logoX;
     textColorEls.forEach(({el,ci,hx})=>{const v=o.colors[size][el.key]||el.color;ci.value=v;hx.value=v.toUpperCase();});
     posEls.forEach(({el,rx,ry,rs,rpx,rpy,bk,bL,bC,bR})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
-      if(bL&&bC&&bR){const an=(rEl.anchor||"top-left");const def=an.indexOf("center")>=0?"center":an.indexOf("right")>=0?"right":"left";const ha=(o.halign[size]&&o.halign[size][el.key])||def;bL.classList.toggle("on",ha==="left");bC.classList.toggle("on",ha==="center");bR.classList.toggle("on",ha==="right");}
+      if(bL&&bC&&bR){const an=(rEl.anchor||"top-left");const def=an.indexOf("center")>=0?"center":an.indexOf("right")>=0?"right":"left";const ha=(o.halign&&o.halign[size]&&o.halign[size][el.key])||def;bL.classList.toggle("on",ha==="left");bC.classList.toggle("on",ha==="center");bR.classList.toggle("on",ha==="right");}
       if(bk){const bov=(o.bold[size]&&o.bold[size][el.key]);bk.checked=(bov!=null)?bov:((rEl.weight||400)>=600);}
       if(rs){rs.value=(o.sizes[size]&&o.sizes[size][el.key]!=null)?o.sizes[size][el.key]:rEl.size;}
       if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
