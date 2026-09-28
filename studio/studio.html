@@ -858,6 +858,7 @@ function openEditor(tpl,st,onClose){
 
   let html="";
   html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*"></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
+  if(tpl.splittable) html+=`<label class="chk cwhite" style="margin-top:4px;font-weight:700"><input type="checkbox" class="e-split"> ⬛ Split panel (half / half + right text)</label>`;
   if(tpl.secondLayer){
     html+=`<div class="e-adv">`;
     html+=`<label class="f"><span>Subject size <b class="e-subjzv"></b></span><input type="range" class="e-subjz" min="0.4" max="2" step="0.02"></label>`;
@@ -875,10 +876,7 @@ function openEditor(tpl,st,onClose){
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
-  if(tpl.splittable){
-    html+=`<label class="chk cwhite"><input type="checkbox" class="e-split"> Split panel (half / half + right text)</label>`;
-    html+=`<div class="e-splitctl"><div class="f"><span>Right panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelcr"><input type="text" class="e-panelhr" maxlength="7" style="text-transform:uppercase"></div></div><label class="f"><span>Split position <b class="e-splitv"></b></span><input type="range" class="e-splitat" min="30" max="70" step="1"></label></div>`;
-  }
+  if(tpl.splittable) html+=`<div class="e-splitctl"><div class="f"><span>Right panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelcr"><input type="text" class="e-panelhr" maxlength="7" style="text-transform:uppercase"></div></div><label class="f"><span>Split position <b class="e-splitv"></b></span><input type="range" class="e-splitat" min="30" max="70" step="1"></label></div>`;
   if(tpl.productShadow) html+=`<label class="f"><span>Product shadow <b class="e-shv"></b></span><input type="range" class="e-sh" min="0" max="0.5" step="0.01"></label>`;
   html+=`<div class="e-adv">`;
   html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
