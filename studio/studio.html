@@ -65,7 +65,7 @@
   .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
   .modal.editor{width:min(1000px,100%)}
   .editor-body{display:flex;gap:16px;align-items:flex-start}
-  .editor-controls{flex:0 0 300px;max-height:72vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+  .editor-controls{flex:0 0 430px;max-height:78vh;overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:8px}
   .editor-preview{flex:1;display:flex;flex-direction:column;gap:10px;align-items:center;position:sticky;top:0}
   .e-canvas{background:repeating-conic-gradient(#20242e 0% 25%,#191d25 0% 50%) 50%/16px 16px;border:1px solid var(--border);border-radius:8px;overflow:auto;max-height:64vh;max-width:100%}
   .e-canvas canvas{display:block;max-width:100%;max-height:62vh;height:auto}
@@ -468,7 +468,8 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     let el=resolveEl(raw,size);const text=(texts&&texts[raw.key]!=null?texts[raw.key]:el.val);
     const so=(over.sizes&&over.sizes[size]&&over.sizes[size][raw.key]);
     const pad=(over.pads&&over.pads[size]&&over.pads[size][raw.key]);
-    if(so!=null||pad) el=Object.assign({},el,(so!=null?{size:so}:{}),(pad?{padX:pad.padX,padY:pad.padY}:{}));
+    const bo=(over.bold&&over.bold[size]&&over.bold[size][raw.key]);
+    if(so!=null||pad||bo!=null) el=Object.assign({},el,(so!=null?{size:so}:{}),(pad?{padX:pad.padX,padY:pad.padY}:{}),(bo!=null?{weight:(bo?700:400)}:{}));
     const po=(over.pos&&over.pos[size]&&over.pos[size][raw.key])||{};
     const px=po.x!=null?po.x:el.x, py=po.y!=null?po.y:el.y;
     if(el.type==="button"){const btn=over.buttonAuto===false?(over.buttonColor||el.btnColor):accent;drawButton(ctx,Object.assign({},el,{x:px,y:py}),text,dim.w,dim.h,btn,font);continue;}
@@ -493,7 +494,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -799,6 +800,7 @@ function openEditor(tpl,st,onClose){
   if(hasBottom&&!o.overlay2){o.overlay2={desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)};}
   if(!o.sizes)o.sizes={desktop:{},mobile:{}};
   if(!o.pads)o.pads={desktop:{},mobile:{}};
+  if(!o.bold)o.bold={desktop:{},mobile:{}};
   const back=document.createElement("div");back.className="backdrop";
   back.innerHTML=`<div class="modal editor">
     <div class="modal-h"><b>Edit — ${tpl.name}</b><button class="ghost e-x">✕</button></div>
@@ -865,7 +867,10 @@ function openEditor(tpl,st,onClose){
     const szr=document.createElement("div");szr.className="e-inline";
     const szl=document.createElement("span");szl.className="pxl";szl.textContent="Size";
     const rs=document.createElement("input");rs.type="range";rs.min=8;rs.max=120;rs.step=1;rs.style.flex="1";
-    szr.appendChild(szl);szr.appendChild(rs);wrap.appendChild(szr);
+    const bwrap=document.createElement("label");bwrap.className="pxl";bwrap.style.cssText="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;cursor:pointer";
+    const bk=document.createElement("input");bk.type="checkbox";
+    bwrap.appendChild(bk);bwrap.appendChild(document.createTextNode("Bold"));
+    szr.appendChild(szl);szr.appendChild(rs);szr.appendChild(bwrap);wrap.appendChild(szr);
     // position sliders (X across, Y down) + a Center button for X
     const posr=document.createElement("div");posr.className="e-inline e-posrow";
     const lx=document.createElement("span");lx.className="pxl";lx.textContent="X";
@@ -891,9 +896,10 @@ function openEditor(tpl,st,onClose){
     rx.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:+rx.value});draw();});
     ry.addEventListener("input",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{y:+ry.value});draw();});
     rs.addEventListener("input",()=>{o.sizes[size][el.key]=+rs.value;draw();});
+    bk.addEventListener("change",()=>{o.bold[size][el.key]=bk.checked;draw();});
     bc.addEventListener("click",()=>{o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:50});rx.value=50;draw();});
     if(rpx&&rpy){const setPad=()=>{o.pads[size][el.key]={padX:+rpx.value,padY:+rpy.value};draw();};rpx.addEventListener("input",setPad);rpy.addEventListener("input",setPad);}
-    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy});
+    textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy,bk});
   });
 
   function syncSize(){
@@ -917,7 +923,8 @@ function openEditor(tpl,st,onClose){
     [...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));
     q(".e-logox").value=o.logoX;
     textColorEls.forEach(({el,ci,hx})=>{const v=o.colors[size][el.key]||el.color;ci.value=v;hx.value=v.toUpperCase();});
-    posEls.forEach(({el,rx,ry,rs,rpx,rpy})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
+    posEls.forEach(({el,rx,ry,rs,rpx,rpy,bk})=>{const rEl=resolveEl(el,size);const po=o.pos[size][el.key]||{};rx.value=po.x!=null?po.x:rEl.x;ry.value=po.y!=null?po.y:rEl.y;
+      if(bk){const bov=(o.bold[size]&&o.bold[size][el.key]);bk.checked=(bov!=null)?bov:((rEl.weight||400)>=600);}
       if(rs){rs.value=(o.sizes[size]&&o.sizes[size][el.key]!=null)?o.sizes[size][el.key]:rEl.size;}
       if(rpx&&rpy){const pd=(o.pads[size]&&o.pads[size][el.key])||{};rpx.value=pd.padX!=null?pd.padX:(rEl.padX!=null?rEl.padX:22);rpy.value=pd.padY!=null?pd.padY:(rEl.padY!=null?rEl.padY:12);}});
   }
