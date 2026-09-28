@@ -975,8 +975,8 @@ function openEditor(tpl,st,onClose){
   q(".e-logo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const u=await fileToDataUrl(f);st.logo=u;st.logoImg=await loadImage(u);draw();});
   q(".e-logosz").addEventListener("input",e=>{o.logoScale=+e.target.value;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";draw();});
   controls.querySelectorAll(".e-pos button").forEach(b=>b.addEventListener("click",()=>{o.anchorX[size]=+b.dataset.p;syncSize();draw();}));
-  q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;syncSize();draw();});
-  q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;syncSize();draw();});
+  q(".e-posx").addEventListener("input",e=>{o.anchorX[size]=+e.target.value;[...controls.querySelectorAll(".e-pos button")].forEach(b=>b.classList.toggle("on",+b.dataset.p===o.anchorX[size]));draw();});
+  q(".e-posy").addEventListener("input",e=>{o.anchorY[size]=+e.target.value;draw();});
   q(".e-zoom").addEventListener("input",e=>{o.zoom=+e.target.value;q(".e-zoomv").textContent=Math.round(o.zoom*100)+"%";draw();});
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
   q(".e-logoctr").addEventListener("click",()=>{o.logoX=50;q(".e-logox").value=50;draw();});
