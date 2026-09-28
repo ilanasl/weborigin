@@ -14,6 +14,8 @@ export default function Subject({ nav, params }) {
   const [rvCount, setRvCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showMats, setShowMats] = useState(false)
+  const [savingMat, setSavingMat] = useState(null)  // id של חומר שנשמר כרגע
+  const [savedMat, setSavedMat] = useState(null)     // id של חומר שזה עתה נשמר (לאישור קצר)
 
   async function load() {
     setLoading(true)
@@ -49,17 +51,25 @@ export default function Subject({ nav, params }) {
     if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
-  // שיוך חומר לנושא אחר — מעביר גם את השאלות שנוצרו ממנו
+  // שיוך חומר לנושא אחר — מעביר גם את השאלות שנוצרו ממנו.
+  // בלי טעינה מחדש של כל המסך — כדי לא לקפוץ למעלה ולאבד את המקום (אפשר לסווג כמה חומרים ברצף).
   async function moveMaterialTopic(m, topicId) {
     if (!topicId || topicId === m.topic_id) return
-    // עדכון מיידי במסך כדי שהבחירה תישאר גם לפני שהטעינה מסתיימת
+    const prev = m.topic_id
     setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: topicId } : x))
+    setSavingMat(m.id); setSavedMat(null)
     const { error } = await supabase.from('materials').update({ topic_id: topicId }).eq('id', m.id)
-    if (error) { await load(); return }
+    if (error) {
+      // שחזור הבחירה הקודמת אם השמירה נכשלה — בלי לקפוץ מהמסך
+      setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: prev } : x))
+      setSavingMat(null)
+      return
+    }
     try {
       await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id)
     } catch { /* אם אין שאלות מקושרות — לא נורא */ }
-    await load()
+    setSavingMat(null); setSavedMat(m.id)
+    setTimeout(() => setSavedMat((cur) => cur === m.id ? null : cur), 2500)
   }
 
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
@@ -215,6 +225,8 @@ export default function Subject({ nav, params }) {
                       {!m.topic_id && <option value="">— ללא —</option>}
                       {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
+                    {savingMat === m.id && <span className="text-[11.5px] text-muted">שומר…</span>}
+                    {savedMat === m.id && <span className="text-[11.5px] text-good font-semibold">✓ נשמר</span>}
                   </div>
                 </div>
                 <div className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}</div>
