@@ -241,8 +241,8 @@ const TEMPLATES = [
     bgPos:{desktop:"center", mobile:"center"},
     // Coloured PANEL with a subtle gradient; the uploaded product PNG sits at the bottom (contained, soft shadow).
     bgColor:"#eaf0fb", panelBg:true,
-    productBox:{x:6,y:50,w:88,h:48}, productContain:true, productShadow:true,
-    secondLayer:true, subjectBox:{x:2,y:32,w:96,h:64},
+    productBox:{x:6,y:48,w:88,h:52}, productContain:true, productShadow:true,
+    secondLayer:true, subjectBox:{x:2,y:30,w:96,h:70},
     logo:{x:50,y:7,widthPct:50,anchor:"top-center", mobile:{x:50,y:7,widthPct:50,anchor:"top-center"}},
     defaultTopic:"a smiling woman holding a slimming product, large, waist-up, plain solid background",
     composition:"A tall vertical image. A smiling woman shown LARGE and CLOSE, from about the waist up, filling most of the width in the LOWER HALF of the frame, with the product package or bottles in front of her at the very bottom. The ENTIRE UPPER HALF is empty, plain, seamless studio background of ONE flat solid colour — nothing at all in the top half. Make her big and prominent, not small. Photorealistic, bright even studio light, no text.",
@@ -372,6 +372,8 @@ function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 // Fit an image INSIDE a box (preserve aspect, no crop) — for a transparent product/subject PNG.
 function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*((vy!=null?vy:100)/100);return{dx,dy,dw,dh};}
+// Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
+function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
 // Soft elliptical contact shadow under a product.
 function drawProductShadow(ctx,cx,by,rw,alpha){const a=(alpha!=null?alpha:0.22);if(a<=0)return;const rh=Math.max(4,rw*0.15);const g=ctx.createRadialGradient(cx,by,0,cx,by,rw);g.addColorStop(0,`rgba(18,22,32,${a})`);g.addColorStop(0.55,`rgba(18,22,32,${a*0.45})`);g.addColorStop(1,"rgba(18,22,32,0)");ctx.save();ctx.translate(cx,by);ctx.scale(1,rh/rw);ctx.beginPath();ctx.arc(0,0,rw,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
@@ -443,11 +445,11 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     // Optional SECOND layer (e.g. a stock person) drawn behind the product.
     if(tpl.secondLayer&&img2){const sb=tpl.subjectBox||tpl.productBox;const sx=sb.x/100*dim.w,sy=sb.y/100*dim.h,sw=sb.w/100*dim.w,sh=sb.h/100*dim.h;
       const sf=fitBox(img2,sx,sy,sw,sh,(over.subjZoom||1),(over.subjY!=null?over.subjY:100),(over.subjX!=null?over.subjX:50));
-      ctx.drawImage(img2,sf.dx,sf.dy,sf.dw,sf.dh);}
+      drawRotated(ctx,img2,sf,(over.subjRotate||0));}
     const b=tpl.productBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
       if(tpl.productShadow)drawProductShadow(ctx,f.dx+f.dw/2,f.dy+f.dh*0.985,Math.max(20,f.dw*0.42),(over.shadow!=null?over.shadow:0.22));
-      ctx.drawImage(image,f.dx,f.dy,f.dw,f.dh);}
+      drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
@@ -494,7 +496,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -821,14 +823,16 @@ function openEditor(tpl,st,onClose){
   html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*"></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
   if(tpl.secondLayer){
     html+=`<label class="f"><span>Subject size <b class="e-subjzv"></b></span><input type="range" class="e-subjz" min="0.4" max="2" step="0.02"></label>`;
-    html+=`<label class="f"><span>Subject ← position → </span><input type="range" class="e-subjx" min="0" max="100" step="1"></label>`;
-    html+=`<label class="f"><span>Subject up–down</span><input type="range" class="e-subjy" min="0" max="100" step="1"></label>`;
+    html+=`<div class="f"><span>Subject ← position →</span><div class="e-inline"><input type="range" class="e-subjx" min="0" max="100" step="1" style="flex:1"><button class="tiny e-subjctr" title="center the subject">Center</button></div></div>`;
+    html+=`<label class="f"><span>Subject up–down (100+ = off bottom)</span><input type="range" class="e-subjy" min="0" max="120" step="1"></label>`;
+    html+=`<label class="f"><span>Subject rotate <b class="e-subjrv"></b></span><input type="range" class="e-subjr" min="-30" max="30" step="1"></label>`;
   }
   html+=`<label class="f"><span>Logo size <b class="e-logoszv"></b></span><input type="range" class="e-logosz" min="0.4" max="2" step="0.05"></label>`;
   html+=`<div class="f"><span>Logo position (left–right)</span><div class="e-inline"><input type="range" class="e-logox" min="0" max="100" step="1" style="flex:1"><button class="tiny e-logoctr" title="center the logo">Center</button></div></div>`;
   html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
-  html+=`<label class="f"><span>… fine (up–down)</span><input type="range" class="e-posy" min="0" max="100" step="1"></label>`;
+  html+=`<label class="f"><span>… fine (up–down) (100+ = off bottom)</span><input type="range" class="e-posy" min="0" max="120" step="1"></label>`;
+  if(tpl.productBox) html+=`<label class="f"><span>Product rotate <b class="e-prodrv"></b></span><input type="range" class="e-prodr" min="-30" max="30" step="1"></label>`;
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
@@ -931,7 +935,8 @@ function openEditor(tpl,st,onClose){
   q(".e-font").value=o.font;
   if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
   if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
-  if(tpl.secondLayer){q(".e-subjz").value=o.subjZoom||1;q(".e-subjzv").textContent=Math.round((o.subjZoom||1)*100)+"%";q(".e-subjx").value=(o.subjX!=null?o.subjX:50);q(".e-subjy").value=(o.subjY!=null?o.subjY:100);}
+  if(tpl.secondLayer){q(".e-subjz").value=o.subjZoom||1;q(".e-subjzv").textContent=Math.round((o.subjZoom||1)*100)+"%";q(".e-subjx").value=(o.subjX!=null?o.subjX:50);q(".e-subjy").value=(o.subjY!=null?o.subjY:100);q(".e-subjr").value=(o.subjRotate||0);q(".e-subjrv").textContent=(o.subjRotate||0)+"°";}
+  if(tpl.productBox){q(".e-prodr").value=(o.productRotate||0);q(".e-prodrv").textContent=(o.productRotate||0)+"°";}
   q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
   if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
 
@@ -955,7 +960,10 @@ function openEditor(tpl,st,onClose){
     q(".e-subjz").addEventListener("input",e=>{o.subjZoom=+e.target.value;q(".e-subjzv").textContent=Math.round(o.subjZoom*100)+"%";draw();});
     q(".e-subjx").addEventListener("input",e=>{o.subjX=+e.target.value;draw();});
     q(".e-subjy").addEventListener("input",e=>{o.subjY=+e.target.value;draw();});
+    q(".e-subjr").addEventListener("input",e=>{o.subjRotate=+e.target.value;q(".e-subjrv").textContent=o.subjRotate+"°";draw();});
+    q(".e-subjctr").addEventListener("click",()=>{o.subjX=50;q(".e-subjx").value=50;draw();});
   }
+  if(tpl.productBox)q(".e-prodr").addEventListener("input",e=>{o.productRotate=+e.target.value;q(".e-prodrv").textContent=o.productRotate+"°";draw();});
   q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay[size].autoLogo=false;const l=q(".e-ovautologo");if(l)l.checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   if(hasLogoTint) q(".e-ovautologo").addEventListener("change",e=>{o.overlay[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay[size].auto=false;q(".e-ovauto").checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   q(".e-ovc").addEventListener("input",e=>{o.overlay[size].color=e.target.value;o.overlay[size].userColor=true;q(".e-ovh").value=e.target.value.toUpperCase();draw();});
