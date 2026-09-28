@@ -965,9 +965,9 @@ function openEditor(tpl,st,onClose){
     rs.addEventListener("input",()=>{o.sizes[size][el.key]=+rs.value;draw();});
     bk.addEventListener("change",()=>{o.bold[size][el.key]=bk.checked;draw();});
     const setAlign=(a,xv)=>{o.halign[size][el.key]=a;o.pos[size][el.key]=Object.assign(o.pos[size][el.key]||{},{x:xv});rx.value=xv;[[bL,"left"],[bC,"center"],[bR,"right"]].forEach(([b,k])=>b.classList.toggle("on",k===a));draw();};
-    bL.addEventListener("click",()=>setAlign("left",5));
+    bL.addEventListener("click",()=>setAlign("left",0));
     bC.addEventListener("click",()=>setAlign("center",50));
-    bR.addEventListener("click",()=>setAlign("right",95));
+    bR.addEventListener("click",()=>setAlign("right",100));
     if(rpx&&rpy){const setPad=()=>{o.pads[size][el.key]={padX:+rpx.value,padY:+rpy.value};draw();};rpx.addEventListener("input",setPad);rpy.addEventListener("input",setPad);}
     textColorEls.push({el,ci,hx});posEls.push({el,rx,ry,rs,rpx,rpy,bk,bL,bC,bR});
   });
@@ -1029,9 +1029,9 @@ function openEditor(tpl,st,onClose){
   function syncLogoAlign(){const a=o.logoAlign||"left";[["e-logol","left"],["e-logoctr","center"],["e-logor","right"]].forEach(([c,k])=>{const b=controls.querySelector("."+c);if(b)b.classList.toggle("on",k===a);});}
   const setLogoAlign=(a,xv)=>{o.logoAlign=a;o.logoX=xv;q(".e-logox").value=xv;syncLogoAlign();draw();};
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
-  q(".e-logol").addEventListener("click",()=>setLogoAlign("left",5));
+  q(".e-logol").addEventListener("click",()=>setLogoAlign("left",0));
   q(".e-logoctr").addEventListener("click",()=>setLogoAlign("center",50));
-  q(".e-logor").addEventListener("click",()=>setLogoAlign("right",95));
+  q(".e-logor").addEventListener("click",()=>setLogoAlign("right",100));
   q(".e-font").addEventListener("change",async e=>{o.font=e.target.value;loadFont(o.font);try{await document.fonts.load(`700 20px "${o.font}"`);}catch(_){}draw();});
   if(tpl.panelBg){q(".e-panelc").addEventListener("input",e=>{o.panelColor=e.target.value;q(".e-panelh").value=e.target.value.toUpperCase();draw();});q(".e-panelh").addEventListener("input",e=>{const v=normHex(e.target.value);if(v){o.panelColor=v;q(".e-panelc").value=v;draw();}});}
   if(tpl.splittable){
