@@ -179,8 +179,8 @@ export default function Syntax({ nav, params }) {
             )
           }
           const style = active
-            ? { background: '#FFFFFF', color: 'var(--on-fill)', boxShadow: '0 0 0 3px var(--bg), 0 0 0 6px var(--primary)', border: 'none' }
-            : pick ? { background: COLOR[pick], color: 'var(--on-fill)', border: 'none' } : undefined
+            ? { background: '#FFFFFF', color: 'var(--on-fill)', boxShadow: '0 0 0 3px var(--bg), 0 0 0 6px var(--primary)' }
+            : pick ? { background: COLOR[pick], color: 'var(--on-fill)' } : undefined
           return (
             <button key={i} type="button" onClick={() => toggle(i)} className={`syn-tile ${!active && !pick ? 'syn-empty' : ''}`} style={style}>
               <span className="syn-w">{t.w}</span>
