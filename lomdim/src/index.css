@@ -398,3 +398,11 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .paper-btn{ flex:none; height:44px; padding:0 16px; border-radius:22px; border:1.5px solid #141416; background:transparent; color:#141416;
   font-weight:700; font-size:14.5px; display:flex; align-items:center; gap:7px }
 .paper-btn:disabled{ opacity:.5 }
+
+/* ── העלאת חומר ── */
+.up-big{ height:92px; border-radius:26px; padding:14px 16px; display:flex; flex-direction:column; justify-content:space-between; align-items:flex-start; cursor:pointer;
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi); color:var(--ink) }
+.up-big-lime{ background:var(--primary); border-color:transparent; box-shadow:none; color:var(--on-fill) }
+.up-thumb{ width:40px; height:40px; flex:none; border-radius:12px; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; font-size:19px }
+.up-x{ width:34px; height:34px; flex:none; border-radius:17px; border:1px solid var(--milky-line); background:transparent; color:var(--ink);
+  display:flex; align-items:center; justify-content:center }

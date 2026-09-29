@@ -36,7 +36,7 @@ export default function Upload({ nav, params }) {
   async function onPick(list) {
     setResults(null); setChosen([]); setErr('')
     const picked = Array.from(list || [])
-    if (!picked.length) { setFiles([]); return }
+    if (!picked.length) return
     const entries = []
     const problems = []
     for (const f of picked) {
@@ -57,7 +57,8 @@ export default function Upload({ nav, params }) {
       }
       entries.push({ file: f, hash: h, kind: kindOf(f), dupe })
     }
-    setFiles(entries)
+    // מצטבר: אפשר לצלם כמה דפים בזה אחר זה ולהוסיף גם קבצים (בלי כפילות של אותו קובץ)
+    setFiles((prev) => [...prev, ...entries.filter((e) => !e.hash || !prev.some((p) => p.hash === e.hash))])
     if (problems.length) setErr(problems.join('\n'))
   }
 
@@ -176,89 +177,105 @@ export default function Upload({ nav, params }) {
   const analyzable = files.length - dupeCount   // כמה באמת ינותחו (בלי הכפולים)
 
   return (
-    <div className="pt-2">
-      <h1 className="text-[23px] font-black mb-1">העלה חומר</h1>
-      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
-
-      <div className="card">
-        <div className="border-2 border-dashed border-line rounded-[14px] p-6 text-center flex flex-col gap-3 items-center">
-          <div className="text-3xl">📎</div>
-          <div className="font-semibold text-[15.5px]">צלם או בחר קבצים — אפשר כמה יחד</div>
-          <div className="text-[12.5px] text-muted">מחברת, דף עבודה או PDF. בלי לתייג נושא — המערכת תזהה לבד.</div>
-          <input type="file" multiple accept="image/*,application/pdf,text/plain,.txt"
-            onChange={(e) => onPick(e.target.files)}
-            className="text-sm" />
-        </div>
-
-        {files.length > 0 && (
-          <div className="mt-4 text-[13.5px]">
-            <div className="font-bold mb-1.5">נבחרו {files.length} {files.length === 1 ? 'קובץ' : 'קבצים'}:</div>
-            <ul className="flex flex-col gap-1">
-              {files.map((fe, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span>{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'}</span>
-                  <span className="flex-1 truncate">{fe.file.name}</span>
-                  {fe.dupe && <span className="text-accent text-[12px] font-semibold whitespace-nowrap">כבר הועלה</span>}
-                  <button onClick={() => removeFile(i)} aria-label="הסר קובץ"
-                    className="w-6 h-6 grid place-items-center rounded-full border border-line text-muted hover:text-bad hover:border-bad text-[13px] leading-none shrink-0">✕</button>
-                </li>
-              ))}
-            </ul>
-            {dupeCount > 0 && (
-              <div className="text-accent text-[12.5px] mt-1.5">ℹ️ {dupeCount} מהקבצים כבר הועלו למקצוע — נדלג עליהם אוטומטית{analyzable > 0 ? `, וננתח את ${analyzable} החדשים` : ''}.</div>
-            )}
-          </div>
-        )}
-
-        <label className="flex items-center gap-2 mt-4 text-[14.5px] font-semibold cursor-pointer">
-          <input type="checkbox" checked={lastYear} onChange={(e) => setLastYear(e.target.checked)}
-            className="w-[18px] h-[18px]" />
-          זה חומר משנה שעברה (לחזרה)
-        </label>
-        <div className="text-[12px] text-muted mt-1">חל על כל הקבצים שנבחרו. לסמן רק בהתחלה — בהמשך המערכת תזהה לבד.</div>
-
-        <label className="flex items-center gap-2 mt-3 text-[14.5px] font-semibold cursor-pointer">
-          <input type="checkbox" checked={onlyPractice} onChange={(e) => setOnlyPractice(e.target.checked)}
-            className="w-[18px] h-[18px]" />
-          רק תרגולים (בלי סיכום)
-        </label>
-        <div className="text-[12px] text-muted mt-1">חומר חדש שצריך ללמוד ממנו → תנו לו לסכם. דף תרגילים / חומר שכבר סיכמת → סמנו כאן.</div>
-
-        {!results && (
-          <button className="btn btn-primary btn-wide mt-4" onClick={analyze} disabled={!analyzable || busy}>
-            {busy ? `מנתח…` : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `נתח ${analyzable} קבצים` : 'נתח חומר'}
-          </button>
-        )}
-        {err && <div className="text-bad text-[13.5px] mt-3 leading-relaxed whitespace-pre-line">{err}</div>}
+    <div className="pt-1">
+      <span className="end-tag inline-block mb-3">{subjectName}</span>
+      <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">{results ? 'נותח!' : 'העלאת חומר'}</h1>
+      <div className="text-[13.5px] text-muted mt-1.5 mb-4 leading-relaxed">
+        {results
+          ? `${analyzable > 1 ? `${analyzable} קבצים · ` : ''}${chosen.length} נושאים. אפשר לשנות שם או לבחור נושא קיים — נושאים עם אותו שם יתאחדו.`
+          : 'אפשר כמה קבצים יחד. בלי לתייג נושא — המערכת תזהה לבד.'}
       </div>
 
-      {results && (
-        <div className="card mt-3">
-          <div className="text-good font-extrabold mb-1">✅ נותח</div>
-          <div className="text-[13px] text-muted mb-3">
-            {analyzable > 1 ? `${analyzable} קבצים נותחו. ` : ''}
-            אפשר לשנות שמות או לבחור נושא קיים — נושאים בעלי אותו שם יתאחדו אוטומטית.
+      {!results && (
+        <>
+          <div className="grid grid-cols-2 gap-2.5">
+            <label className="up-big up-big-lime">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.2" /></svg>
+              <span className="font-disp font-extrabold text-[18px]">צלם</span>
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPick(e.target.files); e.target.value = '' }} />
+            </label>
+            <label className="up-big">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h4l2 2.5h6a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M12 10v6M9 13h6" /></svg>
+              <span className="flex flex-col items-start gap-px">
+                <span className="font-disp font-extrabold text-[18px]">בחר קבצים</span>
+                <span className="text-[12px] text-muted">תמונות, PDF</span>
+              </span>
+              <input type="file" multiple accept="image/*,application/pdf,text/plain,.txt" className="hidden" onChange={(e) => { onPick(e.target.files); e.target.value = '' }} />
+            </label>
           </div>
 
+          {files.length > 0 && (
+            <>
+              <div className="home-h2 mt-5 mb-2">
+                <h2 className="!text-[18px]">נבחרו {files.length} {files.length === 1 ? 'קובץ' : 'קבצים'}</h2>
+                {dupeCount > 0 && <span>{dupeCount === 1 ? 'אחד כבר הועלה' : `${dupeCount} כבר הועלו`} — נדלג</span>}
+              </div>
+              <div className="flex flex-col gap-2">
+                {files.map((fe, i) => (
+                  <div key={i} className="milky-row !py-2 !px-2.5" style={fe.dupe ? { opacity: 0.55 } : undefined}>
+                    <span className="up-thumb">{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'}</span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <span className="font-semibold text-[14px] truncate" dir="ltr" style={{ textAlign: 'right' }}>{fe.file.name}</span>
+                      <span className="text-[12px] font-semibold" style={{ color: fe.dupe ? 'var(--accent)' : 'var(--muted)' }}>
+                        {fe.dupe ? `כבר הועלה (${fe.dupe}) — נדלג` : 'מוכן לניתוח'}
+                      </span>
+                    </span>
+                    <button type="button" onClick={() => removeFile(i)} aria-label="הסר קובץ" className="up-x">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="flex flex-col gap-2 mt-4">
+            <label className="milky-row !items-start cursor-pointer">
+              <input type="checkbox" checked={lastYear} onChange={(e) => setLastYear(e.target.checked)} className="w-5 h-5 mt-0.5 flex-none" style={{ accentColor: 'var(--primary)' }} />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-bold text-[14.5px]">חומר משנה שעברה (לחזרה)</span>
+                <span className="text-[12px] text-muted">חל על כל הקבצים שנבחרו</span>
+              </span>
+            </label>
+            <label className="milky-row !items-start cursor-pointer">
+              <input type="checkbox" checked={onlyPractice} onChange={(e) => setOnlyPractice(e.target.checked)} className="w-5 h-5 mt-0.5 flex-none" style={{ accentColor: 'var(--primary)' }} />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-bold text-[14.5px]">רק תרגולים (בלי סיכום)</span>
+                <span className="text-[12px] text-muted">חומר חדש ללמוד ממנו → בלי סימון. דף תרגילים → סמנו.</span>
+              </span>
+            </label>
+          </div>
+
+          <button type="button" className="ts-practice mt-4 !h-[56px] !rounded-[28px] !text-[17px]" onClick={analyze} disabled={!analyzable || busy}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>
+            {busy ? 'מנתח…' : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `נתח ${analyzable} קבצים` : 'נתח חומר'}
+          </button>
+        </>
+      )}
+      {err && <div className="text-[13.5px] mt-3 leading-relaxed whitespace-pre-line font-semibold" style={{ color: 'var(--bad)' }}>{err}</div>}
+
+      {results && (
+        <div className="flex flex-col gap-4">
           {files.map((fe, fi) => {
             const rows = chosen.map((c, ci) => ({ c, ci })).filter((x) => x.c.fileIdx === fi)
             const r = results[fi]
             return (
-              <div key={fi} className="mb-4 last:mb-0">
+              <div key={fi} className="flex flex-col gap-2">
                 {files.length > 1 && (
-                  <div className="text-[12.5px] font-bold text-primary mb-2 flex items-center gap-2">
-                    <span className="truncate">{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'} {fe.file.name}</span>
+                  <div className="flex items-center gap-2 text-[13px] font-semibold text-muted">
+                    <span className="truncate" dir="ltr">{fe.file.name}</span>
+                    {rows.length > 1 && <span className="tp-badge flex-none" style={{ background: 'var(--primary)' }}>זוהו {rows.length} נושאים</span>}
                   </div>
                 )}
                 {r?.skipped ? (
-                  <div className="text-muted text-[13px] mb-2">כבר הועלה למקצוע — דילגנו.</div>
+                  <div className="milky-row text-muted text-[13px]">כבר הועלה למקצוע — דילגנו.</div>
                 ) : r?.error ? (
-                  <div className="text-bad text-[13px] mb-2">ניתוח נכשל לקובץ זה — נסו לצלם ברור יותר.</div>
+                  <div className="milky-row text-[13px]" style={{ color: 'var(--bad)' }}>ניתוח נכשל לקובץ זה — נסו לצלם ברור יותר.</div>
                 ) : rows.length === 0 ? (
-                  <div className="text-muted text-[13px] mb-2">לא זוהה תוכן.</div>
+                  <div className="milky-row text-muted text-[13px]">לא זוהה תוכן.</div>
                 ) : rows.map(({ c, ci }, k) => (
-                  <div key={ci} className="mb-3 pb-3 border-b border-line last:border-0">
-                    <label className="block text-[13px] font-bold text-muted mb-1.5">
+                  <div key={ci} className="milky-row !flex-col !items-stretch !gap-2">
+                    <label className="block text-[13px] font-bold text-muted">
                       נושא {rows.length > 1 ? k + 1 : ''}
                     </label>
                     <input className="field" value={c.name}
@@ -279,9 +296,9 @@ export default function Upload({ nav, params }) {
                       {c.questions?.length || 0} שאלות · {c.flashcards?.length || 0} כרטיסיות
                     </div>
                     {!onlyPractice && c.summary_md && (
-                      <details className="mt-2">
+                      <details>
                         <summary className="text-[12.5px] text-primary font-semibold cursor-pointer">הצג סיכום</summary>
-                        <div className="mt-2 text-[14px] leading-relaxed"><Markdown text={c.summary_md} /></div>
+                        <div className="paper mt-2"><Markdown text={c.summary_md} examBox /></div>
                       </details>
                     )}
                   </div>
@@ -290,7 +307,7 @@ export default function Upload({ nav, params }) {
             )
           })}
 
-          <button className="btn btn-primary btn-wide mt-1" onClick={save} disabled={busy || !chosen.some((c) => c.name.trim())}>
+          <button type="button" className="ts-practice !h-[56px] !rounded-[28px] !text-[17px]" onClick={save} disabled={busy || !chosen.some((c) => c.name.trim())}>
             {busy ? 'שומר…' : 'שמור למקצוע'}
           </button>
         </div>
