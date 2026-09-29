@@ -103,8 +103,9 @@ export async function settleSession({ subjectId, topicId, correctCount = 0 }) {
     }
   }
 
-  if (!inserts.length) return { earned: 0, events: [] }
+  const today = todayCount || 0
+  if (!inserts.length) return { earned: 0, events: [], todayCount: today }
   const { error } = await supabase.from('coin_events').insert(inserts)
-  if (error) return { earned: 0, events: [] }
-  return { earned: inserts.reduce((a, b) => a + b.amount, 0), events: inserts }
+  if (error) return { earned: 0, events: [], todayCount: today }
+  return { earned: inserts.reduce((a, b) => a + b.amount, 0), events: inserts, todayCount: today }
 }
