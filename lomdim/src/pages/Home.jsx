@@ -3,16 +3,9 @@ import { supabase } from '../lib/supabase'
 import { readiness } from '../lib/mastery'
 import { coinBalance } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
+import { TONES, withTone } from '../lib/tone'
 
-// פלטת פסטלים רכים לאריחי המקצועות
-const PALETTE = [
-  { bg: '#EFE6DE', color: '#B15A2B' },
-  { bg: '#E4E8F3', color: '#4A55C7' },
-  { bg: '#E4EDDF', color: '#3F8F63' },
-  { bg: '#EAE4F1', color: '#6D4BB0' },
-  { bg: '#E7EEF0', color: '#3B7C88' },
-  { bg: '#F1E7E9', color: '#B0506A' },
-]
+const PALETTE = TONES
 
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 
@@ -32,7 +25,7 @@ export default function Home({ nav }) {
       coinBalance(),
     ])
     setCoins(bal)
-    const list = (subs || []).map((s) => {
+    const list = (subs || []).map(withTone).map((s) => {
       const byTopic = {}
       for (const a of att || []) {
         if (a.subject_id !== s.id || !a.topic_id) continue

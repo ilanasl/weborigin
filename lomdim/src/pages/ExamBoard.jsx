@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 
@@ -17,7 +18,7 @@ export default function ExamBoard({ nav }) {
   async function load() {
     setLoading(true)
     const [{ data: subs }, { data: tp }, { data: at }] = await Promise.all([
-      supabase.from('subjects').select('*').order('created_at'),
+      supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
       supabase.from('topics').select('*'),
       supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at'),
     ])
@@ -55,7 +56,7 @@ export default function ExamBoard({ nav }) {
     const s = e.s
     const kind = e.kind
     const lead = LEAD_DEFAULT[kind] || 8
-    const base = { subjectId: s.id, subjectName: s.name, color: s.color, bg: s.bg, kind }
+    const base = { subjectId: s.id, subjectName: s.name, color: s.bg, bg: s.bg, kind }
     // יום המבחן + יום חזרה לפני
     add(e.off, { ...base, exam: true })
     if (e.off >= 2) add(e.off - 1, { ...base, review: true })

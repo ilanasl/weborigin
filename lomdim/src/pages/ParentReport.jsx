@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
@@ -25,7 +26,7 @@ export default function ParentReport({ nav }) {
   useEffect(() => {
     (async () => {
       const [{ data: subs }, { data: tp }, { data: at }, { data: ri }] = await Promise.all([
-        supabase.from('subjects').select('*').order('created_at'),
+        supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
         supabase.from('topics').select('id, subject_id, name'),
         supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at'),
         supabase.from('review_items').select('subject_id'),
@@ -76,7 +77,7 @@ export default function ParentReport({ nav }) {
         if (a.ts > groups[key].ts) groups[key].ts = a.ts
       }
       const subjName = Object.fromEntries((subs || []).map((s) => [s.id, s.name]))
-      const subjColor = Object.fromEntries((subs || []).map((s) => [s.id, s.color]))
+      const subjColor = Object.fromEntries((subs || []).map((s) => [s.id, s.bg]))
       const feed = Object.values(groups).sort((a, b) => b.ts - a.ts).slice(0, 6)
         .map((g) => ({ ...g, name: subjName[g.subject_id], color: subjColor[g.subject_id] }))
 
@@ -163,7 +164,7 @@ export default function ParentReport({ nav }) {
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 justify-center">
               {data.chartSubjects.map((s) => (
                 <span key={s.id} className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color }} />{s.name}
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.chart }} />{s.name}
                 </span>
               ))}
             </div>
@@ -252,10 +253,10 @@ function ProgressChart({ subjects }) {
         return (
           <g key={s.id}>
             {segs.map((seg, k) => (
-              <polyline key={k} fill="none" stroke={s.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              <polyline key={k} fill="none" stroke={s.chart} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 points={seg.map((p) => p.join(',')).join(' ')} />
             ))}
-            {last && <circle cx={last[0]} cy={last[1]} r="3.5" fill={s.color} />}
+            {last && <circle cx={last[0]} cy={last[1]} r="3.5" fill={s.chart} />}
           </g>
         )
       })}
