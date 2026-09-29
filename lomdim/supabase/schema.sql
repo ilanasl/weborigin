@@ -12,6 +12,8 @@ create table if not exists profiles (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+-- כיתה — קובעת את רמת השפה בסיכומים/הסברים ואת קושי השאלות
+alter table profiles add column if not exists grade text default 'ט''';
 
 -- ── שיחות "תסביר לי" (היסטוריה) ──
 create table if not exists chats (
