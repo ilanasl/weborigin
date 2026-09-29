@@ -323,6 +323,22 @@ button{font-family:inherit; cursor:pointer}
 .syn-role:disabled{ opacity:.45 }
 .q-next:disabled{ cursor:not-allowed }
 
+/* ── תוכנית הלמידה במתכנן ── */
+.plan-row{ padding:6px 12px 6px 6px; gap:12px }
+.plan-tile{ width:52px; min-height:42px; flex:none; border-radius:14px; background:rgba(255,255,255,.12); color:var(--ink);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1 }
+.plan-tile b{ font-family:var(--disp); font-weight:800; font-size:13.5px }
+.plan-tile small{ font-size:11px; font-weight:600; opacity:.75 }
+.plan-topic{ display:flex; align-items:center; gap:8px; width:100%; min-height:42px; padding:6px 0; text-align:start; background:none; border:none;
+  color:inherit; font-size:14.5px; font-weight:600; line-height:1.35 }
+.plan-topic + .plan-topic{ border-top:1px solid rgba(255,255,255,.1) }
+.plan-finish{ display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:18px }
+.plan-finish-line{ display:flex; align-items:center; gap:10px; width:100% }
+.plan-finish-line span{ flex:1; border-top:2px dashed color-mix(in srgb, var(--c) 55%, transparent) }
+.plan-finish-line i{ width:40px; height:40px; flex:none; border-radius:20px; background:var(--c); color:var(--on-fill);
+  display:flex; align-items:center; justify-content:center }
+.plan-finish-title{ font-family:var(--disp); font-weight:900; font-size:22px; color:var(--c) }
+
 /* שדה תאריך באייפון: לספארי יש רוחב מינימלי פנימי שחורג מהמסגרת */
 input[type="date"].field, input[type="time"].field{ -webkit-appearance:none; appearance:none; display:block;
   box-sizing:border-box; width:100%; max-width:100%; min-width:0; min-height:46px }

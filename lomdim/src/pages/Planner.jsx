@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { scanScope, matchScopeTopics } from '../lib/gemini'
+import { toneOf } from '../lib/tone'
+
+const Chev = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.55, flex: 'none' }}><path d="M15 6l-6 6 6 6" /></svg>
+)
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 // ברירת מחדל: כמה ימים לפני מתחילים ללמוד — מבדק קצר יותר, מבחן מסכם ארוך יותר
@@ -213,34 +218,56 @@ export default function Planner({ nav, params }) {
 
       {plan.length > 0 && (
         <>
-          <div className="list-title">תוכנית הלמידה שלי</div>
-          <div className="card">
-            {plan.map((p, i) => (
-              <div key={i} className="flex gap-3 py-3 border-b border-line last:border-0">
-                <div className="w-[54px] flex-none text-center">
-                  <div className="font-disp font-bold text-[13px]">{DOW[p.dt.getDay()]}</div>
-                  <div className="text-[11px] text-muted">{p.dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  {p.exam ? (
-                    <span className="inline-flex items-center gap-1.5 text-[14px] font-bold text-bad bg-bad-soft rounded-[9px] px-2.5 py-1">📝 {kind}!</span>
-                  ) : p.review ? (
-                    <div className="text-[14.5px] font-semibold">🔁 חזרה כללית + לחיזוק</div>
-                  ) : (
-                    <div className="flex flex-col gap-1">
-                      {p.topics.map((t) => (
-                        <button key={t.id} className="text-start text-[14.5px] font-medium flex items-center gap-2"
-                          onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })}>
-                          <span className="w-2 h-2 rounded-full" style={{ background: 'var(--primary)' }} />
-                          {t.name} <span className="text-muted text-[12px]">קרא ותרגל ›</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+          <div className="home-h2 mt-6 mb-2.5">
+            <h2>תוכנית הלמידה</h2>
+            <span>חלשים קודם</span>
           </div>
+          <div className="flex flex-col gap-2">
+            {plan.filter((p) => !p.exam).map((p, i) => {
+              const date = p.dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })
+              const tile = (
+                <span className="plan-tile" style={p.review ? { background: '#B7A5FF', color: 'var(--on-fill)' } : undefined}>
+                  <b>{DOW[p.dt.getDay()]}</b><small>{date}</small>
+                </span>
+              )
+              if (p.review) return (
+                <button key={i} type="button" className="milky-row plan-row" onClick={() => nav.go('reinforce', { subjectId, subjectName })}>
+                  {tile}
+                  <span className="flex-1 text-start text-[14.5px] font-semibold">חזרה כללית + לחיזוק</span>
+                  <Chev />
+                </button>
+              )
+              return (
+                <div key={i} className="milky-row plan-row !items-start">
+                  {tile}
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    {p.topics.map((t) => (
+                      <button key={t.id} type="button" className="plan-topic"
+                        onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })}>
+                        <span className="flex-1 min-w-0">{t.name}</span>
+                        <Chev />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* קו סיום: יום המבחן — בצבע של המקצוע, לא עוד יום תרגול */}
+          {plan.filter((p) => p.exam).map((p, i) => (
+            <div key={`x${i}`} className="plan-finish" style={{ '--c': toneOf(subject).bg }}>
+              <div className="plan-finish-line">
+                <span />
+                <i><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5" /></svg></i>
+                <span />
+              </div>
+              <div className="plan-finish-title">בהצלחה ב{kind}!</div>
+              <div className="text-[13px] font-semibold text-muted">
+                יום {DOW[p.dt.getDay()]} · {p.dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })} · {subjectName}
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>
