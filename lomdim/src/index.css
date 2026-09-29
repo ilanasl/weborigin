@@ -322,3 +322,8 @@ button{font-family:inherit; cursor:pointer}
 .syn-role{ height:44px; padding:0 16px; border-radius:22px; border:none; color:var(--on-fill); font-family:var(--disp); font-weight:700; font-size:15px; transition:opacity .15s }
 .syn-role:disabled{ opacity:.45 }
 .q-next:disabled{ cursor:not-allowed }
+
+/* שדה תאריך באייפון: לספארי יש רוחב מינימלי פנימי שחורג מהמסגרת */
+input[type="date"].field, input[type="time"].field{ -webkit-appearance:none; appearance:none; display:block;
+  box-sizing:border-box; width:100%; max-width:100%; min-width:0; min-height:46px }
+input[type="date"]::-webkit-date-and-time-value{ text-align:start }
