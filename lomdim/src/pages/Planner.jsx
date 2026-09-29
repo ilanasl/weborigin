@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { scanScope, matchScopeTopics } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
+import Icon from '../components/Icon'
 import { LEAD_DEFAULT, daysUntil, buildStudyPlan } from '../lib/plan'
 
 const Chev = () => (
@@ -92,7 +93,7 @@ export default function Planner({ nav, params }) {
         const { in_exam } = await matchScopeTopics({ subjectName, scopeText: scope.trim(), knownTopics: topics.map((t) => t.name) })
         const set = new Set(in_exam || [])
         await Promise.all(topics.map((t) => supabase.from('topics').update({ in_exam: set.has(t.name) }).eq('id', t.id)))
-        if (set.size) setMatchNote(`🎯 זוהו ${set.size} נושאים במבחן — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
+        if (set.size) setMatchNote(`זוהו ${set.size} נושאים במבחן — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
       } catch { /* לא חוסם את שמירת התוכנית */ }
     }
     // שמירת צילום המיקוד כחומר (כדי שיישמר וייראה ב"החומרים שהעליתי")
@@ -124,77 +125,69 @@ export default function Planner({ nav, params }) {
   const { days: plan, startsInDays } = buildStudyPlan({ examDays, leadDays, topics, allTs })
 
   return (
-    <div className="pt-2">
-      <h1 className="text-[23px] font-black mb-1">מתכנן המבחן</h1>
-      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
+    <div className="pt-1">
+      <span className="end-tag inline-block mb-3">{subjectName}</span>
+      <h1 className="font-black text-[30px] leading-[1.1] mb-4">מתכנן המבחן</h1>
 
-      <div className="card flex flex-col gap-4">
+      {/* כמה זמן נשאר — בצבע המקצוע */}
+      {examDays != null && examDays >= 0 && (
+        <div className="exam-card !cursor-default mb-4" style={{ background: toneOf(subject).bg }}>
+          <span className="exam-days">
+            {examDays === 0 ? <b className="!text-[24px]">היום</b> : <><b className="tnum">{examDays}</b><small>ימים</small></>}
+          </span>
+          <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <span className="font-disp font-extrabold text-[17px]">{examDays === 0 ? `ה${kind} היום — בהצלחה!` : `${kind} בעוד ${examDays} ימים`}</span>
+            <span className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.72)' }}>
+              {startsInDays != null ? `הלמידה מתחילה בעוד ${startsInDays} ימים — עד אז אפשר להתמקד במבחנים קרובים` : `הלמידה מתחילה ${leadDays} ימים לפני`}
+            </span>
+          </span>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
         <div>
-          <label className="block text-[13.5px] font-bold text-muted mb-1.5">איזה מהם עורכים?</label>
-          <div className="flex gap-2">
+          <div className="text-[13.5px] font-bold text-muted mb-1.5">איזה מהם עורכים?</div>
+          <div className="seg">
             {['מבחן מסכם', 'מבדק'].map((k) => {
               const d = k === 'מבדק' ? quiz.date : exam.date
               return (
-                <button key={k} onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }}
-                  className={`flex-1 rounded-[12px] border-[1.5px] py-2 text-[14px] font-semibold transition ${
-                    kind === k ? 'border-primary text-primary' : 'border-line text-ink'}`}
-                  style={kind === k ? { background: 'var(--primary-soft)' } : {}}>
-                  {k}
-                  <div className="text-[11px] font-normal text-muted">{d ? new Date(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'ללא תאריך'}</div>
+                <button key={k} type="button" onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }} aria-pressed={kind === k}>
+                  <span className="font-bold text-[14.5px]">{k}</span>
+                  <span className="text-[11.5px] opacity-70">{d ? new Date(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'ללא תאריך'}</span>
                 </button>
               )
             })}
           </div>
           <div className="text-[12px] text-muted mt-1.5">אפשר להגדיר תאריך גם למבדק וגם למבחן — שניהם יופיעו בבית ובלוח המבחנים.</div>
         </div>
+
         {/* "מתחילים ללמוד X ימים לפני" הוסר מהמסך — מספר קבוע לפי סוג המבחן (LEAD_DEFAULT) */}
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך ה{kind}</label>
           <input type="date" className="field" value={date} onChange={(e) => setSlot({ date: e.target.value })} />
-          <div className="text-[12px] text-muted mt-1.5">הלמידה ל{kind} מתחילה {leadDays} ימים לפני.</div>
         </div>
+
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">מיקוד החומר (חופשי)</label>
-          <textarea className="field" style={{ minHeight: 70 }} value={scope}
+          <textarea className="field" style={{ minHeight: 80 }} value={scope}
             onChange={(e) => setSlot({ scope: e.target.value })}
             placeholder="מה בדיוק במבחן? אפשר להעתיק את מה שהמורה שלחה…" />
-          <div className="mt-2">
-            <label className="text-[13px] font-semibold text-primary cursor-pointer inline-flex items-center gap-1.5">
-              📷 צרפו צילום של המיקוד (למשל מה שהמורה כתבה על הלוח)
-              <input type="file" accept="image/*" className="hidden"
-                onChange={(e) => onPickPhoto(e.target.files?.[0] || null)} />
-            </label>
-            {scanning && <div className="text-muted text-[12.5px] mt-1">קורא את הצילום… ✍️</div>}
-            {scopeFile && !scanning && <div className="text-good text-[12.5px] mt-1">✓ צורף וזוהה — אפשר לערוך את הטקסט למעלה.</div>}
-            {scanErr && <div className="text-bad text-[12.5px] mt-1">{scanErr}</div>}
-          </div>
+          <label className="milky-row mt-2 cursor-pointer">
+            <Icon name="camera" />
+            <span className="flex-1 text-[13.5px] font-semibold">
+              {scanning ? 'קורא את הצילום…' : scopeFile ? 'צילום צורף וזוהה — אפשר לערוך את הטקסט למעלה' : 'צרפו צילום של המיקוד (למשל מהלוח)'}
+            </span>
+            {scopeFile && !scanning && <Icon name="check" size={18} style={{ color: 'var(--good)' }} />}
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => onPickPhoto(e.target.files?.[0] || null)} />
+          </label>
+          {scanErr && <div className="text-[12.5px] mt-1.5 font-semibold" style={{ color: 'var(--bad)' }}>{scanErr}</div>}
         </div>
-        <button className="btn btn-primary btn-wide" onClick={save} disabled={busy}>
-          {busy ? 'שומר ובונה…' : 'שמור ובנה תוכנית'}
+
+        <button type="button" className="ts-practice !mb-0" onClick={save} disabled={busy}>
+          <Icon name="sparkle" size={19} />{busy ? 'שומר ובונה…' : 'שמור ובנה תוכנית'}
         </button>
         {matchNote && <div className="text-good text-[13px] font-semibold leading-relaxed">{matchNote}</div>}
       </div>
-
-      {examDays != null && examDays >= 0 && (
-        <div className="ready-card mt-3">
-          <div className="ready-top">
-            <div className="ready-lbl">{kind} בעוד</div>
-            <div className="ready-pct tnum">{examDays === 0 ? 'היום' : examDays}</div>
-          </div>
-          {examDays > 0 && <div className="text-muted text-[12.5px] mt-1">ימים</div>}
-        </div>
-      )}
-
-      {startsInDays != null && (
-        <div className="mt-3 rounded-[20px] p-3.5 flex items-start gap-3 text-[13.5px] leading-relaxed"
-          style={{ background: 'var(--primary-soft)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)' }}>
-          <span className="w-9 h-9 rounded-[12px] flex-none grid place-items-center" style={{ background: 'var(--primary)', color: 'var(--on-fill)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
-          </span>
-          <span>המבחן עוד רחוק — אין צורך להתחיל עכשיו. הלמידה ל{kind} תתחיל <b>בעוד {startsInDays} ימים</b>.
-          עד אז אפשר להתמקד במבחנים קרובים יותר.</span>
-        </div>
-      )}
 
       {plan.length > 0 && (
         <>

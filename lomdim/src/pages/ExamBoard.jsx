@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
-import { mastery } from '../lib/mastery'
+import { mastery, examReadiness } from '../lib/mastery'
+import { LEAD_DEFAULT } from '../lib/plan'
+import Icon from '../components/Icon'
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
-const LEAD_DEFAULT = { 'מבדק': 4, 'מבחן מסכם': 8 }
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
 const offsetOf = (dateStr) => Math.ceil((new Date(dateStr) - startOfToday()) / 86400000)
 const addDays = (d) => { const dt = startOfToday(); dt.setDate(dt.getDate() + d); return dt }
@@ -84,107 +85,111 @@ export default function ExamBoard({ nav }) {
 
   const offsets = Object.keys(dayMap).map(Number).sort((a, b) => a - b)
 
-  return (
-    <div className="pt-2">
-      <h1 className="text-[23px] font-black mb-1">לוח המבחנים</h1>
-      <div className="text-muted text-[13.5px] mb-4">כל המבחנים והלו״ז המשולב</div>
+  const soon = exams.filter((e) => e.off <= 14).length
+  const readyOf = (s) => examReadiness((topicsBySubj[s.id] || []).map((t) => ({ in_exam: t.in_exam, pct: mastery(byTopicSubj[t.id] || []).pct }))).pct
+  const Arrow = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17 17L7 7M7 7h9M7 7v9" /></svg>
 
-      {/* רשימת המבחנים הקרובים */}
+  return (
+    <div className="pt-1 flex flex-col gap-4">
+      <div>
+        <div className="text-[14px] font-medium text-muted">
+          {exams.length === 0 ? 'עוד לא הוגדרו מבחנים' : soon ? `${soon} ${soon === 1 ? 'מבחן' : 'מבחנים'} בשבועיים הקרובים` : 'אין מבחנים בשבועיים הקרובים'}
+        </div>
+        <h1 className="font-black text-[32px] leading-[1.05] mt-1">לוח המבחנים</h1>
+      </div>
+
+      {/* המבחנים הקרובים — כרטיס בצבע המקצוע */}
       {exams.length === 0 ? (
-        <div className="card empty">
-          <div className="big">🗓️</div>
-          עדיין לא הוגדרו תאריכי מבחנים.<br />
-          כנסו למקצוע → 📅 מתכנן המבחן כדי להוסיף תאריך.
+        <div className="milky-row !flex-col !items-center text-center !py-6 gap-2">
+          <Icon name="calendar" size={34} />
+          <div className="text-[14px]">עדיין לא הוגדרו תאריכי מבחנים.<br />כנסו למקצוע ← מתכנן המבחן כדי להוסיף תאריך.</div>
         </div>
       ) : (
-        <div className="card mb-3">
-          {exams.map((e) => (
-            <button key={e.s.id + e.kind} onClick={() => nav.go('planner', { subjectId: e.s.id, subjectName: e.s.name })}
-              className="flex items-center gap-3 w-full text-start py-2.5 border-b border-line last:border-0">
-              <div className="w-9 h-9 rounded-[11px] grid place-items-center font-black flex-none"
-                style={{ background: e.s.bg, color: e.s.color }}>{e.s.name.charAt(0)}</div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[14.5px] font-semibold truncate">{e.s.name}</div>
-                <div className="text-[12px] text-muted">
-                  {e.kind} · {new Date(e.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </div>
+        <div className="flex flex-col gap-3">
+          {exams.map((e) => {
+            const r = readyOf(e.s)
+            return (
+              <div key={e.s.id + e.kind} className="exam-card" style={{ background: e.s.bg }}
+                onClick={() => nav.go('planner', { subjectId: e.s.id, subjectName: e.s.name })}>
+                <button type="button" className="arrow-btn sm" style={{ color: e.s.color }} aria-label={`למתכנן של ${e.s.name}`}
+                  onClick={(ev) => { ev.stopPropagation(); nav.go('planner', { subjectId: e.s.id, subjectName: e.s.name }) }}><Arrow /></button>
+                <span className="exam-days">
+                  {e.off === 0 ? <b className="!text-[24px]">היום</b> : e.off === 1 ? <b className="!text-[26px]">מחר</b> : <><b className="tnum">{e.off}</b><small>ימים</small></>}
+                </span>
+                <span className="flex-1 min-w-0 flex flex-col gap-0.5">
+                  <span className="font-disp font-extrabold text-[17px] leading-tight">{e.kind === 'מבדק' ? 'מבדק' : 'מבחן'} · {e.s.name}</span>
+                  <span className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.72)' }}>
+                    {new Date(e.date).toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' })}{r != null ? ` · מוכנות ${r}%` : ''}
+                  </span>
+                </span>
               </div>
-              <span className={`exam-chip ${e.off > 7 ? 'calm' : ''}`}>
-                {e.off === 0 ? 'היום' : e.off === 1 ? 'מחר' : `בעוד ${e.off} ימים`}
-              </span>
-            </button>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* הלו"ז המשולב */}
       {offsets.length > 0 && (
-        <>
-          <div className="list-title">הלו״ז המשולב</div>
-          <div className="card">
-            {offsets.map((off) => {
-              const dt = addDays(off)
-              const entries = dayMap[off]
-              return (
-                <div key={off} className="flex gap-3 py-3 border-b border-line last:border-0">
-                  <div className="w-[54px] flex-none text-center">
-                    <div className="font-disp font-bold text-[13px]">{off === 0 ? 'היום' : off === 1 ? 'מחר' : DOW[dt.getDay()]}</div>
-                    <div className="text-[11px] text-muted">{dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}</div>
-                  </div>
-                  <div className="flex-1 min-w-0 flex flex-col gap-2">
-                    {entries.map((e, i) => (
-                      <div key={i}>
-                        {e.exam ? (
-                          <span className="inline-flex items-center gap-1.5 text-[13.5px] font-bold text-bad bg-bad-soft rounded-[9px] px-2.5 py-1">
-                            📝 {e.kind} ב{e.subjectName}!
-                          </span>
-                        ) : e.review ? (
-                          <div className="text-[14px] font-semibold flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full flex-none" style={{ background: e.color }} />
-                            🔁 חזרה כללית ב{e.subjectName}
-                          </div>
-                        ) : e.noMaterial ? (
-                          <button className="text-start text-[13.5px] flex items-center gap-1.5 text-muted"
-                            onClick={() => nav.go('subject', { id: e.subjectId })}>
-                            <span className="w-2 h-2 rounded-full flex-none" style={{ background: e.color }} />
-                            {e.subjectName}: העלו חומר כדי לקבל תוכנית ›
-                          </button>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            <div className="text-[12px] font-bold" style={{ color: e.color }}>{e.subjectName}</div>
-                            {e.topics.map((t) => (
-                              <button key={t.id} className="text-start text-[14px] font-medium flex items-center gap-2"
-                                onClick={() => nav.go('topicSummary', { subjectId: e.subjectId, subjectName: e.subjectName, topicId: t.id, topicName: t.name })}>
-                                <span className="w-2 h-2 rounded-full flex-none" style={{ background: e.color }} />
-                                {t.name} <span className="text-muted text-[12px]">קרא ותרגל ›</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+        <div className="flex flex-col gap-2">
+          <div className="home-h2 mb-0.5"><h2>הלו״ז המשולב</h2><span>כל המקצועות יחד</span></div>
+          {offsets.map((off) => {
+            const dt = addDays(off)
+            const entries = dayMap[off]
+            const nTopics = entries.reduce((a, e) => a + (e.topics?.length || 0), 0)
+            return (
+              <div key={off} className="milky-row !flex-col !items-stretch !gap-2.5" style={off === 0 ? { borderColor: 'color-mix(in srgb, var(--primary) 55%, transparent)' } : undefined}>
+                <div className="flex items-center justify-between">
+                  <span className="font-disp font-extrabold text-[15.5px]">
+                    {off === 0 ? 'היום' : off === 1 ? 'מחר' : `יום ${DOW[dt.getDay()]}`} · {dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+                  </span>
+                  {nTopics > 0 && <span className="text-[12.5px] text-muted">{nTopics} {nTopics === 1 ? 'נושא' : 'נושאים'}</span>}
                 </div>
-              )
-            })}
-          </div>
-        </>
+                {entries.map((e, i) => (
+                  e.exam ? (
+                    <div key={i} className="flex items-center gap-2.5 rounded-[14px] px-3 py-2 font-bold text-[14px]" style={{ background: e.color, color: 'var(--on-fill)' }}>
+                      <Icon name="flag" size={18} />{e.kind} ב{e.subjectName} — בהצלחה!
+                    </div>
+                  ) : e.review ? (
+                    <button key={i} type="button" className="flex items-center gap-2.5 text-start text-[14px] font-semibold"
+                      onClick={() => nav.go('reinforce', { subjectId: e.subjectId, subjectName: e.subjectName })}>
+                      <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: e.color }} />
+                      <span className="flex-1">חזרה כללית ב{e.subjectName}</span>
+                      <Icon name="chevron" size={16} style={{ opacity: 0.5 }} />
+                    </button>
+                  ) : e.noMaterial ? (
+                    <button key={i} type="button" className="flex items-center gap-2.5 text-start text-[13.5px] text-muted"
+                      onClick={() => nav.go('subject', { id: e.subjectId })}>
+                      <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: e.color }} />
+                      <span className="flex-1">{e.subjectName}: העלו חומר כדי לקבל תוכנית</span>
+                      <Icon name="chevron" size={16} style={{ opacity: 0.5 }} />
+                    </button>
+                  ) : e.topics.map((t) => (
+                    <button key={`${i}-${t.id}`} type="button" className="flex items-center gap-2.5 text-start text-[14px]"
+                      onClick={() => nav.go('topicSummary', { subjectId: e.subjectId, subjectName: e.subjectName, topicId: t.id, topicName: t.name })}>
+                      <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: e.color }} />
+                      <span className="flex-1 min-w-0"><b className="font-bold">{e.subjectName}</b> — {t.name}</span>
+                      <Icon name="chevron" size={16} style={{ opacity: 0.5 }} />
+                    </button>
+                  ))
+                ))}
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {/* מקצועות ללא תאריך */}
       {noDate.length > 0 && (
-        <>
-          <div className="list-title">בלי תאריך מבחן עדיין</div>
-          <div className="card">
-            {noDate.map((s) => (
-              <button key={s.id} onClick={() => nav.go('planner', { subjectId: s.id, subjectName: s.name })}
-                className="flex items-center gap-3 w-full text-start py-2.5 border-b border-line last:border-0">
-                <div className="flex-1 min-w-0 text-[14.5px] font-semibold truncate">{s.name}</div>
-                <span className="text-primary text-[13px] font-bold">➕ הוסף תאריך ›</span>
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="flex flex-col gap-2">
+          <div className="home-h2 mb-0.5"><h2>בלי תאריך מבחן עדיין</h2></div>
+          {noDate.map((s) => (
+            <button key={s.id} type="button" className="milky-row" onClick={() => nav.go('planner', { subjectId: s.id, subjectName: s.name })}>
+              <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: s.bg }} />
+              <span className="flex-1 min-w-0 text-start text-[14.5px] font-semibold truncate">{s.name}</span>
+              <span className="text-primary text-[13px] font-bold inline-flex items-center gap-1"><Icon name="plus" size={15} stroke={2.6} />הוסף תאריך</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
