@@ -267,7 +267,7 @@ const TEMPLATES = [
     bgColor:"#e9eef7", panelBg:true,
     splittable:true, panelColorR:"#e7dfd0", splitAt:50,
     productBox:{x:52,y:8,w:46,h:86}, productContain:true, productShadow:true,
-    secondLayer:true, subjectBox:{x:46,y:2,w:54,h:96},
+    secondLayer:true, subjectBox:{x:46,y:2,w:54,h:98},
     logo:{x:5,y:9,widthPct:40,anchor:"top-left", mobile:{x:5,y:9,widthPct:40,anchor:"top-left"}},
     logoTint:true, transparentOK:true,
     defaultTopic:"two medication vials, clean product photo, plain background",
@@ -399,7 +399,7 @@ function resolveEl(el,size){return size==="mobile"&&el.mobile?Object.assign({},e
 function drawCover(ctx,img,W,H,hx,vy,zoom){const s=Math.max(W/img.naturalWidth,H/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=(W-dw)*(hx/100),dy=(H-dh)*(vy/100);ctx.drawImage(img,dx,dy,dw,dh);}
 function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.addColorStop(0,"#37485a");g.addColorStop(.42,"#6a6f70");g.addColorStop(.72,"#c7a884");g.addColorStop(1,"#ecd6b6");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
 // Fit an image INSIDE a box (preserve aspect, no crop) — for a transparent product/subject PNG.
-function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*((vy!=null?vy:100)/100);return{dx,dy,dw,dh};}
+function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const v=(vy!=null?vy:100);const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*(Math.min(v,100)/100)+Math.max(0,v-100)/100*dh;return{dx,dy,dw,dh};}
 // Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
 function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+pad):pad;const e=isRight?(100-pad):(splitAt-pad);return s+(xPct/100)*(e-s);}
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
@@ -411,8 +411,8 @@ function drawProductShadow(ctx,cx,by,rw,alpha){const a=(alpha!=null?alpha:0.22);
 const EXTRA_IMGS=new Map();
 function extraImg(src){const c=EXTRA_IMGS.get(src);if(c)return Promise.resolve(c);return loadImage(src).then(i=>{EXTRA_IMGS.set(src,i);return i;});}
 function preloadExtras(over){return Promise.all(((over&&over.extras)||[]).map(e=>extraImg(e.src).catch(()=>null)));}
-function drawExtras(ctx,over,size,W,H){const ex=over&&over.extras;if(!ex||!ex.length)return;
-  for(const e of ex){const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
+function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||!ex.length)return;
+  for(const e of ex){if(!!e.under!==!!under)continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
     const p=(e.pos&&(e.pos[size]||e.pos.desktop))||{};const w=(p.w!=null?p.w:30)/100*W,h=w*im.naturalHeight/im.naturalWidth;
     const cx=(p.x!=null?p.x:50)/100*W,cy=(p.y!=null?p.y:55)/100*H;const f={dx:cx-w/2,dy:cy-h/2,dw:w,dh:h};
     if(e.shadow)drawProductShadow(ctx,cx,f.dy+h*0.985,Math.max(12,w*0.42),0.22);
@@ -486,11 +486,14 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   } else if(bgFill){ctx.fillStyle=bgFill;ctx.fillRect(0,0,dim.w,dim.h);}
   // The overlay colour auto-matches the photo only when the user hasn't set one.
   const matchColor=(edgeColor&&!userSetColor)?edgeColor:null;
-  if(tpl.productBox){ // uploaded product/subject: fit inside the bottom box (no crop) with a soft shadow
-    // Optional SECOND layer (e.g. a stock person) drawn behind the product.
-    if(tpl.secondLayer&&img2){const sb=tpl.subjectBox||tpl.productBox;const sx=sb.x/100*dim.w,sy=sb.y/100*dim.h,sw=sb.w/100*dim.w,sh=sb.h/100*dim.h;
+  // Image layers. Product/subject templates can put each layer above or under the fade (per-banner toggles).
+  const subjAbove=!!(tpl.productBox&&over.subjAbove);
+  const imgAbove=!!(tpl.productBox&&(subjAbove||(over.imgAbove!=null?over.imgAbove:true)));
+  const drawSubject=()=>{if(tpl.productBox&&tpl.secondLayer&&img2){const sb=tpl.subjectBox||tpl.productBox;const sx=sb.x/100*dim.w,sy=sb.y/100*dim.h,sw=sb.w/100*dim.w,sh=sb.h/100*dim.h;
       const sf=fitBox(img2,sx,sy,sw,sh,(over.subjZoom||1),(over.subjY!=null?over.subjY:100),(over.subjX!=null?over.subjX:50));
-      drawRotated(ctx,img2,sf,(over.subjRotate||0));}
+      drawRotated(ctx,img2,sf,(over.subjRotate||0));}};
+  const drawMain=()=>{
+  if(tpl.productBox){ // uploaded product: fit inside its box (no crop) with a soft shadow
     const b=tpl.productBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
       if(tpl.productShadow)drawProductShadow(ctx,f.dx+f.dw/2,f.dy+f.dh*0.985,Math.max(20,f.dw*0.42),(over.shadow!=null?over.shadow:0.22));
@@ -498,7 +501,10 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
-  else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}
+  else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
+  if(!subjAbove)drawSubject();
+  if(!imgAbove)drawMain();
+  drawExtras(ctx,over,size,dim.w,dim.h,true);
   const splitOn=(over&&over.split&&tpl.splittable);
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
   if(ovl&&!splitOn){ if(over.overlay&&over.overlay[size]){const s=over.overlay[size];let col=s.color,start=null;
@@ -510,7 +516,9 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
       else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
       drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
-  drawExtras(ctx,over,size,dim.w,dim.h);
+  if(subjAbove)drawSubject();
+  if(imgAbove)drawMain();
+  drawExtras(ctx,over,size,dim.w,dim.h,false);
   if(logoImg&&tpl.logo){let lx=(over.logoX!=null?over.logoX:tpl.logo.x);if(over&&over.split&&tpl.splittable)lx=splitHalfX(lx,false,(over.splitAt!=null?over.splitAt:50));let lspec=resolveLogo(tpl.logo,size);const lal=(over&&over.logoAlign)||((lspec.anchor||"").indexOf("center")>=0?"center":((lspec.anchor||"").indexOf("right")>=0?"right":"left"));const lp=(lspec.anchor||"top-left").split("-");lspec=Object.assign({},lspec,{anchor:lp[0]+"-"+lal});drawLogo(ctx,logoImg,dim.w,dim.h,lspec,over.logoScale,lx);}
   if(showText)for(const raw of tpl.elements){
     if(size==="mobile"&&raw.hiddenMobile)continue;
@@ -547,7 +555,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:false,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -862,7 +870,7 @@ function openEditor(tpl,st,onClose){
   if(o.logoScale==null) o.logoScale=1;
   if(!Array.isArray(o.extras)) o.extras=[];
   const btnEl0=tpl.elements.find(e=>e.type==="button");
-  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font)};
+  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font),imgAbove:!!tpl.productBox,subjAbove:false};
   for(const k in scalars){if(o[k]==null)o[k]=scalars[k];}
   const hasBtn=tpl.elements.some(e=>e.type==="button");
   const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
@@ -895,7 +903,7 @@ function openEditor(tpl,st,onClose){
     html+=`<div class="e-adv">`;
     html+=`<label class="f"><span>Subject size <b class="e-subjzv"></b></span><input type="range" class="e-subjz" min="0.4" max="2" step="0.02"></label>`;
     html+=`<div class="f"><span>Subject ← position →</span><div class="e-inline"><input type="range" class="e-subjx" min="0" max="100" step="1" style="flex:1"><button class="tiny e-subjctr" title="center the subject">Center</button></div></div>`;
-    html+=`<label class="f"><span>Subject up–down (100+ = off bottom)</span><input type="range" class="e-subjy" min="0" max="120" step="1"></label>`;
+    html+=`<label class="f"><span>Subject up–down (100+ = off bottom)</span><input type="range" class="e-subjy" min="0" max="160" step="1"></label>`;
     html+=`<label class="f"><span>Subject rotate <b class="e-subjrv"></b></span><input type="range" class="e-subjr" min="-30" max="30" step="1"></label>`;
     html+=`</div>`;
   }
@@ -903,8 +911,9 @@ function openEditor(tpl,st,onClose){
   html+=`<div class="f"><span>Logo position (left–right)</span><div class="e-inline"><input type="range" class="e-logox" min="0" max="100" step="1" style="flex:1"><button class="tiny e-logol" title="align logo left">Left</button><button class="tiny e-logoctr" title="center the logo">Center</button><button class="tiny e-logor" title="align logo right">Right</button></div></div>`;
   html+=`<div class="f"><span>Image position — horizontal</span><div class="e-seg e-pos"><button data-p="0">Left</button><button data-p="50">Center</button><button data-p="100">Right</button></div></div>`;
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
-  html+=`<label class="f"><span>… fine (up–down) (100+ = off bottom)</span><input type="range" class="e-posy" min="0" max="120" step="1"></label>`;
+  html+=`<label class="f"><span>… fine (up–down) (100+ = off bottom)</span><input type="range" class="e-posy" min="0" max="${tpl.productBox?160:120}" step="1"></label>`;
   if(tpl.productBox) html+=`<label class="f"><span>Product rotate <b class="e-prodrv"></b></span><input type="range" class="e-prodr" min="-30" max="30" step="1"></label>`;
+  if(tpl.productBox) html+=`<label class="chk"><input type="checkbox" class="e-imgabove"> Product above the fade (no overlay on it)</label>`+(tpl.secondLayer?`<label class="chk"><input type="checkbox" class="e-subjabove"> Subject above the fade</label>`:"");
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
@@ -1022,7 +1031,7 @@ function openEditor(tpl,st,onClose){
     if(tpl.splittable){q(".e-split").checked=!!o.split;const pr=o.panelColorR||tpl.panelColorR||"#eeeeee";q(".e-panelcr").value=pr;q(".e-panelhr").value=pr.toUpperCase();const sa=(o.splitAt!=null?o.splitAt:50);q(".e-splitat").value=sa;q(".e-splitv").textContent=sa+"%";}
     if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
     if(tpl.secondLayer){q(".e-subjz").value=o.subjZoom||1;q(".e-subjzv").textContent=Math.round((o.subjZoom||1)*100)+"%";q(".e-subjx").value=(o.subjX!=null?o.subjX:50);q(".e-subjy").value=(o.subjY!=null?o.subjY:100);q(".e-subjr").value=(o.subjRotate||0);q(".e-subjrv").textContent=(o.subjRotate||0)+"°";}
-    if(tpl.productBox){q(".e-prodr").value=(o.productRotate||0);q(".e-prodrv").textContent=(o.productRotate||0)+"°";}
+    if(tpl.productBox){q(".e-imgabove").checked=(o.imgAbove!==false);if(tpl.secondLayer)q(".e-subjabove").checked=!!o.subjAbove;q(".e-prodr").value=(o.productRotate||0);q(".e-prodrv").textContent=(o.productRotate||0)+"°";}
     if(hasBtn){q(".e-btnauto").checked=o.buttonAuto;q(".e-btnc").value=o.buttonColor;q(".e-btnh").value=o.buttonColor.toUpperCase();q(".e-btnman").style.display=o.buttonAuto?"none":"";}
   }
   try{syncStatic();}catch(e){showErr("syncStatic",e);} applySplit();
@@ -1069,6 +1078,7 @@ function openEditor(tpl,st,onClose){
     q(".e-subjr").addEventListener("input",e=>{o.subjRotate=+e.target.value;q(".e-subjrv").textContent=o.subjRotate+"°";draw();});
     q(".e-subjctr").addEventListener("click",()=>{o.subjX=50;q(".e-subjx").value=50;draw();});
   }
+  if(tpl.productBox){q(".e-imgabove").addEventListener("change",e=>{o.imgAbove=e.target.checked;draw();});if(tpl.secondLayer)q(".e-subjabove").addEventListener("change",e=>{o.subjAbove=e.target.checked;draw();});}
   if(tpl.productBox)q(".e-prodr").addEventListener("input",e=>{o.productRotate=+e.target.value;q(".e-prodrv").textContent=o.productRotate+"°";draw();});
   q(".e-ovauto").addEventListener("change",e=>{o.overlay[size].auto=e.target.checked;if(e.target.checked&&hasLogoTint){o.overlay[size].autoLogo=false;const l=q(".e-ovautologo");if(l)l.checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
   if(hasLogoTint) q(".e-ovautologo").addEventListener("change",e=>{o.overlay[size].autoLogo=e.target.checked;if(e.target.checked){o.overlay[size].auto=false;q(".e-ovauto").checked=false;}q(".e-ovmanual").style.display=(o.overlay[size].auto||o.overlay[size].autoLogo)?"none":"";draw();});
@@ -1102,7 +1112,10 @@ function openEditor(tpl,st,onClose){
       const shc=document.createElement("input");shc.type="checkbox";shc.checked=!!e.shadow;shw.appendChild(shc);shw.appendChild(document.createTextNode("Shadow"));
       const fr=document.createElement("button");fr.type="button";fr.className="tiny";fr.textContent="⬆";fr.title="bring to front";
       const rm=document.createElement("button");rm.type="button";rm.className="tiny";rm.textContent="✕";rm.title="remove";
-      head.appendChild(th);head.appendChild(lab);head.appendChild(shw);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
+      const unw=document.createElement("label");unw.className="pxl";unw.style.cssText="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap";unw.title="draw this image under the fade/gradient instead of on top";
+      const unc=document.createElement("input");unc.type="checkbox";unc.checked=!!e.under;unw.appendChild(unc);unw.appendChild(document.createTextNode("Under fade"));
+      unc.addEventListener("change",()=>{e.under=unc.checked;draw();});
+      head.appendChild(th);head.appendChild(lab);head.appendChild(unw);head.appendChild(shw);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
       const pair=(a,b)=>{const r=document.createElement("div");r.className="e-inline";[a,b].forEach(([label,key,min,max])=>{const l=document.createElement("span");l.className="pxl";l.textContent=label;
         const inp=document.createElement("input");inp.type="range";inp.min=min;inp.max=max;inp.step=1;inp.style.flex="1";inp.value=(p[key]!=null?p[key]:0);
         inp.addEventListener("input",()=>{p[key]=+inp.value;draw();});r.appendChild(l);r.appendChild(inp);});row.appendChild(r);};
