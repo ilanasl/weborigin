@@ -232,24 +232,44 @@ export default function Subject({ nav, params }) {
       </div>
 
       {/* כלים */}
-      <div className="tools-grid">
-        {[
+      {(() => {
+        // כלי תרגול: 3 בשורה (אם השורה האחרונה חסרה — האריחים בה מתרחבים). כלי המבחן: שורה נפרדת למטה, שני אריחים רחבים.
+        const tools = [
           fcCount > 0 && { k: 'fc', label: 'כרטיסיות', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
           { k: 'ex', label: 'תסביר לי', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          isLang && { k: 'pos', label: 'חלקי דיבר', icon: '🔤', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'pos' }) },
           { k: 'ck', label: 'בדוק תרגיל', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
-          { k: 'pl', label: 'מתכנן המבחן', icon: '📅', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
-          { k: 'pe', label: 'מבחנים שעברו', icon: '🗂️', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
-        ].filter(Boolean).map((t) => (
-          <button key={t.k} type="button" className="tool" onClick={t.go}>
-            <span className="text-[20px] leading-none">{t.icon}</span>
-            <span className="leading-tight">{t.label}</span>
-            {t.count > 0 && <span className="tool-badge tnum">{t.count}</span>}
-            {t.dot && <span className="tool-dot" aria-label="צריך להגדיר חומר" />}
-          </button>
-        ))}
-      </div>
+        ].filter(Boolean)
+        const rest = tools.length % 3
+        const span = (i) => (rest && i >= tools.length - rest ? 6 / rest : 2)
+        const exam = [
+          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : 'תוכנית עד המבחן', icon: '📅', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pe', label: 'מבחנים שעברו', sub: 'ציונים וטעויות', icon: '🗂️', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
+        ]
+        return (
+          <div className="tools-grid">
+            {tools.map((t, i) => (
+              <button key={t.k} type="button" className="tool" style={{ gridColumn: `span ${span(i)}` }} onClick={t.go}>
+                <span className="text-[20px] leading-none">{t.icon}</span>
+                <span className="leading-tight">{t.label}</span>
+                {t.count > 0 && <span className="tool-badge tnum">{t.count}</span>}
+              </button>
+            ))}
+            {exam.map((t) => (
+              <button key={t.k} type="button" className="tool tool-wide" style={{ gridColumn: 'span 3' }} onClick={t.go}>
+                <span className="text-[24px] leading-none">{t.icon}</span>
+                <span className="flex flex-col gap-0.5 min-w-0">
+                  <span className="leading-tight">{t.label}</span>
+                  <span className="text-[12px] font-medium text-muted leading-tight">{t.sub}</span>
+                </span>
+                {t.dot && <span className="tool-dot" aria-hidden="true" />}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
       {needsMaterial && (
