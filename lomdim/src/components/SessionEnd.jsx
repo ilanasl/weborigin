@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Icon from '../components/Icon'
 import { DAILY_GOAL, DAILY_BONUS } from '../lib/coins'
 import { playDing, isMuted, setMuted } from '../lib/celebrate'
 
@@ -47,7 +48,7 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
       <div className="end-top">
         {party ? (
           <button type="button" className="hbtn" aria-label={muted ? 'להפעיל צלילים' : 'להשתיק צלילים'}
-            onClick={() => { setMuted(!muted); setMute(!muted) }}>{muted ? '🔇' : '🔊'}</button>
+            onClick={() => { setMuted(!muted); setMute(!muted) }}>{muted ? <Icon name="mute" /> : <Icon name="sound" />}</button>
         ) : tag ? <span className="end-tag">{tag}</span> : <span />}
         <button type="button" className="hbtn" aria-label="סגירה" onClick={onBack}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>

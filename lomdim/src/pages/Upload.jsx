@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { analyzeMaterial, fileHash } from '../lib/gemini'
 import Markdown from '../components/Markdown'
@@ -213,7 +214,7 @@ export default function Upload({ nav, params }) {
               <div className="flex flex-col gap-2">
                 {files.map((fe, i) => (
                   <div key={i} className="milky-row !py-2 !px-2.5" style={fe.dupe ? { opacity: 0.55 } : undefined}>
-                    <span className="up-thumb">{fe.kind === 'pdf' ? '📕' : fe.kind === 'text' ? '📄' : '🖼️'}</span>
+                    <span className="up-thumb"><Icon name={fe.kind === 'image' ? 'image' : 'file'} /></span>
                     <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span className="font-semibold text-[14px] truncate" dir="ltr" style={{ textAlign: 'right' }}>{fe.file.name}</span>
                       <span className="text-[12px] font-semibold" style={{ color: fe.dupe ? 'var(--accent)' : 'var(--muted)' }}>

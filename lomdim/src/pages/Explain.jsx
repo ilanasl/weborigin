@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { explain, prepNote } from '../lib/gemini'
 import Markdown from '../components/Markdown'
@@ -108,7 +109,7 @@ export default function Explain({ nav, params }) {
         <div className="flex-1" />
         {history.length > 0 && (
           <button type="button" className="hbtn !text-[13px]" onClick={() => setShowHist((v) => !v)} aria-expanded={showHist}>
-            💬 שיחות קודמות ({history.length})
+            <Icon name="chat" size={16} />שיחות קודמות ({history.length})
           </button>
         )}
         <button type="button" className="up-pill !h-10" onClick={newChat}>

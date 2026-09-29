@@ -1,10 +1,11 @@
+import Icon from '../components/Icon'
 export default function Soon({ nav, params }) {
   const { title } = params
   return (
     <div className="pt-2">
       <h1 className="text-[23px] font-black mb-4">{title}</h1>
       <div className="card empty">
-        <div className="big">🛠️</div>
+        <div className="big flex justify-center"><Icon name="sparkle" size={40} /></div>
         <div className="font-semibold text-ink text-[15px] mb-1">בקרוב</div>
         המסך הזה מתוכנן ובדרך — נבנה אותו בשלב הבא.<br />
         בינתיים אפשר להעלות חומר, לתרגל, ולהשתמש ב"תסביר לי" וב"בדוק תרגיל".

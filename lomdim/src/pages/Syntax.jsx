@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { generateSentenceTags } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
@@ -73,7 +74,7 @@ export default function Syntax({ nav, params }) {
     </div>
   )
   if (!items.length) return (
-    <div className="empty pt-10"><div className="big">🧩</div>אין משפטים כרגע.<br />
+    <div className="empty pt-10"><div className="big"><Icon name="blocks" size={40} /></div>אין משפטים כרגע.<br />
       <button className="btn btn-primary mt-3" onClick={() => genMore(true)}>צור משפטים לתרגול</button>
     </div>
   )
@@ -210,7 +211,7 @@ export default function Syntax({ nav, params }) {
         <FeedbackSheet ok={perfect}
           title={perfect ? '🎉 ניתוח מושלם!' : `כמעט! ${correctCount} מתוך ${tokens.length}`}
           explain={item.explain}
-          extra={!perfect && <div className="text-[13px] font-semibold" style={{ color: '#5A43D1' }}>📓 נוספו שאלות תרגול על המילים האלה ל„לחיזוק”</div>}
+          extra={!perfect && <div className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: '#5A43D1' }}><Icon name="book" size={16} />נוספו שאלות תרגול על המילים האלה ל„לחיזוק”</div>}
           busy={generating}
           nextLabel={generating ? 'מכין…' : (idx + 1 < items.length ? 'המשפט הבא' : 'עוד משפטים')}
           onNext={next}
