@@ -116,16 +116,14 @@ export default function Home({ nav }) {
           <button type="button" className="arrow-btn" style={{ color: '#5E7A00' }} onClick={startToday} aria-label="להתחיל את משימת היום"><ArrowIcon /></button>
           <div className="hero-num tnum">{Math.min(today.n, DAILY_GOAL)}<span>/{DAILY_GOAL}</span></div>
           <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
-          <div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div>
+          <div className="hero-foot"><div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div></div>
         </div>
         <div className="hero hero-b">
           <button type="button" className="arrow-btn" style={{ color: '#5A43D1' }} onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים"><ArrowIcon /></button>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3c.8 3.4 5 5.3 5 10a5 5 0 0 1-10 0c0-2.6 1.4-4.2 2.6-5.2.2 1.6.9 2.7 1.9 3.2-.1-3.1.3-5.6.5-8z" /></svg>
-          <div className="hero-bottom">
-            <div className="hero-num tnum">{today.streak}</div>
-            <div className="hero-lbl">ימים ברצף</div>
-            <div className="hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
-          </div>
+          <svg className="hero-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3c.8 3.4 5 5.3 5 10a5 5 0 0 1-10 0c0-2.6 1.4-4.2 2.6-5.2.2 1.6.9 2.7 1.9 3.2-.1-3.1.3-5.6.5-8z" /></svg>
+          <div className="hero-num tnum">{today.streak}</div>
+          <div className="hero-lbl">ימים ברצף</div>
+          <div className="hero-foot hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
         </div>
       </div>
 
