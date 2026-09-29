@@ -213,7 +213,8 @@ export default function Syntax({ nav, params }) {
           extra={!perfect && <div className="text-[13px] font-semibold" style={{ color: '#5A43D1' }}>📓 נוספו שאלות תרגול על המילים האלה ל„לחיזוק”</div>}
           busy={generating}
           nextLabel={generating ? 'מכין…' : (idx + 1 < items.length ? 'המשפט הבא' : 'עוד משפטים')}
-          onNext={next} />
+          onNext={next}
+          finishLabel="סיים תרגול ✓" onFinish={() => nav.back()} />
       )}
     </div>
   )
