@@ -35,11 +35,16 @@ export function AuthProvider({ children }) {
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
   const signOut = () => supabase.auth.signOut()
 
-  async function saveProfile({ name, gender }) {
+  // מחזיר false אם עמודת הכיתה עוד לא נוספה במסד (צריך להריץ את ה-SQL) — ואז שומר בלי הכיתה
+  async function saveProfile({ name, gender, grade }) {
     const uid = user?.id
-    if (!uid) return
-    await supabase.from('profiles').upsert({ user_id: uid, name, gender, updated_at: new Date().toISOString() })
+    if (!uid) return true
+    const row = { user_id: uid, name, gender, updated_at: new Date().toISOString() }
+    const { error } = await supabase.from('profiles').upsert(grade ? { ...row, grade } : row)
+    let ok = true
+    if (error && grade) { ok = false; await supabase.from('profiles').upsert(row) }
     await loadProfile(uid)
+    return ok
   }
 
   return (
