@@ -16,6 +16,7 @@ function shuffleChoices(q) {
   return { ...q, choices, answer: choices.indexOf(correct) }
 }
 const now = () => new Date().toISOString()
+const ROUND = 15 // כמה פריטים בסבב חיזוק אחד
 
 export default function Reinforce({ nav, params }) {
   const { subjectId, subjectName } = params
@@ -46,7 +47,10 @@ export default function Reinforce({ nav, params }) {
         if (r.kind === 'question') { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, streak: r.streak || 0, q: shuffleChoices(q) }) }
         else { const c = (fcs || []).find((x) => x.id === r.ref_id); if (c) items.push({ type: 'fc', reviewId: r.id, streak: r.streak || 0, card: c }) }
       }
-      setQueue(shuffle(items))
+      // סבב של עד ROUND פריטים: קודם אלה שחיכו הכי הרבה זמן, ואז מערבבים
+      const byWait = (ri || []).reduce((m, r) => (m[r.id] = r.updated_at || r.created_at || '', m), {})
+      items.sort((a, b) => String(byWait[a.reviewId]).localeCompare(String(byWait[b.reviewId])))
+      setQueue(shuffle(items.slice(0, ROUND)))
       setLoading(false)
     })()
   }, [subjectId])
