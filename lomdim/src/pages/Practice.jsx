@@ -59,7 +59,7 @@ export default function Practice({ nav, params }) {
     return (
       <SessionEnd correct={correct} total={queue.length} reward={reward}
         tag={[subjectName, topicName].filter(Boolean).join(' · ')}
-        title={pct === 100 ? 'מושלם! הכול נכון 🎉' : pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור ולנסות שוב'}
+        title={pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור ולנסות שוב'}
         subtitle={pct >= 80 ? 'ממשיכים ככה.' : 'עוד קצת תרגול, וזה אצלך.'}
         wrongCount={examMode ? 0 : queue.length - correct}
         onReinforce={() => { nav.back(); nav.go('reinforce', { subjectId, subjectName }) }}

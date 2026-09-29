@@ -6,12 +6,9 @@ const CONFETTI_COLORS = ['#D4F46A', '#B7A5FF', '#FFB28A', '#7FDCCB', '#FFA3C4', 
 
 // מסך סיום סבב — רגיל, או חגיגה כשהסבב השלים את משימת היום
 export default function SessionEnd({ correct, total, title, subtitle, tag, reward, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
-  // משימת היום הושלמה עכשיו → מסך חגיגה מלא. סבב מושלם (הכול נכון) → קונפטי וצליל גם על המסך הרגיל.
   const celebrate = !!reward?.events?.some((e) => e.reason === 'daily_goal')
-  const perfect = total >= 5 && correct === total
-  const party = celebrate || perfect
   const [muted, setMute] = useState(isMuted())
-  useEffect(() => { if (party) playDing() }, [party])
+  useEffect(() => { if (celebrate) playDing() }, [celebrate])
 
   const pct = total ? correct / total : 0
   const C = 2 * Math.PI * 84
@@ -36,7 +33,7 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
 
   return (
     <div className="end">
-      {party && (
+      {celebrate && (
         <div className="confetti" aria-hidden="true">
           {pieces.map((p, i) => (
             <i key={i} style={{ left: p.left, width: p.w, height: p.h, borderRadius: p.r, background: p.color,
@@ -46,7 +43,7 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
       )}
 
       <div className="end-top">
-        {party ? (
+        {celebrate ? (
           <button type="button" className="hbtn" aria-label={muted ? 'להפעיל צלילים' : 'להשתיק צלילים'}
             onClick={() => { setMuted(!muted); setMute(!muted) }}>{muted ? '🔇' : '🔊'}</button>
         ) : tag ? <span className="end-tag">{tag}</span> : <span />}
