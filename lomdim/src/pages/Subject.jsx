@@ -228,7 +228,11 @@ export default function Subject({ nav, params }) {
                 <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>הכי כדאי לתרגל עכשיו</span>
                 <div className="flex gap-1.5 flex-wrap">
                   {focus.map((t) => (
-                    <span key={t.id} className="ready-chip ready-chip-weak"><b aria-hidden="true">!</b>{t.name}</span>
+                    <button key={t.id} type="button" className="ready-chip ready-chip-weak" aria-label={`לתרגל את ${t.name}`}
+                      onClick={() => nav.go('practice', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name, mode: 'practice' })}>
+                      <b aria-hidden="true">!</b>{t.name}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.5 }}><path d="M15 6l-6 6 6 6" /></svg>
+                    </button>
                   ))}
                 </div>
               </div>
