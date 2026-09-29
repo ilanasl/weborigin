@@ -1,3 +1,4 @@
+import Icon from '../components/Icon'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -138,9 +139,9 @@ export default function Settings({ nav }) {
         {gradeNote && <div className="text-[13px] font-semibold" style={{ color: 'var(--accent)' }}>{gradeNote}</div>}
       </div>
 
-      <div className="list-title">ניקוד שאלות קיימות</div>
-      <div className="card">
-        <div className="text-[14px] mb-1 font-semibold">🔤 הוסף ניקוד לבניינים ולשם המספר</div>
+      <div className="home-h2 mt-7 mb-2.5"><h2>ניקוד שאלות קיימות</h2></div>
+      <div className="milky-row !flex-col !items-stretch !gap-2">
+        <div className="text-[14.5px] font-bold flex items-center gap-2"><Icon name="text" size={18} />הוסף ניקוד לבניינים ולשם המספר</div>
         <div className="text-muted text-[13px] mb-3">
           מעבר חד‑פעמי שמוסיף ניקוד רק לשמות הבניינים (פָּעַל / פּוֹעֵל / פֻּעַל וכו') ולשם המספר (שְׁמוֹנָה מול שְׁמוֹנֶה) —
           ולא נוגע במילים אחרות. שומר את השאלות ואת כל ההיסטוריה. שאלות חדשות כבר מגיעות מנוקדות.
@@ -151,13 +152,13 @@ export default function Settings({ nav }) {
           {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <button className="btn btn-wide" onClick={addNikud} disabled={nkBusy}>
-          {nkBusy ? 'מנקד…' : '🔤 נקד שאלות קיימות'}
+          {nkBusy ? 'מנקד…' : <><Icon name="pencil" size={17} />נקד שאלות קיימות</>}
         </button>
         {nkNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: nkBusy ? 'var(--muted)' : 'var(--good)' }}>{nkNote}</div>}
       </div>
 
-      <div className="list-title">איפוס</div>
-      <div className="card">
+      <div className="home-h2 mt-7 mb-2.5"><h2>איפוס</h2></div>
+      <div className="milky-row !flex-col !items-stretch !gap-2">
         <div className="text-[14px] mb-1 font-semibold">להתחיל נקי</div>
         <div className="text-muted text-[13px] mb-3">
           מאפס את כל ההתקדמות (התשובות והאחוזים) ל-0. שימושי כש{profile?.name || 'הילד/ה'} מתחיל לעבוד אחרי הבדיקות שלך.
