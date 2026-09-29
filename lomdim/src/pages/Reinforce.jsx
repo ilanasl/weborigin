@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { GRAD } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
-import Markdown from '../components/Markdown'
+import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 // ערבוב מיקום התשובה בזמן התצוגה — פיזור גם לשאלות שנשמרו עם התשובה במיקום קבוע
@@ -124,15 +124,12 @@ export default function Reinforce({ nav, params }) {
 
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="flex-1 text-[12.5px] text-muted font-semibold tnum">📓 חיזוק · {idx + 1} מתוך {queue.length}</div>
-        <span className="text-[12px] text-muted">{subjectName}</span>
-      </div>
+      <SegProgress total={queue.length} idx={idx} />
 
-      {itemTopic && <div className="topic-tag mb-1">📖 {itemTopic}</div>}
+      {item.type !== 'q' && itemTopic && <div className="topic-tag mb-1">📖 {itemTopic}</div>}
 
       {item.type === 'q' ? (
-        <QuestionCard item={item} picked={picked} onPick={answerQ} onNext={next} />
+        <QuestionCard item={item} topic={itemTopic} picked={picked} onPick={answerQ} onNext={next} />
       ) : (
         <FlashCard item={item} flipped={flipped} setFlipped={setFlipped} onRate={rateFc} />
       )}
@@ -140,30 +137,17 @@ export default function Reinforce({ nav, params }) {
   )
 }
 
-function QuestionCard({ item, picked, onPick, onNext }) {
+function QuestionCard({ item, topic, picked, onPick, onNext }) {
   const q = item.q
   const answered = picked != null
   return (
     <>
-      <div className="font-disp font-bold text-[19px] leading-snug my-3">{q.q}</div>
-      <div className="flex flex-col gap-[10px]">
-        {q.choices.map((c, i) => {
-          let cls = 'border-line'
-          if (answered && i === q.answer) cls = 'border-good bg-good-soft'
-          else if (answered && i === picked) cls = 'border-bad bg-bad-soft'
-          return (
-            <button key={i} disabled={answered} onClick={() => onPick(i)}
-              className={`text-start rounded-[13px] border-[1.5px] ${cls} px-4 py-3 text-[15px] font-medium transition`}>{c}</button>
-          )
-        })}
-      </div>
+      <QuestionBlock topic={topic} sub="חיזוק" text={q.q} />
+      <Options choices={q.choices} answer={q.answer} picked={picked} onPick={onPick} />
       {answered && (
-        <div className={`mt-4 rounded-[14px] p-4 text-[14px] ${picked === q.answer ? 'bg-good-soft' : 'bg-bad-soft'}`}>
-          <div className="font-disp font-bold mb-1">{picked === q.answer ? '✅ יפה! מתקדם לעבר הטמעה' : '💡 חוזר לחיזוק — ננסה שוב'}</div>
-          <Markdown text={q.explain} />
-        </div>
+        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה! מתקדם לעבר הטמעה' : 'חוזר לחיזוק — ננסה שוב'}
+          explain={q.explain} onNext={onNext} />
       )}
-      {answered && <button className="btn btn-primary btn-wide mt-4" onClick={onNext}>הבא ←</button>}
     </>
   )
 }

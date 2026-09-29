@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
 import { settleSession } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
-import Markdown from '../components/Markdown'
+import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 // ערבוב מיקום התשובה בכל שאלה בזמן התצוגה — מבטיח פיזור גם לשאלות ישנות שנשמרו עם התשובה במיקום 1
@@ -24,6 +24,7 @@ export default function Practice({ nav, params }) {
   const [picked, setPicked] = useState(null)
   const [showHint, setShowHint] = useState(false)
   const [correct, setCorrect] = useState(0)
+  const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
   const [reward, setReward] = useState(null)   // { earned, events } — מטבעות שנצברו בסבב
@@ -82,6 +83,7 @@ export default function Practice({ nav, params }) {
     setPicked(i)
     const ok = i === q.answer
     if (ok) setCorrect((c) => c + 1)
+    setResults((r) => { const n = [...r]; n[idx] = ok; return n })
     await supabase.from('attempts').insert({
       question_id: q.id, topic_id: q.topic_id, subject_id: subjectId,
       correct: ok, difficulty: q.difficulty,
@@ -122,53 +124,25 @@ export default function Practice({ nav, params }) {
     setIdx(idx + 1); setPicked(null); setShowHint(false)
   }
 
-  const badge = { קל: 'bg-good-soft text-good', בינוני: 'bg-accent-soft text-accent', קשה: 'bg-bad-soft text-bad' }[q.difficulty] || ''
-
+  const topicLabel = topicNames[q.topic_id] || topicName
+  const last = idx >= queue.length - 1
   return (
-    <div className="pt-2">
-      <div className="flex items-center gap-2 mb-2.5">
-        <div className="flex-1 text-[12.5px] text-muted font-semibold tnum">
-          {examMode ? 'מבחן · ' : ''}שאלה {idx + 1} מתוך {queue.length}
-        </div>
-        <span className={`pill ${badge}`}>{q.difficulty}</span>
-      </div>
+    <div className="pt-1">
+      <SegProgress total={queue.length} idx={idx} results={results} />
 
-      {(topicNames[q.topic_id] || topicName) && <div className="topic-tag">📖 {topicNames[q.topic_id] || topicName}</div>}
+      <QuestionBlock topic={topicLabel} sub={`${examMode ? 'מבחן · ' : ''}${q.difficulty || ''}`} text={q.q} />
 
-      <div className="font-disp font-bold text-[19px] leading-snug my-4">{q.q}</div>
-
-      <div className="flex flex-col gap-[10px]">
-        {q.choices.map((c, i) => {
-          let cls = 'border-line'
-          if (answered && i === q.answer) cls = 'border-good bg-good-soft'
-          else if (answered && i === picked) cls = 'border-bad bg-bad-soft'
-          return (
-            <button key={i} disabled={answered} onClick={() => answer(i)}
-              className={`text-start rounded-[13px] border-[1.5px] ${cls} px-4 py-3 text-[15px] font-medium transition`}>
-              {c}
-            </button>
-          )
-        })}
-      </div>
+      <Options choices={q.choices} answer={q.answer} picked={picked} onPick={answer} />
 
       {!answered && q.hint && !examMode && (
         showHint
-          ? <div className="mt-3 rounded-[12px] bg-accent-soft border border-line p-3 text-[14px]">💡 {q.hint}</div>
-          : <button className="mt-3 rounded-[12px] border border-dashed border-line bg-accent-soft text-accent font-semibold px-4 py-[9px] text-sm"
-              onClick={() => setShowHint(true)}>💡 רמז</button>
+          ? <div className="q-hint">💡 {q.hint}</div>
+          : <button type="button" className="q-hint" onClick={() => setShowHint(true)}>💡 רמז</button>
       )}
 
       {answered && (
-        <div className={`mt-4 rounded-[14px] p-4 text-[14px] ${picked === q.answer ? 'bg-good-soft' : 'bg-bad-soft'}`}>
-          <div className="font-disp font-bold mb-1">{picked === q.answer ? '✅ יפה מאוד!' : '💡 כמעט — בוא נבין'}</div>
-          <Markdown text={q.explain} />
-        </div>
-      )}
-
-      {answered && (
-        <button className="btn btn-primary btn-wide mt-4" onClick={next}>
-          {idx >= queue.length - 1 ? 'לסיכום ←' : 'שאלה הבאה ←'}
-        </button>
+        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה מאוד!' : 'כמעט — בוא נבין'}
+          explain={q.explain} nextLabel={last ? 'לסיכום' : 'הבא'} onNext={next} />
       )}
     </div>
   )

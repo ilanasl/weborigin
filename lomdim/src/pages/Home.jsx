@@ -183,7 +183,11 @@ export default function Home({ nav }) {
         </div>
       )}
 
-      <button type="button" className="milky-row mt-5" onClick={() => nav.go('parentReport')}>
+      <button type="button" className="milky-row mt-5" onClick={() => nav.go('examBoard')}>
+        <span className="flex-1 text-start font-semibold text-[15px]">🗓️ לוח המבחנים והלו״ז</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+      </button>
+      <button type="button" className="milky-row -mt-1" onClick={() => nav.go('parentReport')}>
         <span className="flex-1 text-start font-semibold text-[15px]">👨‍👩‍👦 דוח הורה</span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
