@@ -1,12 +1,11 @@
 // ── מערכת מטבעות ותגמול ──
 // היתרה = סכום כל שורות coin_events (רווח חיובי, פדיון שלילי). שורות לא נמחקות → מטבעות לא נעלמים.
 import { supabase } from './supabase'
-import { mastery } from './mastery'
+import { mastery, STRONG } from './mastery'
 
 export const DAILY_GOAL = 10        // כמה שאלות ביום נחשבות "משימת היום"
 export const DAILY_BONUS = 10       // בונוס על השלמת היעד היומי
 export const MASTERY_BONUS = 25     // נושא שהגיע לראשונה לרמת "חזק"
-const STRONG = 75
 
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}` }
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }

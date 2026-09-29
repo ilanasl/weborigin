@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { readiness } from '../lib/mastery'
+import { mastery, examReadiness } from '../lib/mastery'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
@@ -35,7 +35,7 @@ export default function Home({ nav }) {
     const [{ data: subs }, { data: att }, { data: tp }, { data: mt }, bal] = await Promise.all([
       supabase.from('subjects').select('*').order('created_at'),
       supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
-      supabase.from('topics').select('id, subject_id'),
+      supabase.from('topics').select('id, subject_id, in_exam'),
       supabase.from('materials').select('id, subject_id, storage_path, content_hash'),
       coinBalance(),
     ])
@@ -55,7 +55,9 @@ export default function Home({ nav }) {
       ].filter((x) => x.days != null && x.days >= 0).sort((a, b) => a.days - b.days)
       return {
         ...s,
-        ready: readiness(Object.values(byTopic)),
+        // מוכנות למבחן: נושאי המבחן (או כולם), נושא שלא תורגל = 0
+        ready: examReadiness((tp || []).filter((t) => t.subject_id === s.id)
+          .map((t) => ({ in_exam: t.in_exam, pct: mastery(byTopic[t.id] || []).pct }))).pct,
         nTopics: (tp || []).filter((t) => t.subject_id === s.id).length,
         // דף שמשויך לכמה נושאים נספר פעם אחת
         nMaterials: new Set((mt || [])

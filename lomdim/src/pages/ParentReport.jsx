@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
-import { mastery } from '../lib/mastery'
+import { mastery, examReadiness, level } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 
 const DAY = 86400000
@@ -27,7 +27,7 @@ export default function ParentReport({ nav }) {
     (async () => {
       const [{ data: subs }, { data: tp }, { data: at }, { data: ri }] = await Promise.all([
         supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
-        supabase.from('topics').select('id, subject_id, name'),
+        supabase.from('topics').select('id, subject_id, name, in_exam'),
         supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at'),
         supabase.from('review_items').select('subject_id'),
       ])
@@ -45,10 +45,9 @@ export default function ParentReport({ nav }) {
           att: atts.filter((a) => a.topic_id === t.id),
         }))
         const topicsNow = sTopics.map((t) => ({ ...t, m: mastery(t.att.map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: a.ts })), now) }))
-        const pcts = topicsNow.map((t) => t.m.pct).filter((p) => p != null)
-        const ready = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null
-        const strong = topicsNow.filter((t) => t.m.pct != null && t.m.pct >= 75)
-        const weak = topicsNow.filter((t) => t.m.pct != null && t.m.pct < 50).sort((a, b) => a.m.pct - b.m.pct)
+        const ready = examReadiness(topicsNow.map((t) => ({ in_exam: t.in_exam, pct: t.m.pct }))).pct
+        const strong = topicsNow.filter((t) => level(t.m.pct) === 'strong')
+        const weak = topicsNow.filter((t) => level(t.m.pct) === 'weak').sort((a, b) => a.m.pct - b.m.pct)
         const exams = [
           { kind: 'מבחן מסכם', days: daysUntil(s.exam_date) },
           { kind: 'מבדק', days: daysUntil(s.quiz_date) },
@@ -57,13 +56,10 @@ export default function ParentReport({ nav }) {
         const weekN = weekAtt.filter((a) => a.subject_id === s.id).length
 
         // סדרת מוכנות לאורך זמן
-        const series = checkpoints.map((T) => {
-          const vals = sTopics.map((t) => {
-            const past = t.att.filter((a) => a.ts <= T).map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: a.ts }))
-            return mastery(past, T).pct
-          }).filter((p) => p != null)
-          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null
-        })
+        const series = checkpoints.map((T) => examReadiness(sTopics.map((t) => ({
+          in_exam: t.in_exam,
+          pct: mastery(t.att.map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: a.ts })), T).pct,
+        }))).pct)
         return { ...s, topicsNow, ready, strong, weak, exams, reviewCount, weekN, series }
       })
 
