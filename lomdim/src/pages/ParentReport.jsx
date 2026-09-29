@@ -3,6 +3,7 @@ import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
+import Icon from '../components/Icon'
 
 const DAY = 86400000
 const WEEK = 7 * DAY
@@ -95,10 +96,13 @@ export default function ParentReport({ nav }) {
   const today = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })
 
   const Chips = ({ arr, kind }) => (
-    <div className="rc-chips">
-      {(arr.length ? arr : [{ id: '_', name: '—' }]).map((t) => (
-        <span key={t.id} className={`rc-chip ${kind}`}>● {t.name}{t.m?.pct != null ? ` ${t.m.pct}%` : ''}</span>
-      ))}
+    <div className="flex flex-wrap gap-1.5">
+      {arr.length ? arr.map((t) => (
+        <span key={t.id} className={`pr-chip ${kind}`}>
+          <Icon name={kind === 'good' ? 'check' : 'bulb'} size={14} stroke={2.6} />
+          {t.name}{t.m?.pct != null ? <span className="tnum opacity-70"> {t.m.pct}%</span> : ''}
+        </span>
+      )) : <span className="text-[12.5px] text-muted">עוד אין</span>}
     </div>
   )
 
@@ -110,54 +114,34 @@ export default function ParentReport({ nav }) {
   }
 
   return (
-    <div className="pt-2">
-      <h1 className="text-[23px] font-black mb-1">דוח הורה 👨‍👩‍👦</h1>
-      <div className="text-muted text-[13.5px] mb-4">התקדמות של {name} · {today}</div>
-
-      {/* אריחי-על */}
-      <div className="card">
-        <div className="flex gap-3">
-          {[
-            { v: `${data.streak} 🔥`, l: 'רצף ימים' },
-            { v: data.activeSubjects, l: 'מקצועות פעילים' },
-            { v: data.weekTotal, l: 'שאלות השבוע' },
-          ].map((t, i) => (
-            <div key={i} className="flex-1 text-center rounded-[14px] py-3" style={{ background: 'var(--bg)' }}>
-              <div className="font-disp font-black text-[24px] text-primary tnum">{t.v}</div>
-              <div className="text-[12px] text-muted mt-0.5">{t.l}</div>
-            </div>
-          ))}
-        </div>
-        {data.weekPct != null && (
-          <div className="text-center text-[13px] text-muted mt-3">אחוז הצלחה השבוע: <b className="tnum" style={{ color: 'var(--good)' }}>{data.weekPct}%</b></div>
-        )}
+    <div className="pt-1 flex flex-col gap-4">
+      <div>
+        <div className="text-[14px] font-medium text-muted">התקדמות של {name} · {today}</div>
+        <h1 className="font-black text-[32px] leading-[1.05] mt-1">דוח הורה</h1>
       </div>
 
-      {/* פעילות אחרונה */}
-      {data.feed.length > 0 && (
-        <>
-          <div className="list-title">פעילות אחרונה</div>
-          <div className="card">
-            {data.feed.map((g, i) => (
-              <div key={i} className="flex items-center gap-2.5 py-2 border-b border-line last:border-0">
-                <span className="w-2 h-2 rounded-full flex-none" style={{ background: g.color }} />
-                <div className="flex-1 min-w-0 text-[14px]">
-                  <b>{g.name}</b> — תרגל {g.n} שאלות · {g.ok} נכון
-                </div>
-                <div className="text-[12px] text-muted flex-none">{fmtDay(g.day)}</div>
-              </div>
-            ))}
+      {/* אריחי-על */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { v: data.streak, l: 'ימי רצף', ic: 'flame', bg: '#D4F46A' },
+          { v: data.weekTotal, l: 'שאלות השבוע', ic: 'pencil', bg: '#B7A5FF' },
+          { v: data.weekPct == null ? '—' : `${data.weekPct}%`, l: 'הצלחה השבוע', ic: 'target', bg: '#7FDCCB' },
+        ].map((t, i) => (
+          <div key={i} className="pr-stat" style={{ background: t.bg }}>
+            <Icon name={t.ic} size={20} />
+            <div className="font-disp font-black text-[28px] leading-none tnum" dir="ltr" style={{ textAlign: 'right' }}>{t.v}</div>
+            <div className="text-[12px] font-semibold" style={{ color: 'rgba(19,19,22,.72)' }}>{t.l}</div>
           </div>
-        </>
-      )}
+        ))}
+      </div>
 
       {/* גרף התקדמות לאורך זמן */}
       {data.chartSubjects.length > 0 && (
-        <>
-          <div className="list-title">מוכנות לאורך זמן</div>
-          <div className="card">
+        <div>
+          <div className="home-h2 mb-2.5"><h2>מוכנות לאורך זמן</h2><span>5 שבועות</span></div>
+          <div className="milky-row !flex-col !items-stretch">
             <ProgressChart subjects={data.chartSubjects} />
-            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 justify-center">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center">
               {data.chartSubjects.map((s) => (
                 <span key={s.id} className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.chart }} />{s.name}
@@ -165,58 +149,70 @@ export default function ParentReport({ nav }) {
               ))}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* לפי מקצוע */}
-      <div className="list-title">לפי מקצוע</div>
-      {data.subjects.length === 0 ? (
-        <div className="card text-muted text-sm">עדיין אין מקצועות.</div>
-      ) : data.subjects.map((s) => (
-        <div key={s.id} className="card mb-3">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-[11px] grid place-items-center font-black flex-none"
-              style={{ background: s.bg, color: s.color }}>{s.name.charAt(0)}</div>
-            <div className="flex-1 min-w-0">
-              <div className="font-extrabold text-[16px]">{s.name}</div>
-              <div className="text-[12px] text-muted">
-                {s.exams.length
-                  ? s.exams.map((e) => `${e.kind} ${e.days === 0 ? 'היום' : `בעוד ${e.days} י׳`}`).join(' · ')
-                  : 'אין מבחן מתוכנן'}
+      <div className="flex flex-col gap-3">
+        <div className="home-h2"><h2>לפי מקצוע</h2><span>{data.activeSubjects} פעילים השבוע</span></div>
+        {data.subjects.length === 0 ? (
+          <div className="milky-row text-muted text-sm">עדיין אין מקצועות.</div>
+        ) : data.subjects.map((s) => (
+          <div key={s.id} className="pr-subj">
+            <div className="pr-subj-head" style={{ background: s.bg }}>
+              <div className="flex-1 min-w-0">
+                <div className="font-disp font-extrabold text-[18px]">{s.name}</div>
+                <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.72)' }}>
+                  {s.exams.length
+                    ? s.exams.map((e) => `${e.kind} ${e.days === 0 ? 'היום' : `בעוד ${e.days} ימים`}`).join(' · ')
+                    : 'אין מבחן מתוכנן'}
+                </div>
+              </div>
+              <div className="text-end">
+                <div className="font-disp font-black text-[28px] leading-none tnum" dir="ltr">{s.ready == null ? '—' : `${s.ready}%`}</div>
+                <div className="text-[11.5px] font-bold" style={{ color: 'rgba(19,19,22,.72)' }}>מוכנות</div>
               </div>
             </div>
-            <div className="text-end">
-              <div className="font-disp font-black text-[20px] tnum" style={{ color: 'var(--primary)' }}>{s.ready == null ? '—' : s.ready + '%'}</div>
-              <div className="text-[11px] text-muted">מוכנות</div>
+            <div className="flex flex-col gap-2.5 p-3.5">
+              {s.ready == null ? (
+                <div className="text-[13px] text-muted">עדיין אוספים נתונים — צריך עוד כמה תרגולים.</div>
+              ) : (
+                <>
+                  <div><div className="text-[12.5px] font-bold text-muted mb-1">שולט</div><Chips arr={s.strong} kind="good" /></div>
+                  <div><div className="text-[12.5px] font-bold text-muted mb-1">כדאי לחזק</div><Chips arr={s.weak} kind="weak" /></div>
+                </>
+              )}
+              <div className="text-[13px] text-muted flex flex-wrap gap-x-4 gap-y-1">
+                <span>תורגלו השבוע: <b className="text-ink tnum">{s.weekN}</b></span>
+                <span>ממתין ב״לחיזוק״: <b className="text-ink tnum">{s.reviewCount}</b></span>
+              </div>
+              {s.weak.length > 0 && (
+                <div className="text-[13px] rounded-[14px] p-2.5 leading-relaxed flex gap-2" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+                  <Icon name="bulb" size={17} />
+                  <span>כדאי להתמקד ב: <b>{s.weak.slice(0, 2).map((t) => t.name).join(', ')}</b>{s.exams.length ? ` — לקראת ה${s.exams[0].kind}.` : '.'}</span>
+                </div>
+              )}
             </div>
           </div>
+        ))}
+      </div>
 
-          {s.ready == null ? (
-            <div className="collecting">עדיין אוספים נתונים — צריך עוד כמה תרגולים.</div>
-          ) : (
-            <>
-              <div className="rc-group"><div className="rc-h">שולט</div><Chips arr={s.strong} kind="good" /></div>
-              <div className="rc-group"><div className="rc-h">כדאי לחזק</div><Chips arr={s.weak} kind="weak" /></div>
-            </>
-          )}
-
-          <div className="text-[13px] text-muted mt-2 flex flex-wrap gap-x-4 gap-y-1">
-            <span>תורגלו השבוע: <b className="text-ink tnum">{s.weekN}</b></span>
-            <span>ממתין ב״לחיזוק״: <b className="text-ink tnum">{s.reviewCount}</b></span>
-          </div>
-
-          {s.weak.length > 0 && (
-            <div className="text-[13px] mt-2 rounded-[10px] p-2.5 leading-relaxed"
-              style={{ background: 'var(--accent-soft)', color: 'color-mix(in srgb,var(--accent) 80%,#7a4b00)' }}>
-              💡 כדאי להתמקד ב: <b>{s.weak.slice(0, 2).map((t) => t.name).join(', ')}</b>
-              {s.exams.length ? ` — לקראת ה${s.exams[0].kind}.` : '.'}
+      {/* פעילות אחרונה */}
+      {data.feed.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <div className="home-h2 mb-1"><h2>פעילות אחרונה</h2></div>
+          {data.feed.map((g, i) => (
+            <div key={i} className="milky-row !py-2.5">
+              <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.color }} />
+              <div className="flex-1 min-w-0 text-[14px]"><b>{g.name}</b> — תרגל {g.n} שאלות · {g.ok} נכון</div>
+              <div className="text-[12px] text-muted flex-none">{fmtDay(g.day)}</div>
             </div>
-          )}
+          ))}
         </div>
-      ))}
+      )}
 
-      <div className="text-[12px] text-muted text-center mt-4 leading-relaxed">
-        הדוח מבוסס על נתוני התרגול במערכת. אחוזי המוכנות מחושבים לפי הצלחות אחרונות, קושי ותיקון ניחוש.
+      <div className="text-[12px] text-muted text-center leading-relaxed">
+        הדוח מבוסס על נתוני התרגול. שליטה בנושא = אחוז התשובות הנכונות מתוך 20 האחרונות; מוכנות = ממוצע נושאי המבחן, כשנושא שלא תורגל נספר כ-0.
       </div>
     </div>
   )
@@ -234,7 +230,7 @@ function ProgressChart({ subjects }) {
       {/* קווי רשת עדינים */}
       {[0, 50, 100].map((g) => (
         <g key={g}>
-          <line x1={padL} x2={W - padR} y1={ys(g)} y2={ys(g)} stroke="var(--line)" strokeWidth="1" />
+          <line x1={padL} x2={W - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
           <text x={padL - 5} y={ys(g) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{g}</text>
         </g>
       ))}
