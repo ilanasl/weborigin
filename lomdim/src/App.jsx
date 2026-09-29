@@ -130,8 +130,10 @@ function Shell() {
           <span className="font-disp font-extrabold text-lg">לומדים <span className="text-primary">ביחד</span></span>
         )}
         <div className="flex-1" />
+        {showNav && <>
         <button onClick={() => go('settings')} title="הגדרות" aria-label="הגדרות" className="hbtn">⚙︎</button>
         <button onClick={signOut} className="hbtn">יציאה</button>
+        </>}
       </header>
       <Page nav={nav} params={route.params} />
       {showNav && <FloatingNav route={route.name} go={go} reset={reset} />}

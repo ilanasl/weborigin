@@ -240,3 +240,39 @@ button{font-family:inherit; cursor:pointer}
 /* כפתורי כותרת עליונה — עיגולים חלביים */
 .hbtn{ height:40px; min-width:40px; padding:0 12px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
   background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi); color:var(--ink); font-weight:600; font-size:14px }
+
+/* ── מסך שאלה ── */
+.q-top{ display:flex; align-items:center; gap:12px; margin:4px 0 16px }
+.q-segs{ flex:1; display:flex; gap:4px }
+.q-segs i{ flex:1; height:6px; border-radius:3px; transition:background .2s }
+.q-top b{ font-family:var(--disp); font-weight:800; font-size:15px }
+.q-block{ border-radius:30px; background:var(--primary); color:var(--on-fill); padding:16px 18px 20px;
+  display:flex; flex-direction:column; align-items:flex-start; gap:12px }
+.q-tag{ display:inline-flex; align-items:center; gap:7px; max-width:100%; background:var(--on-fill); color:var(--primary);
+  border-radius:14px; padding:8px 13px; font-weight:700; font-size:15px; line-height:1.3 }
+.q-sub{ font-size:13.5px; font-weight:500; color:rgba(19,19,22,.7); margin-bottom:4px }
+.q-text{ font-family:var(--disp); font-weight:800; font-size:21px; line-height:1.3 }
+.q-opts{ display:flex; flex-direction:column; gap:10px; margin-top:16px }
+.q-opt{ display:flex; align-items:center; gap:12px; width:100%; min-height:58px; padding:10px 14px; border-radius:18px; text-align:start;
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi); color:var(--ink);
+  font-size:15px; font-weight:500; line-height:1.45; transition:.15s }
+.q-letter{ width:32px; height:32px; flex:none; border-radius:16px; background:rgba(255,255,255,.9); color:var(--on-fill);
+  display:flex; align-items:center; justify-content:center; font-family:var(--disp); font-weight:800; font-size:14px }
+.q-opt.ok{ background:var(--good); border-color:transparent; color:var(--on-fill); box-shadow:none }
+.q-opt.bad{ background:var(--bad); border-color:transparent; color:var(--on-fill); box-shadow:none }
+.q-opt.ok .q-letter, .q-opt.bad .q-letter{ background:var(--on-fill); color:#fff }
+.q-opt.dim{ opacity:.45 }
+.q-sheet-space{ height:260px }
+.q-sheet{ position:fixed; z-index:40; left:0; right:0; bottom:0; margin:0 auto; max-width:760px; max-height:62vh; overflow:auto;
+  background:#F4F1EA; color:#141416; border-radius:30px 30px 0 0; padding:12px 22px calc(22px + env(safe-area-inset-bottom,0));
+  display:flex; flex-direction:column; gap:12px; box-shadow:0 -12px 40px rgba(0,0,0,.45); animation:sheetUp .22s ease-out }
+@keyframes sheetUp{ from{ transform:translateY(40px); opacity:0 } to{ transform:none; opacity:1 } }
+.q-grip{ align-self:center; width:40px; height:5px; border-radius:3px; background:rgba(20,20,22,.18) }
+.q-sheet-title{ font-family:var(--disp); font-weight:900; font-size:24px }
+.q-sheet.bad .q-sheet-title{ color:#B8501C }
+.q-sheet-body{ font-size:15px; line-height:1.6; color:#3E3E45 }
+.q-next{ height:56px; flex:none; border-radius:28px; border:none; background:#141416; color:#fff; font-family:var(--disp); font-weight:700; font-size:17px;
+  display:flex; align-items:center; justify-content:center; gap:8px }
+.q-hint{ margin-top:12px; border-radius:16px; padding:10px 14px; font-size:14px; font-weight:600;
+  background:var(--accent-soft); color:var(--accent); border:1px dashed color-mix(in srgb, var(--accent) 45%, transparent) }
+.q-sheet-body *{ color:inherit !important; border-color:rgba(20,20,22,.15) !important }
