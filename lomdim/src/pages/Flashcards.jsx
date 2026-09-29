@@ -4,6 +4,7 @@ import { GRAD } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
 import { primeAudio } from '../lib/celebrate'
 import SessionEnd from '../components/SessionEnd'
+import { checkPlanDayDone } from '../lib/plan'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
 const SESSION = 12   // כמה כרטיסיות בסבב
@@ -48,12 +49,13 @@ export default function Flashcards({ nav, params }) {
   const [correct, setCorrect] = useState(0)
   const [results, setResults] = useState([])
   const [reward, setReward] = useState(null)
+  const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
   const [empty, setEmpty] = useState(false)
 
   async function build() {
-    setLoading(true); setDone(false); setIdx(0); setPicked(null); setCorrect(0); setResults([]); setReward(null)
+    setLoading(true); setDone(false); setIdx(0); setPicked(null); setCorrect(0); setResults([]); setReward(null); setPlanDay(null)
     const [{ data: cards }, { data: tp }] = await Promise.all([
       supabase.from('flashcards').select('*').eq('subject_id', subjectId),
       supabase.from('topics').select('id, name').eq('subject_id', subjectId),
@@ -80,7 +82,7 @@ export default function Flashcards({ nav, params }) {
   if (done) {
     const pct = Math.round(correct / queue.length * 100)
     return (
-      <SessionEnd correct={correct} total={queue.length} reward={reward}
+      <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay}
         tag={`${subjectName} · כרטיסיות`}
         title={pct >= 80 ? 'שליטה יפה במושגים!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור על החומר'}
         onAgain={build} onBack={() => nav.back()} />
@@ -120,6 +122,7 @@ export default function Flashcards({ nav, params }) {
       setDone(true)
       const r = await settleSession({ subjectId, correctCount: correct })
       setReward(r)
+      setPlanDay(await checkPlanDayDone(subjectId))
       return
     }
     setIdx(idx + 1); setPicked(null)

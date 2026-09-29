@@ -367,3 +367,7 @@ button{font-family:inherit; cursor:pointer}
 input[type="date"].field, input[type="time"].field{ -webkit-appearance:none; appearance:none; display:block;
   box-sizing:border-box; width:100%; max-width:100%; min-width:0; min-height:46px }
 input[type="date"]::-webkit-date-and-time-value{ text-align:start }
+
+/* חגיגת "סיימת את היום בתוכנית" במסך הסיום */
+.plan-win{ display:flex; align-items:center; gap:12px; border-radius:22px; padding:14px 16px; background:var(--good); color:var(--on-fill) }
+.plan-win-check{ width:44px; height:44px; flex:none; border-radius:22px; background:var(--on-fill); color:var(--good); display:flex; align-items:center; justify-content:center }

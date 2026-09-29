@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { GRAD, VAR_GRAD, varKind, isVarKind } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
 import SessionEnd from '../components/SessionEnd'
+import { checkPlanDayDone } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
@@ -28,6 +29,7 @@ export default function Reinforce({ nav, params }) {
   const [graduated, setGraduated] = useState(0)
   const [correct, setCorrect] = useState(0)
   const [reward, setReward] = useState(null)
+  const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [done, setDone] = useState(false)
   const [topicNames, setTopicNames] = useState({})
 
@@ -77,6 +79,7 @@ export default function Reinforce({ nav, params }) {
       setDone(true)
       const r = await settleSession({ subjectId, correctCount: correct })
       setReward(r)
+      setPlanDay(await checkPlanDayDone(subjectId))
       return
     }
     setIdx(idx + 1); setPicked(null); setFlipped(false)
@@ -111,7 +114,7 @@ export default function Reinforce({ nav, params }) {
 
   if (done) {
     return (
-      <SessionEnd correct={correct} total={queue.length} reward={reward}
+      <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay}
         tag={`${subjectName} · חיזוק`}
         title="סיימת סבב חיזוק"
         subtitle={graduated > 0 ? `${graduated} פריטים נטמעו ויצאו מהחיזוק 🎓` : 'עוד קצת תרגול והם ייטמעו.'}

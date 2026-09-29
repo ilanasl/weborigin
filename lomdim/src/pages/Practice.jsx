@@ -5,6 +5,7 @@ import { settleSession } from '../lib/coins'
 import { VARIATIONS, varKind } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 import SessionEnd from '../components/SessionEnd'
+import { checkPlanDayDone } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
@@ -31,6 +32,7 @@ export default function Practice({ nav, params }) {
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
   const [reward, setReward] = useState(null)   // { earned, events } — מטבעות שנצברו בסבב
+  const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [topicNames, setTopicNames] = useState({})
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function Practice({ nav, params }) {
   if (done) {
     const pct = Math.round(correct / queue.length * 100)
     return (
-      <SessionEnd correct={correct} total={queue.length} reward={reward}
+      <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay}
         tag={[subjectName, topicName].filter(Boolean).join(' · ')}
         title={pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור ולנסות שוב'}
         subtitle={pct >= 80 ? 'ממשיכים ככה.' : 'עוד קצת תרגול, וזה אצלך.'}
@@ -113,6 +115,7 @@ export default function Practice({ nav, params }) {
       setDone(true)
       const r = await settleSession({ subjectId, topicId, correctCount: correct })
       setReward(r)
+      setPlanDay(await checkPlanDayDone(subjectId))
       return
     }
     setIdx(idx + 1); setPicked(null); setShowHint(false)
