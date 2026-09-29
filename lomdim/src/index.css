@@ -314,9 +314,12 @@ button{font-family:inherit; cursor:pointer}
 
 /* ── ניתוח משפט ── */
 .syn-words{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; padding:22px 4px 8px }
-.syn-tile{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:64px; padding:10px 14px 9px; border-radius:18px; transition:.15s }
+/* גודל אריח קבוע בכל המצבים (לפני סימון / אחרי סימון / אחרי בדיקה) — כדי שהסידור לא יקפוץ */
+.syn-tile{ display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; min-width:108px; min-height:98px;
+  padding:10px 10px 9px; border-radius:18px; border:1px solid transparent; transition:background .15s, box-shadow .15s }
+.syn-l{ min-height:48px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center }
 .syn-empty{ background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi); color:var(--ink) }
-.syn-wrong{ background:rgba(255,255,255,.1); border:1.5px dashed var(--accent); color:var(--ink) }
+.syn-wrong{ background:rgba(255,255,255,.1); outline:1.5px dashed var(--accent); outline-offset:-1.5px; color:var(--ink) }
 .syn-w{ font-family:var(--disp); font-weight:700; font-size:21px; line-height:1.1 }
 .syn-l{ font-size:12px; font-weight:700 }
 .syn-role{ height:44px; padding:0 16px; border-radius:22px; border:none; color:var(--on-fill); font-family:var(--disp); font-weight:700; font-size:15px; transition:opacity .15s }
