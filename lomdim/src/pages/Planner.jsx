@@ -210,9 +210,13 @@ export default function Planner({ nav, params }) {
       )}
 
       {startsInDays != null && (
-        <div className="card mt-3 text-[13.5px] leading-relaxed" style={{ background: 'var(--primary-soft)' }}>
-          📅 המבחן עוד רחוק — אין צורך להתחיל עכשיו. לפי ההגדרה, הלמידה ל{kind} תתחיל <b>בעוד {startsInDays} ימים</b>.
-          עד אז אפשר להתמקד במבחנים קרובים יותר.
+        <div className="mt-3 rounded-[20px] p-3.5 flex items-start gap-3 text-[13.5px] leading-relaxed"
+          style={{ background: 'var(--primary-soft)', border: '1px solid color-mix(in srgb, var(--primary) 25%, transparent)' }}>
+          <span className="w-9 h-9 rounded-[12px] flex-none grid place-items-center" style={{ background: 'var(--primary)', color: 'var(--on-fill)' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
+          </span>
+          <span>המבחן עוד רחוק — אין צורך להתחיל עכשיו. הלמידה ל{kind} תתחיל <b>בעוד {startsInDays} ימים</b>.
+          עד אז אפשר להתמקד במבחנים קרובים יותר.</span>
         </div>
       )}
 
