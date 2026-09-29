@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateSentenceTags } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
+import { SegProgress, BottomSheet, FeedbackSheet } from '../components/QuestionUI'
 
 const ROLES = {
   syntax: ['נושא', 'נשוא', 'נשוא מורחב', 'משלים שם', 'משלים פועל'],
   pos: ['פועל', 'שם עצם', 'שם תואר', 'מילת קישור'],
 }
+// צבע קבוע לכל תפקיד — תמיד לצד שם התפקיד
 const COLOR = {
-  'נושא': '#4A55C7', 'נשוא': '#B15A2B', 'נשוא מורחב': '#B0506A', 'משלים שם': '#6D4BB0', 'משלים פועל': '#3F8F63',
-  'פועל': '#B15A2B', 'שם עצם': '#4A55C7', 'שם תואר': '#3F8F63', 'מילת קישור': '#6C7080',
+  'נושא': '#B7A5FF', 'נשוא': '#D4F46A', 'נשוא מורחב': '#FFB28A', 'משלים שם': '#7FDCCB', 'משלים פועל': '#FF9DB4',
+  'פועל': '#D4F46A', 'שם עצם': '#B7A5FF', 'שם תואר': '#7FDCCB', 'מילת קישור': '#FFB28A',
 }
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
@@ -21,7 +23,8 @@ export default function Syntax({ nav, params }) {
   const [items, setItems] = useState([])
   const [idx, setIdx] = useState(0)
   const [picks, setPicks] = useState({})
-  const [sel, setSel] = useState(null)
+  const [sel, setSel] = useState([])        // אפשר לבחור כמה מילים יחד ולתת להן תפקיד אחד
+  const [results, setResults] = useState([])
   const [checked, setChecked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -40,7 +43,7 @@ export default function Syntax({ nav, params }) {
       }))
       const { data: ins } = await supabase.from('syntax_items').insert(rows).select('*')
       const added = ins || []
-      if (initial) { setItems(added); setIdx(0); setPicks({}); setSel(null); setChecked(false) }
+      if (initial) { setItems(added); setIdx(0); setPicks({}); setSel([]); setChecked(false) }
       else setItems((prev) => [...prev, ...added])
     } catch (e) {
       setErr('יצירת המשפטים נכשלה. נסו שוב עוד רגע. ' + String(e?.message || e))
@@ -55,7 +58,7 @@ export default function Syntax({ nav, params }) {
     if (topicId) q = q.eq('topic_id', topicId)
     const { data } = await q.order('created_at').limit(30)
     if (data && data.length) {
-      setItems(data); setIdx(0); setPicks({}); setSel(null); setChecked(false); setLoading(false)
+      setItems(data); setIdx(0); setPicks({}); setSel([]); setChecked(false); setLoading(false)
     } else {
       await genMore(true)
     }
@@ -80,10 +83,14 @@ export default function Syntax({ nav, params }) {
   const allTagged = tokens.every((_, i) => picks[i])
   const correctCount = tokens.filter((t, i) => picks[i] === t.role).length
 
+  function toggle(i) {
+    if (checked) return
+    setSel((s) => (s.includes(i) ? s.filter((x) => x !== i) : [...s, i]))
+  }
   function choose(role) {
-    if (checked || sel == null) return
-    setPicks((p) => ({ ...p, [sel]: role }))
-    setSel(null)
+    if (checked || !sel.length) return
+    setPicks((p) => { const n = { ...p }; for (const i of sel) n[i] = role; return n })
+    setSel([])
   }
 
   async function ensureTopic(nm) {
@@ -119,103 +126,95 @@ export default function Syntax({ nav, params }) {
   async function check() {
     setChecked(true)
     const ok = correctCount === tokens.length
-    if (topicId) {
-      await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני' }).catch(() => {})
-    }
-    // רק משפט שנענה נכון "מסתיים" ולא חוזר; טעות נשארת (done=false) ותחזור בכניסה הבאה
-    if (item?.id && ok) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id).catch(() => {})
+    setResults((r) => { const n = [...r]; n[idx] = ok; return n })
+    // (לבונה השאילתות של Supabase אין .catch — לכן try/catch)
+    try {
+      if (topicId) await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId, correct: ok, difficulty: 'בינוני' })
+      // רק משפט שנענה נכון "מסתיים" ולא חוזר; טעות נשארת (done=false) ותחזור בכניסה הבאה
+      if (item?.id && ok) await supabase.from('syntax_items').update({ done: true }).eq('id', item.id)
+    } catch { /* לא חוסם את התרגול */ }
     if (!ok) spawnReinforce() // טעות → שאלות אמריקאיות ל"לחיזוק"
   }
 
   async function next() {
-    if (idx + 1 < items.length) { setIdx(idx + 1); setPicks({}); setSel(null); setChecked(false) }
-    else { await genMore(false); setIdx(idx + 1); setPicks({}); setSel(null); setChecked(false) }
+    if (idx + 1 < items.length) { setIdx(idx + 1); setPicks({}); setSel([]); setChecked(false) }
+    else { await genMore(false); setIdx(idx + 1); setPicks({}); setSel([]); setChecked(false) }
   }
 
+  const taggedN = tokens.filter((_, i) => picks[i]).length
+  const selWords = [...sel].sort((a, b) => a - b).map((i) => tokens[i].w).join(' ')
+  const perfect = correctCount === tokens.length
+
   return (
-    <div className="pt-2">
-      <h1 className="text-[22px] font-black mb-1">{mode === 'pos' ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
-      <div className="text-muted text-[13.5px] mb-1">{subjectName}{topicName ? ` · ${topicName}` : ''}</div>
-      <div className="text-muted text-[12.5px] mb-4">
-        {mode === 'pos' ? 'הקישו על כל מילה ובחרו את חלק הדיבר שלה.' : 'הקישו על כל מילה ובחרו את תפקידה. טיפ: קודם הנשוא, אז הנושא, ואז המשלימים.'}
+    <div className="pt-1">
+      <SegProgress total={items.length} idx={idx} results={results} />
+
+      <h1 className="font-black text-[30px] leading-tight">{mode === 'pos' ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
+      <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
+        {checked ? 'בדקנו את הסימון שלך' : mode === 'pos'
+          ? 'הקישו על מילה (או כמה) ובחרו את חלק הדיבר.'
+          : 'הקישו על מילה, או על כמה מילים יחד, ובחרו תפקיד. טיפ: קודם הנשוא, אז הנושא, ואז המשלימים.'}
       </div>
 
-      {/* המשפט — מילים לחיצות */}
-      <div className="card">
-        <div className="flex flex-wrap gap-2 justify-center leading-loose" style={{ fontSize: 19 }}>
-          {tokens.map((t, i) => {
-            const pick = picks[i]
-            const right = checked && pick === t.role
-            const wrong = checked && pick && pick !== t.role
-            const active = sel === i
-            return (
-              <button key={i} onClick={() => !checked && setSel(i)}
-                className="rounded-[10px] px-2.5 py-1 border-[1.5px] font-semibold transition"
-                style={{
-                  borderColor: active ? 'var(--primary)' : right ? 'var(--good)' : wrong ? 'var(--bad)' : pick ? COLOR[pick] : 'var(--line)',
-                  background: active ? 'var(--primary-soft)' : pick ? `color-mix(in srgb, ${COLOR[pick]} 12%, transparent)` : 'transparent',
-                  color: 'var(--ink)',
-                }}>
-                {t.w}
-                {pick && (
-                  wrong ? (
-                    <span className="block text-[10.5px] font-bold leading-tight">
-                      <span style={{ color: 'var(--bad)', textDecoration: 'line-through' }}>{pick}</span>{' '}
-                      <span style={{ color: 'var(--good)' }}>{t.role} ✓</span>
-                    </span>
-                  ) : (
-                    <span className="block text-[10.5px] font-bold" style={{ color: right ? 'var(--good)' : COLOR[pick] }}>
-                      {pick}{right ? ' ✓' : ''}
-                    </span>
-                  )
-                )}
-              </button>
+      {/* המשפט — כל מילה אריח נפרד */}
+      <div className="syn-words">
+        {tokens.map((t, i) => {
+          const pick = picks[i]
+          const active = sel.includes(i)
+          if (checked) {
+            const right = pick === t.role
+            return right ? (
+              <div key={i} className="syn-tile" style={{ background: COLOR[t.role], color: 'var(--on-fill)' }}>
+                <span className="syn-w">{t.w}</span>
+                <span className="syn-l">{t.role} ✓</span>
+              </div>
+            ) : (
+              <div key={i} className="syn-tile syn-wrong">
+                <span className="syn-w">{t.w}</span>
+                <span className="syn-l flex flex-col items-center gap-1">
+                  {pick && <span className="line-through" style={{ color: 'var(--accent)' }}>{pick}</span>}
+                  <span className="rounded-[9px] px-2 py-[2px]" style={{ background: COLOR[t.role], color: 'var(--on-fill)' }}>{t.role}</span>
+                </span>
+              </div>
             )
-          })}
-        </div>
+          }
+          const style = active
+            ? { background: '#FFFFFF', color: 'var(--on-fill)', boxShadow: '0 0 0 3px var(--bg), 0 0 0 6px var(--primary)', border: 'none' }
+            : pick ? { background: COLOR[pick], color: 'var(--on-fill)', border: 'none' } : undefined
+          return (
+            <button key={i} type="button" onClick={() => toggle(i)} className={`syn-tile ${!active && !pick ? 'syn-empty' : ''}`} style={style}>
+              <span className="syn-w">{t.w}</span>
+              <span className="syn-l" style={{ opacity: pick ? 1 : 0.6 }}>{pick || (active ? 'בחרו תפקיד' : '?')}</span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* בורר תוויות */}
-      {!checked && (
-        <div className="mt-3">
-          <div className="text-muted text-[12.5px] mb-1.5 text-center">
-            {sel == null ? 'בחרו מילה למעלה ↑' : `איזה תפקיד ל"${tokens[sel].w}"?`}
+      {!checked ? (
+        <BottomSheet>
+          <div className="text-center font-disp font-extrabold text-[18px]">
+            {!sel.length ? 'בחרו מילה אחת או כמה ↑' : `איזה תפקיד ל„${selWords}”?`}
           </div>
           <div className="flex flex-wrap gap-2 justify-center">
             {roles.map((r) => (
-              <button key={r} onClick={() => choose(r)} disabled={sel == null}
-                className="rounded-[999px] px-3.5 py-2 text-[13.5px] font-bold border-[1.5px] disabled:opacity-40"
-                style={{ borderColor: COLOR[r], color: COLOR[r] }}>{r}</button>
+              <button key={r} type="button" onClick={() => choose(r)} disabled={!sel.length}
+                className="syn-role" style={{ background: COLOR[r] }}>{r}</button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* משוב */}
-      {checked && (
-        <div className="card mt-3">
-          <div className="font-extrabold text-[15px] mb-1" style={{ color: correctCount === tokens.length ? 'var(--good)' : 'var(--accent)' }}>
-            {correctCount === tokens.length ? '🎉 כל הכבוד! ניתוח מושלם' : `סימנת נכון ${correctCount} מתוך ${tokens.length}`}
-          </div>
-          {item.explain && <div className="text-[14px] text-muted leading-relaxed">{item.explain}</div>}
-        </div>
-      )}
-
-      <div className="fc-count tnum mt-3">{idx + 1} / {items.length}</div>
-      <div className="action-row mt-1">
-        {!checked ? (
-          <button className="btn btn-primary btn-wide" onClick={check} disabled={!allTagged}>
-            {allTagged ? '✓ בדוק' : 'סמנו את כל המילים'}
+          <button type="button" className="q-next" onClick={check} disabled={!allTagged}
+            style={allTagged ? undefined : { background: 'rgba(20,20,22,.1)', color: 'rgba(20,20,22,.5)' }}>
+            {allTagged ? '✓ בדוק' : `סמנו את כל המילים · ${taggedN} מתוך ${tokens.length}`}
           </button>
-        ) : (
-          <button className="btn btn-primary btn-wide" onClick={next} disabled={generating}>
-            {generating ? 'מכין…' : (idx + 1 < items.length ? 'המשפט הבא ←' : '✨ עוד משפטים')}
-          </button>
-        )}
-      </div>
-      <div className="text-center mt-2">
-        <button className="text-muted text-sm font-semibold hover:text-primary" onClick={() => nav.back()}>סיים תרגול ✓</button>
-      </div>
+        </BottomSheet>
+      ) : (
+        <FeedbackSheet ok={perfect}
+          title={perfect ? '🎉 ניתוח מושלם!' : `כמעט! ${correctCount} מתוך ${tokens.length}`}
+          explain={item.explain}
+          extra={!perfect && <div className="text-[13px] font-semibold" style={{ color: '#5A43D1' }}>📓 נוספו שאלות תרגול על המילים האלה ל„לחיזוק”</div>}
+          busy={generating}
+          nextLabel={generating ? 'מכין…' : (idx + 1 < items.length ? 'המשפט הבא' : 'עוד משפטים')}
+          onNext={next} />
+      )}
     </div>
   )
 }
