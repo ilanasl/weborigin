@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
+import { pickTopicId } from '../lib/checkTopic'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -70,9 +71,13 @@ export default function CheckExercise({ params }) {
     if (!r) return
     setAdding(true); setErr('')
     try {
-      const topicId = await ensureTopic('תרגילים שבדקתי')
       const src = [r.exercise, r.feedback, r.reteach].filter(Boolean).join('\n')
-      const { questions } = await generateQuestions({ subjectName, topic: 'תרגילים שבדקתי', sourceText: src, count: 5, learner: profile })
+      // התרגיל משתייך לנושא הקיים שהוא עוסק בו — ונכנס לתרגולים שלו, לא ליחידה נפרדת
+      const { data: topics } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
+      const topicId = await pickTopicId({ subjectId, subjectName, text: src, topics })
+        || await ensureTopic('תרגול כללי')
+      const topicName = (topics || []).find((t) => t.id === topicId)?.name
+      const { questions } = await generateQuestions({ subjectName, topic: topicName, sourceText: src, count: 5, learner: profile })
       if (questions?.length) {
         const { data: inserted } = await supabase.from('questions').insert(questions.map((q) => ({
           subject_id: subjectId, topic_id: topicId, q: q.q, choices: q.choices, answer: q.answer,

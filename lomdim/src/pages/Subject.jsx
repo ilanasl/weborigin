@@ -4,6 +4,7 @@ import { mastery } from '../lib/mastery'
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import { withTone } from '../lib/tone'
+import { foldLegacyCheckTopic, LEGACY_CHECK_TOPIC } from '../lib/checkTopic'
 
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
@@ -62,6 +63,11 @@ export default function Subject({ nav, params }) {
     setLoading(false)
   }
   useEffect(() => { load() }, [id])
+  // חד-פעמי: "תרגילים שבדקתי" כבר לא יחידה נפרדת — השאלות עוברות לנושאים שלהן
+  useEffect(() => {
+    if (!subject?.name || !topics.some((t) => t.name === LEGACY_CHECK_TOPIC)) return
+    foldLegacyCheckTopic(id, subject.name).then((moved) => { if (moved) load() })
+  }, [subject?.name, topics.length])
 
   // פתיחת הקובץ המקורי שהועלה (URL חתום זמני)
   async function openMaterial(m) {
