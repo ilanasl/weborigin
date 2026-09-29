@@ -56,29 +56,42 @@ export function Options({ choices, answer, picked, onPick }) {
   )
 }
 
-// גיליון משוב שעולה מלמטה אחרי תשובה
-export function FeedbackSheet({ ok, title, explain, nextLabel = 'הבא', onNext }) {
-  // מקום ריק בגובה הגיליון + גלילה, כדי שהגיליון לא יסתיר את התשובות
+// גיליון בהיר קבוע בתחתית + מקום ריק בגובהו, כדי שלא יסתיר את התוכן
+export function BottomSheet({ children, className = '', scroll = false, role }) {
   const sheet = useRef(null)
   const [h, setH] = useState(260)
   useEffect(() => {
     const el = sheet.current
     if (!el) return
-    setH(el.offsetHeight + 12)
-    requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }))
-  }, [])
+    const measure = () => setH(el.offsetHeight + 12)
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    if (scroll) requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }))
+    return () => ro?.disconnect()
+  }, [scroll])
   return (
     <>
       <div style={{ height: h }} />
-      <div ref={sheet} className={`q-sheet ${ok ? 'ok' : 'bad'}`} role="status">
+      <div ref={sheet} className={`q-sheet ${className}`} role={role}>
         <div className="q-grip" />
-        <div className="q-sheet-title">{title}</div>
-        {explain && <div className="q-sheet-body"><Markdown text={explain} /></div>}
-        <button type="button" className="q-next" onClick={onNext}>
-          <span>{nextLabel}</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
-        </button>
+        {children}
       </div>
     </>
+  )
+}
+
+// גיליון משוב שעולה מלמטה אחרי תשובה
+export function FeedbackSheet({ ok, title, explain, extra, nextLabel = 'הבא', onNext, busy = false }) {
+  return (
+    <BottomSheet className={ok ? 'ok' : 'bad'} scroll role="status">
+      <div className="q-sheet-title">{title}</div>
+      {explain && <div className="q-sheet-body"><Markdown text={explain} /></div>}
+      {extra}
+      <button type="button" className="q-next" onClick={onNext} disabled={busy}>
+        <span>{nextLabel}</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+      </button>
+    </BottomSheet>
   )
 }
