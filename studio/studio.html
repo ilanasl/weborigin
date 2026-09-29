@@ -570,7 +570,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:false,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -891,7 +891,7 @@ function openEditor(tpl,st,onClose){
   if(o.logoScale==null) o.logoScale=1;
   if(!Array.isArray(o.extras)) o.extras=[];
   const btnEl0=tpl.elements.find(e=>e.type==="button");
-  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font),imgAbove:!!tpl.productBox,subjAbove:false};
+  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font),imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer};
   for(const k in scalars){if(o[k]==null)o[k]=scalars[k];}
   const hasBtn=tpl.elements.some(e=>e.type==="button");
   const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
@@ -921,6 +921,7 @@ function openEditor(tpl,st,onClose){
   let html="";
   html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*" multiple></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
   if(tpl.splittable) html+=`<label class="chk cwhite" style="margin-top:4px;font-weight:700"><input type="checkbox" class="e-split"> ⬛ Split panel (half / half + right text)</label>`;
+  if(tpl.productBox) html+=`<div class="f e-adv"><span>Above the gradient (the fade never covers it)</span><div class="e-inline" style="gap:14px"><label class="chk"><input type="checkbox" class="e-imgabove"> Product</label>${tpl.secondLayer?'<label class="chk"><input type="checkbox" class="e-subjabove"> Subject (person)</label>':""}</div></div>`;
   html+=`<div class="f"><span>Extra images — as many as you like, layered on top</span><div class="e-row"><label class="mini">+ Add images<input type="file" class="e-extra-add" accept="image/*" multiple></label></div><div class="e-extras"></div></div>`;
   if(tpl.secondLayer){
     html+=`<div class="e-adv">`;
@@ -936,7 +937,6 @@ function openEditor(tpl,st,onClose){
   html+=`<label class="f"><span>… fine (left–right)</span><input type="range" class="e-posx" min="0" max="100" step="1"></label>`;
   html+=`<label class="f"><span>… fine (up–down) (100+ = off bottom)</span><input type="range" class="e-posy" min="0" max="${tpl.productBox?160:120}" step="1"></label>`;
   if(tpl.productBox) html+=`<label class="f"><span>Product rotate <b class="e-prodrv"></b></span><input type="range" class="e-prodr" min="-30" max="30" step="1"></label>`;
-  if(tpl.productBox) html+=`<label class="chk"><input type="checkbox" class="e-imgabove"> Product above the fade (no overlay on it)</label>`+(tpl.secondLayer?`<label class="chk"><input type="checkbox" class="e-subjabove"> Subject above the fade</label>`:"");
   html+=`<label class="f"><span>Image zoom <b class="e-zoomv"></b> — shrink or enlarge (under 100% = smaller)</span><input type="range" class="e-zoom" min="0.4" max="2.5" step="0.05"></label>`;
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
