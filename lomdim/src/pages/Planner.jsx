@@ -36,6 +36,7 @@ export default function Planner({ nav, params }) {
   const [matchNote, setMatchNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [allTs, setAllTs] = useState([])   // זמני כל התשובות במקצוע — לסימון יום חזרה שבוצע
 
   async function load() {
     setLoading(true)
@@ -57,7 +58,8 @@ export default function Planner({ nav, params }) {
     const k = (qd != null && qd >= 0 && (ed == null || ed < 0 || qd <= ed)) ? 'מבדק' : 'מבחן מסכם'
     setKind(k)
     setLeadDays(LEAD_DEFAULT[k])
-    setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
+    setTopics((tp || []).map((t) => ({ ...t, att: byTopic[t.id] || [], m: mastery(byTopic[t.id] || []) })))
+    setAllTs((at || []).map((a) => new Date(a.created_at).getTime()))
     setLoading(false)
   }
   useEffect(() => { load() }, [subjectId])
@@ -120,17 +122,33 @@ export default function Planner({ nav, params }) {
 
   const examDays = daysUntil(date)
   // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. חלשים קודם.
-  const inExam = topics.filter((t) => t.in_exam)
-  const ordered = [...(inExam.length ? inExam : topics)].sort((a, b) => (a.m.pct ?? 50) - (b.m.pct ?? 50))
   const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + d); return dt }
+  // חלון הלמידה קבוע לפי תאריך המבחן (גם ימים שכבר עברו נשארים בתוכנית, מסומנים)
+  const startOffset = examDays == null ? 0 : examDays - leadDays
+  const startMs = addDays(startOffset).getTime()
+  // סדר "חלשים קודם" לפי השליטה כפי שהייתה בתחילת החלון — כך התוכנית לא מתערבבת תוך כדי תרגול
+  const inExam = topics.filter((t) => t.in_exam)
+  const ordered = [...(inExam.length ? inExam : topics)]
+    .map((t) => ({ ...t, m0: mastery(t.att.filter((a) => a.ts < startMs)) }))
+    .sort((a, b) => (a.m0.pct ?? 50) - (b.m0.pct ?? 50))
+
+  // נושא "בוצע" בתוכנית: מאז תחילת החלון ענה עליו לפחות 5 פעמים, ומתוך 10 האחרונות לפחות 80% נכונות
+  const topicDone = (t) => {
+    const since = t.att.filter((a) => a.ts >= startMs).sort((a, b) => a.ts - b.ts).slice(-10)
+    return since.length >= 5 && since.filter((a) => a.correct).length / since.length >= 0.8
+  }
+  // יום החזרה "בוצע": באותו יום ענה על לפחות 10 שאלות במקצוע
+  const reviewDone = (dt) => {
+    const from = dt.getTime(), to = from + 86400000
+    return allTs.filter((ts) => ts >= from && ts < to).length >= 10
+  }
 
   // בניית תוכנית: מתחילים ללמוד רק בחלון (leadDays לפני המבחן), נושאים חלשים קודם,
   // יום לפני = חזרה כללית, יום המבחן מסומן. אם המבחן עוד רחוק — startsInDays אומר בעוד כמה ימים מתחילים.
   function buildPlan() {
     if (examDays == null || examDays < 1) return { days: [], startsInDays: null }
-    const startIn = Math.max(1, examDays - leadDays)     // היום הראשון של הלמידה (הסחה מהיום)
     const studyOffsets = []
-    for (let d = startIn; d <= examDays - 2; d++) studyOffsets.push(d)
+    for (let d = startOffset; d <= examDays - 2; d++) studyOffsets.push(d)
     const days = []
     const n = studyOffsets.length
     const perDay = n > 0 ? Math.max(1, Math.ceil(ordered.length / n)) : 0
@@ -139,11 +157,12 @@ export default function Planner({ nav, params }) {
       const day = []
       for (let k = 0; k < perDay && ti < ordered.length; k++) day.push(ordered[ti++])
       if (day.length === 0 && ordered.length) day.push(ordered[idx % ordered.length])
-      days.push({ dt: addDays(d), topics: day })
+      const topicsOfDay = day.map((t) => ({ ...t, done: topicDone(t) }))
+      days.push({ dt: addDays(d), off: d, topics: topicsOfDay, done: topicsOfDay.length > 0 && topicsOfDay.every((t) => t.done) })
     })
-    if (examDays >= 2) days.push({ dt: addDays(examDays - 1), review: true })
+    if (examDays >= 2) { const dt = addDays(examDays - 1); days.push({ dt, off: examDays - 1, review: true, done: reviewDone(dt) }) }
     days.push({ dt: addDays(examDays), exam: true })
-    return { days, startsInDays: startIn > 1 ? startIn : null }
+    return { days, startsInDays: startOffset > 1 ? startOffset : null }
   }
   const { days: plan, startsInDays } = buildPlan()
 
@@ -229,26 +248,33 @@ export default function Planner({ nav, params }) {
           <div className="flex flex-col gap-2">
             {plan.filter((p) => !p.exam).map((p, i) => {
               const date = p.dt.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })
+              const today = p.off === 0
+              const tileStyle = p.done ? { background: 'var(--good)', color: 'var(--on-fill)' }
+                : p.review ? { background: '#B7A5FF', color: 'var(--on-fill)' }
+                : today ? { background: 'var(--primary)', color: 'var(--on-fill)' } : undefined
               const tile = (
-                <span className="plan-tile" style={p.review ? { background: '#B7A5FF', color: 'var(--on-fill)' } : undefined}>
-                  <b>{DOW[p.dt.getDay()]}</b><small>{date}</small>
+                <span className="plan-tile" style={tileStyle}>
+                  {p.done ? (
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-label="בוצע"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                  ) : (<><b>{today ? 'היום' : DOW[p.dt.getDay()]}</b><small>{date}</small></>)}
                 </span>
               )
               if (p.review) return (
-                <button key={i} type="button" className="milky-row plan-row" onClick={() => nav.go('reinforce', { subjectId, subjectName })}>
+                <button key={i} type="button" className={`milky-row plan-row ${p.done ? 'plan-done' : ''}`} onClick={() => nav.go('reinforce', { subjectId, subjectName })}>
                   {tile}
-                  <span className="flex-1 text-start text-[14.5px] font-semibold">חזרה כללית + לחיזוק</span>
+                  <span className="flex-1 text-start text-[14.5px] font-semibold plan-txt">חזרה כללית + לחיזוק</span>
                   <Chev />
                 </button>
               )
               return (
-                <div key={i} className="milky-row plan-row !items-start">
+                <div key={i} className={`milky-row plan-row !items-start ${p.done ? 'plan-done' : ''} ${today && !p.done ? 'plan-today' : ''}`}>
                   {tile}
                   <div className="flex-1 min-w-0 flex flex-col">
                     {p.topics.map((t) => (
-                      <button key={t.id} type="button" className="plan-topic"
+                      <button key={t.id} type="button" className={`plan-topic ${t.done ? 'plan-topic-done' : ''}`}
                         onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })}>
-                        <span className="flex-1 min-w-0">{t.name}</span>
+                        <span className="flex-1 min-w-0 plan-txt">{t.name}</span>
+                        {t.done && !p.done && <span className="text-good font-bold" aria-label="בוצע">✓</span>}
                         <Chev />
                       </button>
                     ))}
