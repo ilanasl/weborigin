@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { GRAD } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
+import SessionEnd from '../components/SessionEnd'
+import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
@@ -61,6 +63,7 @@ export default function Reinforce({ nav, params }) {
 
   async function next() {
     if (idx >= queue.length - 1) {
+      primeAudio()
       setDone(true)
       const r = await settleSession({ subjectId, correctCount: correct })
       setReward(r)
@@ -98,24 +101,12 @@ export default function Reinforce({ nav, params }) {
 
   if (done) {
     return (
-      <div className="pt-8 text-center">
-        <div className="text-5xl mb-2">💪</div>
-        <div className="font-disp font-black text-3xl">סיימת סבב חיזוק</div>
-        <div className="text-muted mt-2">{graduated > 0 ? `${graduated} פריטים נטמעו ויצאו מהחיזוק 🎓` : 'עוד קצת תרגול והם ייטמעו.'}</div>
-        {reward && reward.earned > 0 && (
-          <div className="mt-5 mx-auto max-w-[300px] rounded-[16px] bg-accent-soft border border-line p-4">
-            <div className="font-disp font-black text-[22px] text-accent tnum">🪙 +{reward.earned}</div>
-            <div className="flex flex-col gap-0.5 mt-1.5 text-[13px] text-muted">
-              {reward.events.map((e, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span>{e.label}</span><span className="tnum font-semibold">+{e.amount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        <button className="btn btn-primary btn-wide mt-6" onClick={() => nav.back()}>חזרה למקצוע</button>
-      </div>
+      <SessionEnd correct={correct} total={queue.length} reward={reward}
+        tag={`${subjectName} · חיזוק`}
+        title="סיימת סבב חיזוק"
+        subtitle={graduated > 0 ? `${graduated} פריטים נטמעו ויצאו מהחיזוק 🎓` : 'עוד קצת תרגול והם ייטמעו.'}
+        onAgain={() => { nav.back(); nav.go('reinforce', params) }}
+        onBack={() => nav.back()} />
     )
   }
 

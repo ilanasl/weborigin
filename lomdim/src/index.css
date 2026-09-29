@@ -276,3 +276,30 @@ button{font-family:inherit; cursor:pointer}
 .q-hint{ margin-top:12px; border-radius:16px; padding:10px 14px; font-size:14px; font-weight:600;
   background:var(--accent-soft); color:var(--accent); border:1px dashed color-mix(in srgb, var(--accent) 45%, transparent) }
 .q-sheet-body *{ color:inherit !important; border-color:rgba(20,20,22,.15) !important }
+
+/* ── מסך סיום סבב ── */
+.end{ position:relative; display:flex; flex-direction:column; gap:16px; padding-top:4px }
+.end-top{ display:flex; align-items:center; justify-content:space-between }
+.end-tag{ background:var(--milky); border:1px solid var(--milky-line); border-radius:14px; padding:6px 12px; font-size:13px; font-weight:600 }
+.end-hero{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; margin-top:4px }
+.end-ring{ position:relative; width:196px; height:196px }
+.end-ring-in{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px }
+.end-ring-num{ font-family:var(--disp); font-weight:900; font-size:54px; line-height:.9; letter-spacing:-1.5px }
+.end-ring-num span{ font-size:.48em; opacity:.5 }
+.end-title{ font-family:var(--disp); font-weight:900; font-size:26px; line-height:1.15 }
+.end-sub{ font-size:14.5px; color:var(--muted); line-height:1.5 }
+.end-kicker{ font-size:14px; font-weight:700; color:var(--primary); margin-top:28px }
+.end-big{ font-family:var(--disp); font-weight:900; font-size:clamp(72px,24vw,104px); line-height:.9; letter-spacing:-3px }
+.end-big span{ font-size:.42em; opacity:.5; letter-spacing:0 }
+.end-coins{ border-radius:26px; background:var(--primary); color:var(--on-fill); padding:14px 16px; display:flex; align-items:center; gap:12px }
+.end-coins-lbl{ font-size:13px; font-weight:600; color:rgba(19,19,22,.72) }
+.end-coins-num{ font-family:var(--disp); font-weight:900; font-size:40px; line-height:1 }
+.end-actions{ display:flex; gap:8px; margin-top:8px }
+.end-actions .btn{ height:54px; border-radius:27px; padding:0 18px }
+.end-again{ flex:1; height:54px; border-radius:27px; border:none; background:var(--primary); color:var(--on-fill);
+  font-family:var(--disp); font-weight:700; font-size:16px }
+.end-actions .btn:only-child{ flex:1 }
+.confetti{ position:fixed; inset:0 0 auto 0; height:70vh; pointer-events:none; overflow:hidden; z-index:5 }
+.confetti i{ position:absolute; top:-20px; opacity:.95; animation:confFall linear forwards }
+@keyframes confFall{ 0%{ transform:translateY(0) rotate(var(--rot)) } 100%{ transform:translateY(72vh) rotate(calc(var(--rot) + 540deg)); opacity:0 } }
+@media (prefers-reduced-motion: reduce){ .confetti i{ animation:none; display:none } }

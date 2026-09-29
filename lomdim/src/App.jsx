@@ -93,6 +93,8 @@ function FloatingNav({ route, go, reset }) {
   )
 }
 
+let seq = 0 // מזהה לכל מסך במחסנית — כדי ש"סבב נוסף" יתחיל מאפס
+
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
   practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
@@ -103,10 +105,10 @@ const PAGES = {
 
 function Shell() {
   const { user, loading, signOut } = useAuth()
-  const [stack, setStack] = useState([{ name: 'home', params: {} }])
-  const go = useCallback((name, params = {}) => setStack((s) => [...s, { name, params }]), [])
+  const [stack, setStack] = useState([{ name: 'home', params: {}, id: 0 }])
+  const go = useCallback((name, params = {}) => setStack((s) => [...s, { name, params, id: ++seq }]), [])
   const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), [])
-  const reset = useCallback((name = 'home', params = {}) => setStack([{ name, params }]), [])
+  const reset = useCallback((name = 'home', params = {}) => setStack([{ name, params, id: ++seq }]), [])
 
   if (loading) return <div className="app-shell pt-16 text-muted">טוען…</div>
   if (!user) return <Login />
@@ -135,7 +137,7 @@ function Shell() {
         <button onClick={signOut} className="hbtn">יציאה</button>
         </>}
       </header>
-      <Page nav={nav} params={route.params} />
+      <Page key={route.id} nav={nav} params={route.params} />
       {showNav && <FloatingNav route={route.name} go={go} reset={reset} />}
     </div>
   )
