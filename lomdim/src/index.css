@@ -325,6 +325,8 @@ button{font-family:inherit; cursor:pointer}
 .syn-role{ height:44px; padding:0 16px; border-radius:22px; border:none; color:var(--on-fill); font-family:var(--disp); font-weight:700; font-size:15px; transition:opacity .15s }
 .syn-role:disabled{ opacity:.45 }
 .q-next:disabled{ cursor:not-allowed }
+.q-finish{ height:48px; flex:none; border-radius:24px; border:1.5px solid rgba(20,20,22,.2); background:transparent; color:#141416;
+  font-family:var(--disp); font-weight:700; font-size:15.5px; margin-top:-4px }
 
 /* ── מסך מקצוע ── */
 .up-pill{ height:40px; padding:0 14px; border-radius:20px; border:none; background:#fff; color:var(--on-fill); flex:none;

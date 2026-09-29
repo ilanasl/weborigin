@@ -99,7 +99,7 @@ export function BottomSheet({ children, className = '', scroll = false, role }) 
 }
 
 // גיליון משוב שעולה מלמטה אחרי תשובה
-export function FeedbackSheet({ ok, title, explain, extra, nextLabel = 'הבא', onNext, busy = false }) {
+export function FeedbackSheet({ ok, title, explain, extra, nextLabel = 'הבא', onNext, busy = false, finishLabel, onFinish }) {
   return (
     <BottomSheet className={ok ? 'ok' : 'bad'} scroll role="status">
       <div className="q-sheet-title">{title}</div>
@@ -109,6 +109,9 @@ export function FeedbackSheet({ ok, title, explain, extra, nextLabel = 'הבא',
         <span>{nextLabel}</span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
       </button>
+      {onFinish && (
+        <button type="button" className="q-finish" onClick={onFinish}>{finishLabel || 'סיים תרגול'}</button>
+      )}
     </BottomSheet>
   )
 }
