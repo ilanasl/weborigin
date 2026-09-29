@@ -1,15 +1,18 @@
 // ── מודל השליטה (אלגוריתם פנימי) ──
-// מחשב אחוז שליטה בנושא מתוך יומן התשובות:
-//  • שקלול לפי זמן (recency half-life) — אחרונות שוקלות יותר, ישנות דועכות
-//  • שקלול לפי קושי — הצלחה בשאלה קשה שווה יותר
-//  • תיקון ניחוש — באמריקאי ~25% הצלחה במקרה, מנוכים
-//  • שער ביטחון — מתחת למינימום נתונים מחזיר null → "אוספים נתונים"
+// אחוז שליטה בנושא = אחוז התשובות הנכונות מתוך 20 התשובות האחרונות על הנושא.
+//  • שאלה קשה שוקלת קצת יותר (קל 1 · בינוני 1.2 · קשה 1.4)
+//  • בלי "תיקון ניחוש" — 8 מתוך 10 נכונות = 80%, מספר שילד והורה מבינים
+//  • פחות מ-5 תשובות → null ("עוד לא תורגל")
+//  • מדרגות: חזק ≥80 · בדרך 60–79 · לתרגל <60
 //  • חזרה מרווחת — due כשעבר זמן רב מהתרגול האחרון, לפי רמת השליטה
 
-const DIFF_W = { קל: 1, בינוני: 1.4, קשה: 1.8 }
-const REC_HALFLIFE = 14 // ימים
-const GUESS = 0.25
-const MIN_EFF = 3
+const DIFF_W = { קל: 1, בינוני: 1.2, קשה: 1.4 }
+const WINDOW = 20   // כמה תשובות אחרונות נספרות
+export const MIN_N = 5     // מתחת לזה — עוד לא תורגל מספיק
+export const STRONG = 80
+export const MID = 60
+export const level = (pct) => (pct == null ? 'new' : pct >= STRONG ? 'strong' : pct >= MID ? 'mid' : 'weak')
+export const LEVEL_LABEL = { strong: 'חזק', mid: 'בדרך', weak: 'לתרגל', new: 'עוד לא תורגל' }
 export const GRAD = 3 // הצלחות שנדרשות כדי שפריט "ייטמע" (עקומת למידה איטית יותר)
 
 // וריאציות = תרגול עזר סביב טעות: מעטות, יוצאות אחרי הצלחה אחת, ונמחקות כשהשאלה המקורית נטמעת.
@@ -22,26 +25,29 @@ export const isVarKind = (k) => typeof k === 'string' && k.startsWith('var:')
 // attempts: [{ correct: bool, difficulty: 'קל'|'בינוני'|'קשה', ts: number(ms) }]
 // ref = "עכשיו" לחישוב — ברירת מחדל הרגע הנוכחי; מאפשר לחשב שליטה היסטורית לנקודת זמן.
 export function mastery(attempts = [], ref = Date.now()) {
-  if (!attempts.length) return { pct: null, state: 'new', due: false }
-  const now = ref
-  let wsum = 0, wc = 0, last = 0
-  for (const a of attempts) {
-    const ageDays = Math.max(0, (now - a.ts) / 86400000)
-    const w = Math.pow(0.5, ageDays / REC_HALFLIFE) * (DIFF_W[a.difficulty] || 1)
+  const recent = attempts.filter((a) => a.ts <= ref).sort((a, b) => a.ts - b.ts).slice(-WINDOW)
+  if (!recent.length) return { pct: null, state: 'new', due: false, n: 0 }
+  const last = recent[recent.length - 1].ts
+  if (recent.length < MIN_N) return { pct: null, state: 'collecting', due: false, n: recent.length, last }
+  let wsum = 0, wc = 0
+  for (const a of recent) {
+    const w = DIFF_W[a.difficulty] || 1
     wsum += w
-    wc += w * (a.correct ? 1 : 0)
-    if (a.ts > last) last = a.ts
+    if (a.correct) wc += w
   }
-  if (wsum < MIN_EFF) return { pct: null, state: 'collecting', due: false }
-  const raw = wc / wsum
-  const pct = Math.round(Math.max(0, (raw - GUESS) / (1 - GUESS)) * 100)
-  const interval = pct >= 85 ? 7 : pct >= 70 ? 4 : pct >= 50 ? 2 : 1
-  return { pct, state: 'ok', due: (now - last) / 86400000 >= interval, last }
+  const pct = Math.round((wc / wsum) * 100)
+  const interval = pct >= 90 ? 7 : pct >= STRONG ? 4 : pct >= MID ? 2 : 1
+  return { pct, state: 'ok', due: (ref - last) / 86400000 >= interval, n: recent.length, last }
 }
 
-// ממוצע מוכנות על פני מספר נושאים (מדלג על נושאים בלי מספיק נתונים)
-export function readiness(topicAttemptsList = []) {
-  const vals = topicAttemptsList.map((att) => mastery(att).pct).filter((v) => v != null)
-  if (!vals.length) return null
-  return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length)
+// מוכנות למבחן: ממוצע על נושאי המבחן (לפי המיקוד; אם לא הוגדר — כל הנושאים).
+// נושא שעוד לא תורגל נספר כ-0 — כך המוכנות לא מתנפחת כשמתרגלים רק חלק מהחומר.
+// topics: [{ in_exam, pct }] → { pct, practiced, total } · pct=null אם עוד לא תורגל אף נושא
+export function examReadiness(topics = []) {
+  const inExam = topics.filter((t) => t.in_exam)
+  const scope = inExam.length ? inExam : topics
+  const practiced = scope.filter((t) => t.pct != null).length
+  if (!scope.length || !practiced) return { pct: null, practiced, total: scope.length }
+  const sum = scope.reduce((a, t) => a + (t.pct ?? 0), 0)
+  return { pct: Math.round(sum / scope.length), practiced, total: scope.length }
 }

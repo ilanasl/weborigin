@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { mastery } from './mastery'
+import { mastery, STRONG } from './mastery'
 
 // ── תוכנית הלמידה למבחן (משותף למתכנן ולבדיקת "סיימת את היום בתוכנית") ──
 
@@ -28,11 +28,8 @@ export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
     .map((t) => ({ ...t, m0: mastery(t.att.filter((a) => a.ts < startMs)) }))
     .sort((a, b) => (a.m0.pct ?? 50) - (b.m0.pct ?? 50))
 
-  // נושא "בוצע": מאז תחילת החלון ענה עליו לפחות 5 פעמים, ומתוך 10 האחרונות לפחות 80% נכונות
-  const topicDone = (t) => {
-    const since = t.att.filter((a) => a.ts >= startMs).sort((a, b) => a.ts - b.ts).slice(-10)
-    return since.length >= 5 && since.filter((a) => a.correct).length / since.length >= 0.8
-  }
+  // נושא "בוצע": לפי התרגול מאז תחילת החלון, הנושא ברמת "חזק" (לפחות 5 תשובות, 80%+ נכונות)
+  const topicDone = (t) => (mastery(t.att.filter((a) => a.ts >= startMs)).pct ?? 0) >= STRONG
   // יום החזרה "בוצע": באותו יום ענה על לפחות 10 שאלות במקצוע
   const reviewDone = (dt) => {
     const from = dt.getTime(), to = from + DAY

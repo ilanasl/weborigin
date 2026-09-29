@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { mastery } from '../lib/mastery'
+import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
+
+const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import { withTone } from '../lib/tone'
@@ -179,13 +181,15 @@ export default function Subject({ nav, params }) {
   const examKind = upcomingExams[0]?.kind || 'מבחן'
   const summary = materials.find((m) => m.summary_md)
 
-  const pcts = topics.map((t) => t.m.pct).filter((p) => p != null)
-  const ready = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null
-  const strong = topics.filter((t) => t.m.pct != null && t.m.pct >= 75)
-  // "הכי כדאי לתרגל עכשיו": 2 הנושאים החלשים — קודם כאלה שתורגלו והם מתחת ל-75%, ורק אחריהם נושאים שעוד לא תורגלו
+  // מוכנות למבחן: נושאי המבחן (או כולם אם לא הוגדר מיקוד); נושא שלא תורגל נספר כ-0
+  const rd = examReadiness(topics.map((t) => ({ in_exam: t.in_exam, pct: t.m.pct })))
+  const ready = rd.pct
+  const scopeTopics = topics.some((t) => t.in_exam) ? topics.filter((t) => t.in_exam) : topics
+  const strong = scopeTopics.filter((t) => level(t.m.pct) === 'strong')
+  // "הכי כדאי לתרגל עכשיו": 2 הנושאים החלשים — קודם כאלה שתורגלו ועוד לא חזקים, ורק אחריהם נושאים שעוד לא תורגלו
   const focus = [
-    ...topics.filter((t) => t.m.pct != null && t.m.pct < 75).sort((a, b) => a.m.pct - b.m.pct),
-    ...topics.filter((t) => t.m.pct == null),
+    ...scopeTopics.filter((t) => t.m.pct != null && t.m.pct < STRONG).sort((a, b) => a.m.pct - b.m.pct),
+    ...scopeTopics.filter((t) => t.m.pct == null),
   ].slice(0, 2)
   // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
   const hasExam = examDays != null && examDays >= 0
@@ -218,7 +222,7 @@ export default function Subject({ nav, params }) {
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
         {ready != null && (
           <div className="flex flex-col gap-2 mt-0.5">
-            <span className="text-[13.5px] font-bold">✓ חזק ב-{strong.length} מתוך {topics.length} נושאים</span>
+            <span className="text-[13.5px] font-bold">✓ חזק ב-{strong.length} מתוך {rd.total} נושאים · תורגלו {rd.practiced}</span>
             {focus.length > 0 ? (
               <div className="flex flex-col gap-1">
                 <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>הכי כדאי לתרגל עכשיו</span>
@@ -311,12 +315,13 @@ export default function Subject({ nav, params }) {
                 {t.origin === 'חזרה' && <span className="tp-badge tp-badge-muted">חזרה</span>}
               </span>
               {t.m.pct == null ? (
-                <span className="text-[12.5px] text-muted italic">אוספים נתונים…</span>
+                <span className="text-[12.5px] text-muted">עוד לא תורגל{t.m.n ? ` · ${t.m.n} מתוך 5 תשובות` : ''}</span>
               ) : (
                 <span className="flex items-center gap-2">
                   <span className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.14)' }}>
-                    <span className="block h-full rounded-full" style={{ width: `${t.m.pct}%`, background: 'var(--primary)' }} />
+                    <span className="block h-full rounded-full" style={{ width: `${t.m.pct}%`, background: LEVEL_COLOR[level(t.m.pct)] }} />
                   </span>
+                  <span className="text-[12px] font-bold" style={{ color: LEVEL_COLOR[level(t.m.pct)] }}>{LEVEL_LABEL[level(t.m.pct)]}</span>
                   <span className="font-disp font-bold text-[13px] tnum" dir="ltr">{t.m.pct}%</span>
                 </span>
               )}
