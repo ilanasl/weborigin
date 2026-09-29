@@ -258,31 +258,41 @@ export default function Subject({ nav, params }) {
       )}
 
       {/* נושאים */}
-      <div className="list-title">הנושאים שלי</div>
-      <div className="card">
+      <div className="home-h2 mt-5 mb-2.5">
+        <h2>הנושאים שלי</h2>
+        <span>{topics.length} נושאים</span>
+      </div>
+      <div className="flex flex-col gap-2">
         {topics.length === 0 ? (
-          <div className="text-muted text-sm">עדיין אין נושאים — העלו חומר כדי שהמערכת תזהה נושאים.</div>
+          <div className="milky-row text-muted text-sm">עדיין אין נושאים — העלו חומר כדי שהמערכת תזהה נושאים.</div>
         ) : topics.map((t) => (
-          <button key={t.id} className="topic w-full text-start"
-            onClick={() => nav.go('topicSummary', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name })}>
-            <div className="info">
-              <div className="nm">
-                {t.name}
-                {t.in_exam && <span className="scope-in">✓ במבחן</span>}
-                {t.m.due && <span className="due">🔁 חזרה שוטפת</span>}
-                {t.origin === 'חזרה' && <span className="scope-out">חזרה</span>}
-              </div>
+          <div key={t.id} className="milky-row topic-row">
+            <button type="button" className="topic-main"
+              onClick={() => nav.go('topicSummary', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name })}>
+              <span className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-[15.5px]">{t.name}</span>
+                {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>במבחן</span>}
+                {t.m.due && <span className="tp-badge" style={{ background: '#B7A5FF' }}>חזרה שוטפת</span>}
+                {t.origin === 'חזרה' && <span className="tp-badge tp-badge-muted">חזרה</span>}
+              </span>
               {t.m.pct == null ? (
-                <div className="collecting mt-1.5">אוספים נתונים…</div>
+                <span className="text-[12.5px] text-muted italic">אוספים נתונים…</span>
               ) : (
-                <div className="bar-row mt-1.5" style={{ maxWidth: 220 }}>
-                  <div className="bar"><i style={{ width: `${t.m.pct}%` }} /></div>
-                  <span className="pct tnum" style={{ color: 'var(--muted)' }}>{t.m.pct}%</span>
-                </div>
+                <span className="flex items-center gap-2">
+                  <span className="flex-1 h-[5px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.14)' }}>
+                    <span className="block h-full rounded-full" style={{ width: `${t.m.pct}%`, background: 'var(--primary)' }} />
+                  </span>
+                  <span className="font-disp font-bold text-[13px] tnum" dir="ltr">{t.m.pct}%</span>
+                </span>
               )}
-            </div>
-            <span className="text-muted text-[13px]">📖 ›</span>
-          </button>
+              <span className="text-[12px] text-muted">📖 לסיכום הנושא ›</span>
+            </button>
+            <button type="button" className="topic-go" aria-label={`לתרגל את ${t.name}`}
+              onClick={() => nav.go('practice', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name, mode: 'practice' })}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
+              <span>תרגול</span>
+            </button>
+          </div>
         ))}
       </div>
 
