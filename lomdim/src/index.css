@@ -335,7 +335,8 @@ button{font-family:inherit; cursor:pointer}
 .ready-btn{ flex:1; height:48px; border-radius:24px; border:none; font-family:var(--disp); font-weight:700; font-size:16px;
   display:flex; align-items:center; justify-content:center; gap:8px }
 .ready-btn:disabled{ opacity:.5 }
-.tools-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px }
+.tools-grid{ display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:8px; margin-top:12px }
+.tool.tool-wide{ flex-direction:row; align-items:center; justify-content:flex-start; gap:10px; min-height:72px; padding:12px 14px; margin-top:4px }
 .tool{ position:relative; min-height:76px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:6px;
   padding:11px 12px 10px; border-radius:20px; text-align:start; font-size:13.5px; font-weight:600; color:var(--ink);
   background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi) }
