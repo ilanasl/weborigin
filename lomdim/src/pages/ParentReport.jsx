@@ -135,6 +135,27 @@ export default function ParentReport({ nav }) {
         ))}
       </div>
 
+      {/* פעילות אחרונה — שורה לכל יום+מקצוע, עם אחוז ההצלחה לצידה */}
+      {data.feed.length > 0 && (
+        <div>
+          <div className="home-h2 mb-2.5"><h2>פעילות אחרונה</h2><span>אחוז הצלחה</span></div>
+          <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
+            {data.feed.map((g, i) => {
+              const pct = g.n ? Math.round((g.ok / g.n) * 100) : 0
+              const col = pct >= 80 ? 'var(--good)' : pct >= 60 ? 'var(--primary)' : 'var(--accent)'
+              return (
+                <div key={i} className="flex items-center gap-2.5 py-2.5" style={i ? { borderTop: '1px solid rgba(255,255,255,.08)' } : undefined}>
+                  <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.color }} />
+                  <div className="flex-1 min-w-0 text-[14px]"><b>{g.name}</b> — {g.n} שאלות · {g.ok} נכון</div>
+                  <span className="font-disp font-extrabold text-[15px] tnum flex-none" dir="ltr" style={{ color: col }}>{pct}%</span>
+                  <span className="text-[12px] text-muted flex-none w-[52px] text-end">{fmtDay(g.day)}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* גרף התקדמות לאורך זמן */}
       {data.chartSubjects.length > 0 && (
         <div>
@@ -196,36 +217,6 @@ export default function ParentReport({ nav }) {
           </div>
         ))}
       </div>
-
-      {/* פעילות אחרונה */}
-      {data.feed.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="home-h2 mb-1"><h2>פעילות אחרונה</h2></div>
-          {data.feed.map((g, i) => {
-            const pct = g.n ? Math.round((g.ok / g.n) * 100) : 0
-            const col = pct >= 80 ? 'var(--good)' : pct >= 60 ? 'var(--primary)' : 'var(--accent)'
-            return (
-              <div key={i} className="milky-row !flex-col !items-stretch !gap-1.5 !py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.color }} />
-                  <div className="flex-1 min-w-0 text-[14px]"><b>{g.name}</b> · {g.n} שאלות</div>
-                  <div className="text-[12px] text-muted flex-none">{fmtDay(g.day)}</div>
-                </div>
-                {/* נכון מול לא נכון — פס מפוצל + אחוז הצלחה */}
-                <div className="flex items-center gap-2.5">
-                  <div className="flex-1 h-2 rounded-full overflow-hidden flex" style={{ background: 'var(--bad)' }} aria-hidden="true">
-                    <div className="h-full" style={{ width: `${pct}%`, background: 'var(--good)' }} />
-                  </div>
-                  <span className="font-disp font-extrabold text-[15px] tnum flex-none" dir="ltr" style={{ color: col }}>{pct}%</span>
-                </div>
-                <div className="text-[12px] text-muted">
-                  <span style={{ color: 'var(--good)' }}>✓ {g.ok} נכון</span> · <span style={{ color: 'var(--bad)' }}>✗ {g.n - g.ok} לא נכון</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       <div className="text-[12px] text-muted text-center leading-relaxed">
         הדוח מבוסס על נתוני התרגול. שליטה בנושא = אחוז התשובות הנכונות מתוך 20 האחרונות; מוכנות = ממוצע נושאי המבחן, כשנושא שלא תורגל נספר כ-0.
