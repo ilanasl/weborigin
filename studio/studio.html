@@ -406,6 +406,12 @@ function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/i
 function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+pad):pad;const e=isRight?(100-pad):(splitAt-pad);return s+(xPct/100)*(e-s);}
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
 function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
+// Soft white halo that hugs the object's outline (drawn under it). Shadow-only trick: the image is drawn far off-canvas and
+// its white "shadow" is offset back into place, so only the glow lands (rotation-aware; blur scaled for 2x/3x export).
+function drawGlowOnly(ctx,img,f,deg,strength,size){const s=+strength||0;if(s<=0)return;const RS=RENDER_SCALE||1,K=20000,r=(deg||0)*Math.PI/180;
+  const blur=Math.max(4,Math.min(f.dw,f.dh)*(0.03+0.14*(size!=null?size:0.5)));const passes=s>0.66?3:s>0.33?2:1;const a=Math.min(1,0.45+0.55*s);
+  ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(r);ctx.shadowColor=`rgba(255,255,255,${a})`;ctx.shadowBlur=blur*RS;
+  ctx.shadowOffsetX=K*Math.cos(r)*RS;ctx.shadowOffsetY=K*Math.sin(r)*RS;for(let k=0;k<passes;k++)ctx.drawImage(img,-f.dw/2-K,-f.dh/2,f.dw,f.dh);ctx.restore();}
 // Soft elliptical contact shadow under a product.
 // Visible (non-transparent) bounds of an image as fractions {l,t,r,b} — so shadows sit under the object, not under empty PNG padding.
 const ALPHA_BOUNDS=new WeakMap();
@@ -436,12 +442,13 @@ async function addExtraFiles(tpl,over,files){if(!Array.isArray(over.extras))over
   for(const f of files){try{const src=await fileToDataUrl(f);const im=await extraImg(src);const n=over.extras.length;const pos={};
     for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=(0.5*d.h)*(im.naturalWidth/im.naturalHeight)/d.w*100;w=Math.max(8,Math.min(40,w));
       const x=reg.x+reg.w*slots[n%slots.length];pos[sz]={x:Math.round(Math.max(w/2,Math.min(100-w/2,x))),y:60,w:Math.round(w),rot:0};}
-    over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,pos});added++;}catch(_){failed++;}}
+    over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,glow:true,pos});added++;}catch(_){failed++;}}
   return {added,failed};}
 function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||!ex.length)return;
   for(const e of ex){if(!!e.under!==!!under)continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
     const p=(e.pos&&(e.pos[size]||e.pos.desktop))||{};const w=(p.w!=null?p.w:30)/100*W,h=w*im.naturalHeight/im.naturalWidth;
     const cx=(p.x!=null?p.x:50)/100*W,cy=(p.y!=null?p.y:55)/100*H;const f={dx:cx-w/2,dy:cy-h/2,dw:w,dh:h};
+    if(e.glow&&over.glow>0)drawGlowOnly(ctx,im,f,p.rot||0,over.glow,over.glowSize);
     if(e.shadow)groundShadowFor(ctx,im,f,(over.shadow!=null?over.shadow:0.3));
     drawRotated(ctx,im,f,p.rot||0);if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"extra",id:e.id,x:f.dx,y:f.dy,w:f.dw,h:f.dh});}}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
@@ -526,6 +533,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
       {const po=(over.prodOff&&over.prodOff[size])||{};f.dx+=(po.x||0)/100*dim.w;f.dy+=(po.y||0)/100*dim.h;}
       if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"prod",x:f.dx,y:f.dy,w:f.dw,h:f.dh});
+      drawGlowOnly(ctx,image,f,(over.productRotate||0),over.glow,over.glowSize);
       if(tpl.productShadow)groundShadowFor(ctx,image,f,(over.shadow!=null?over.shadow:0.22));
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
@@ -585,7 +593,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
 }
 
 /* ---------------- State ---------------- */
@@ -906,7 +914,7 @@ function openEditor(tpl,st,onClose){
   if(o.logoScale==null) o.logoScale=1;
   if(!Array.isArray(o.extras)) o.extras=[];
   const btnEl0=tpl.elements.find(e=>e.type==="button");
-  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font),imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer};
+  const scalars={zoom:tpl.zoom||1,shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,subjRotate:0,productRotate:0,panelColor:(tpl.panelBg?tpl.bgColor:null),panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||50):null),buttonAuto:(tpl.buttonAuto!==undefined?tpl.buttonAuto:true),buttonColor:((btnEl0&&btnEl0.btnColor)||"#1e3a5f"),split:(o.split||false),font:(o.font||tpl.font),imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5};
   for(const k in scalars){if(o[k]==null)o[k]=scalars[k];}
   const hasBtn=tpl.elements.some(e=>e.type==="button");
   const hasBottom=!!tpl.bottomOverlay, hasLogoTint=!!tpl.logoTint;
@@ -937,6 +945,7 @@ function openEditor(tpl,st,onClose){
   html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*" multiple></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
   if(tpl.splittable) html+=`<label class="chk cwhite" style="margin-top:4px;font-weight:700"><input type="checkbox" class="e-split"> ⬛ Split panel (half / half + right text)</label>`;
   if(tpl.productBox) html+=`<div class="f e-adv"><span>Above the gradient (the fade never covers it)</span><div class="e-inline" style="gap:14px"><label class="chk"><input type="checkbox" class="e-imgabove"> Product</label>${tpl.secondLayer?'<label class="chk"><input type="checkbox" class="e-subjabove"> Subject (person)</label>':""}</div></div>`;
+  html+=`<div class="f"><span>✨ White glow around ${tpl.productBox?"the product":"extra images (tick Glow on each)"} <b class="e-glowv"></b></span><div class="e-inline"><span class="pxl">Strength</span><input type="range" class="e-glow" min="0" max="1" step="0.02" style="flex:1"><span class="pxl">Size</span><input type="range" class="e-glowsz" min="0" max="1" step="0.02" style="flex:1"></div></div>`;
   html+=`<div class="f"><span>Extra images — as many as you like, layered on top</span><div class="e-row"><label class="mini">+ Add images<input type="file" class="e-extra-add" accept="image/*" multiple></label></div><div class="e-extras"></div></div>`;
   if(tpl.secondLayer){
     html+=`<div class="e-adv">`;
@@ -1065,6 +1074,7 @@ function openEditor(tpl,st,onClose){
     q(".e-font").value=o.font;
     q(".e-logosz").value=o.logoScale;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";
     q(".e-logox").value=o.logoX;syncLogoAlign();
+    q(".e-glow").value=o.glow||0;q(".e-glowsz").value=(o.glowSize!=null?o.glowSize:0.5);q(".e-glowv").textContent=(o.glow>0?Math.round(o.glow*100)+"%":"off");
     if(tpl.panelBg){const pc0=o.panelColor||tpl.bgColor||"#ffffff";q(".e-panelc").value=pc0;q(".e-panelh").value=pc0.toUpperCase();}
     if(tpl.splittable){q(".e-split").checked=!!o.split;const pr=o.panelColorR||tpl.panelColorR||"#eeeeee";q(".e-panelcr").value=pr;q(".e-panelhr").value=pr.toUpperCase();const sa=(o.splitAt!=null?o.splitAt:50);q(".e-splitat").value=sa;q(".e-splitv").textContent=sa+"%";}
     if(tpl.productShadow){const sv=(o.shadow!=null?o.shadow:0.22);q(".e-sh").value=sv;q(".e-shv").textContent=Math.round(sv*200)+"%";}
@@ -1074,7 +1084,7 @@ function openEditor(tpl,st,onClose){
   }
   try{syncStatic();}catch(e){showErr("syncStatic",e);} applySplit();
   // Keep Split-mode and Fade-mode settings independent — swap a snapshot on toggle.
-  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoAlign","halign","prodOff","subjOff","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+  const MODE_FIELDS=["panelColor","panelColorR","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoAlign","halign","prodOff","subjOff","glow","glowSize","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
   function snapMode(){const s={};MODE_FIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!==null)s[k]=JSON.parse(JSON.stringify(o[k]));});return s;}
   function loadMode(s){if(!s)return;MODE_FIELDS.forEach(k=>{if(s[k]!==undefined)o[k]=JSON.parse(JSON.stringify(s[k]));});}
 
@@ -1090,6 +1100,8 @@ function openEditor(tpl,st,onClose){
   function syncLogoAlign(){const a=o.logoAlign||"left";[["e-logol","left"],["e-logoctr","center"],["e-logor","right"]].forEach(([c,k])=>{const b=controls.querySelector("."+c);if(b)b.classList.toggle("on",k===a);});}
   const setLogoAlign=(a,xv)=>{o.logoAlign=a;o.logoX=xv;q(".e-logox").value=xv;syncLogoAlign();draw();};
   q(".e-logox").addEventListener("input",e=>{o.logoX=+e.target.value;draw();});
+  q(".e-glow").addEventListener("input",e=>{o.glow=+e.target.value;q(".e-glowv").textContent=(o.glow>0?Math.round(o.glow*100)+"%":"off");draw();});
+  q(".e-glowsz").addEventListener("input",e=>{o.glowSize=+e.target.value;draw();});
   q(".e-logol").addEventListener("click",()=>setLogoAlign("left",0));
   q(".e-logoctr").addEventListener("click",()=>setLogoAlign("center",50));
   q(".e-logor").addEventListener("click",()=>setLogoAlign("right",100));
@@ -1153,7 +1165,10 @@ function openEditor(tpl,st,onClose){
       const unw=document.createElement("label");unw.className="pxl";unw.style.cssText="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap";unw.title="draw this image under the fade/gradient instead of on top";
       const unc=document.createElement("input");unc.type="checkbox";unc.checked=!!e.under;unw.appendChild(unc);unw.appendChild(document.createTextNode("Under fade"));
       unc.addEventListener("change",()=>{e.under=unc.checked;draw();});
-      head.appendChild(th);head.appendChild(lab);head.appendChild(unw);head.appendChild(shw);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
+      const glw=document.createElement("label");glw.className="pxl";glw.style.cssText="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap";
+      const glc=document.createElement("input");glc.type="checkbox";glc.checked=!!e.glow;glw.appendChild(glc);glw.appendChild(document.createTextNode("Glow"));
+      glc.addEventListener("change",()=>{e.glow=glc.checked;draw();});
+      head.appendChild(th);head.appendChild(lab);head.appendChild(unw);head.appendChild(glw);head.appendChild(shw);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
       const pair=(a,b)=>{const r=document.createElement("div");r.className="e-inline";[a,b].forEach(([label,key,min,max])=>{const l=document.createElement("span");l.className="pxl";l.textContent=label;
         const inp=document.createElement("input");inp.type="range";inp.min=min;inp.max=max;inp.step=1;inp.style.flex="1";inp.value=(p[key]!=null?p[key]:0);
         inp.addEventListener("input",()=>{p[key]=+inp.value;draw();});r.appendChild(l);r.appendChild(inp);});row.appendChild(r);};
