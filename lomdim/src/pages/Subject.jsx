@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
+import { withTone } from '../lib/tone'
 
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
@@ -53,7 +54,7 @@ export default function Subject({ nav, params }) {
         correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime(),
       })
     }
-    setSubject(s)
+    setSubject(withTone(s))
     setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
     // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
     setMaterials((mt || []).filter((m) => m.storage_path || m.content_hash))

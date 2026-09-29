@@ -5,8 +5,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        disp: ['Heebo', 'system-ui', 'sans-serif'],
-        body: ['Assistant', 'system-ui', 'sans-serif'],
+        disp: ['Rubik', 'system-ui', 'sans-serif'],
+        body: ['IBM Plex Sans Hebrew', 'system-ui', 'sans-serif'],
       },
       colors: {
         ink: 'var(--ink)',
@@ -22,7 +22,7 @@ export default {
         btn: 'var(--btn)',
         'btn-ink': 'var(--btn-ink)',
       },
-      borderRadius: { xl2: '18px', xl3: '22px' },
+      borderRadius: { xl2: '22px', xl3: '26px' },
       boxShadow: { soft: 'var(--shadow)' },
     },
   },

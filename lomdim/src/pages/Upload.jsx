@@ -269,7 +269,7 @@ export default function Upload({ nav, params }) {
                         <span className="text-[11.5px] text-muted">קיימים:</span>
                         {topicsList.map((t) => (
                           <button key={t} type="button" onClick={() => setName(ci, t)}
-                            className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${c.name === t ? 'bg-primary text-white border-primary font-semibold' : 'border-line text-muted'}`}>
+                            className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${c.name === t ? 'bg-primary text-[color:var(--on-fill)] border-primary font-semibold' : 'border-line text-muted'}`}>
                             {t}
                           </button>
                         ))}

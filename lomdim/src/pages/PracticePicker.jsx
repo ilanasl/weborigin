@@ -45,7 +45,7 @@ export default function PracticePicker({ nav, params }) {
         <button onClick={() => start(recommended.id, recommended.name)}
           className="card w-full text-start mb-3 border-primary/40 hover:-translate-y-[2px] transition"
           style={{ borderColor: 'color-mix(in srgb, var(--primary) 45%, var(--line))' }}>
-          <span className="inline-block text-[11.5px] font-bold text-white bg-primary rounded-full px-2.5 py-[3px] mb-2">מומלץ ✨</span>
+          <span className="inline-block text-[11.5px] font-bold text-[color:var(--on-fill)] bg-primary rounded-full px-2.5 py-[3px] mb-2">מומלץ ✨</span>
           <div className="font-disp font-bold text-[17px]">הנושאים שקצת פחות חזקים</div>
           <div className="text-muted text-[13.5px] mt-1">{recommended.name} · {recommended.m.pct}%</div>
         </button>
