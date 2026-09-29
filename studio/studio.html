@@ -145,6 +145,8 @@
     <select id="quality"><option value="high">High (sharpest)</option><option value="medium" selected>Medium</option><option value="low">Low (cheapest)</option></select></label>
   <label class="f"><span>Format</span>
     <select id="fmt"><option value="webp" selected>WebP</option><option value="png">PNG</option><option value="jpeg">JPG</option></select></label>
+  <label class="f"><span>Resolution</span>
+    <select id="rscale" title="2x = same layout at double the pixels: much sharper on modern screens (shows at the same size on the site)"><option value="1">1× exact size</option><option value="2">2× sharp</option><option value="3">3× extra sharp</option></select></label>
   <label class="f"><span>Max weight (KB)</span>
     <input type="number" id="kb" placeholder="off" style="width:110px"></label>
   <label class="f"><span>Min weight (KB)</span>
@@ -409,6 +411,7 @@ function drawProductShadow(ctx,cx,by,rw,alpha){const a=(alpha!=null?alpha:0.22);
 // Extra images: any number of uploaded images layered inside one banner. Each lives in over.extras as
 // {id,src,shadow,pos:{desktop:{x,y,w,rot},mobile:{...}}} — x/y = centre in %, w = width in % of the banner.
 const EXTRA_IMGS=new Map();
+let RENDER_SCALE=1; // >1 renders the same layout at 2x/3x pixel density (sharp export)
 let HIT_CAPTURE=null; // when an array, renderBanner records draggable image boxes (editor drag & drop)
 function extraImg(src){const c=EXTRA_IMGS.get(src);if(c)return Promise.resolve(c);return loadImage(src).then(i=>{EXTRA_IMGS.set(src,i);return i;});}
 function preloadExtras(over){return Promise.all(((over&&over.extras)||[]).map(e=>extraImg(e.src).catch(()=>null)));}
@@ -470,7 +473,7 @@ function paleTint(hex,amt){const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").replace("
 function avgColor(img){try{const c=document.createElement("canvas");c.width=16;c.height=16;const x=c.getContext("2d");x.drawImage(img,0,0,16,16);const d=x.getImageData(0,0,16,16).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}return "#"+[r/n,g/n,b/n].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");}catch(_){return null;}}
 function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img2){
   over=over||{};
-  const dim=tpl.sizes[size];const canvas=document.createElement("canvas");canvas.width=dim.w;canvas.height=dim.h;const ctx=canvas.getContext("2d");
+  const dim=tpl.sizes[size];const RS=RENDER_SCALE||1;const canvas=document.createElement("canvas");canvas.width=Math.round(dim.w*RS);canvas.height=Math.round(dim.h*RS);const ctx=canvas.getContext("2d");if(RS!==1)ctx.scale(RS,RS);
   ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
   const font=over.font||tpl.font;
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
@@ -1283,6 +1286,7 @@ async function openSavedGallery(){
 
 /* ---- Single-banner export (Download button) ---- */
 function browserDownload(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>{try{URL.revokeObjectURL(a.href);}catch(_){}},1500);}
+(function(){const el=document.getElementById("rscale");if(!el)return;try{const v=localStorage.getItem("bs_rscale");if(v)el.value=v;}catch(_){}el.addEventListener("change",()=>{try{localStorage.setItem("bs_rscale",el.value);}catch(_){}});})();
 function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw=parseInt(document.getElementById("kb").value,10);const kbminRaw=parseInt((document.getElementById("kbmin")||{}).value,10);return {fmt,kb:isNaN(kbRaw)?0:kbRaw,kbmin:isNaN(kbminRaw)?0:kbminRaw,ext:fmt==="jpeg"?"jpg":fmt};}
 // Default export rules (client spec), remembered if you override them up top:
 //   Banners → PNG, max 2000 KB  ·  Google Ad Images → PNG, max 1000 KB
@@ -1305,7 +1309,10 @@ function currentFmt(){const fmt=document.getElementById("fmt").value;const kbRaw
 })();
 // A short unique stamp (MMDD-HHMMSS-xx) so downloaded files never overwrite each other.
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}-${Math.random().toString(36).slice(2,4)}`;}
-async function exportBanner(tpl,st,size,f,sfx){const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);const {blob,fmt,fell,over}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,over,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}.${extOf(fmt)}`};}
+function exportScale(){const v=+((document.getElementById("rscale")||{}).value);return v>1?v:1;}
+function scaleTag(){const s=exportScale();return s>1?"@"+s+"x":"";}
+function renderForExport(...a){RENDER_SCALE=exportScale();try{return renderBanner(...a);}finally{RENDER_SCALE=1;}}
+async function exportBanner(tpl,st,size,f,sfx){const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);const {blob,fmt,fell,over}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,over,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}${scaleTag()}.${extOf(fmt)}`};}
 // Always a real browser download (into the Downloads folder). Defaults to BOTH sizes.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
@@ -1335,9 +1342,9 @@ document.getElementById("run").addEventListener("click",async()=>{
     }
     const sfx=stamp();
     for(const size of ["desktop","mobile"]){
-      const canvas=renderBanner(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);
+      const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);
       const {blob,fmt:usedFmt,over}=await encodeCapped(canvas,fmt,kb);
-      const name=`${tpl.id}-${size}-${sfx}.${extOf(usedFmt)}`;
+      const name=`${tpl.id}-${size}-${sfx}${scaleTag()}.${extOf(usedFmt)}`;
       const r=await saveBlob(blob,name);
       log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})${over?` · PNG over ${kb}KB target`:""}`);
     }
