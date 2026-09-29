@@ -1,11 +1,25 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { readiness } from '../lib/mastery'
-import { coinBalance } from '../lib/coins'
+import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
 
 const PALETTE = TONES
+
+// כמה שאלות היום + רצף ימים שבהם הושלם היעד (כמו בחישוב המטבעות)
+const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}` }
+function dayStats(att) {
+  const per = {}
+  for (const a of att) { const k = dayKey(a.created_at); per[k] = (per[k] || 0) + 1 }
+  const d = new Date()
+  const n = per[dayKey(d)] || 0
+  if (n < DAILY_GOAL) d.setDate(d.getDate() - 1) // היום עוד לא הושלם — הרצף נספר עד אתמול
+  let streak = 0
+  while ((per[dayKey(d)] || 0) >= DAILY_GOAL) { streak++; d.setDate(d.getDate() - 1) }
+  const next = streak < 3 ? 3 : streak < 7 ? 7 : (Math.floor(streak / 7) + 1) * 7
+  return { n, streak, toBonus: next - streak }
+}
 
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 
@@ -13,6 +27,7 @@ export default function Home({ nav }) {
   const { profile } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [coins, setCoins] = useState(null)
+  const [today, setToday] = useState({ n: 0, streak: 0 })
   const [loading, setLoading] = useState(true)
 
   async function load() {
@@ -25,6 +40,7 @@ export default function Home({ nav }) {
       coinBalance(),
     ])
     setCoins(bal)
+    setToday(dayStats(att || []))
     const list = (subs || []).map(withTone).map((s) => {
       const byTopic = {}
       for (const a of att || []) {
@@ -65,82 +81,113 @@ export default function Home({ nav }) {
   const upcoming = subjects
     .filter((s) => s.examDays != null && s.examDays >= 0)
     .sort((a, b) => a.examDays - b.examDays)[0]
+  const focus = upcoming || subjects[0]
+  const name = profile?.name ? ` ${profile.name}` : ''
+  const ready = profile?.gender === 'בת' ? 'מוכנה' : profile?.gender === 'בן' ? 'מוכן' : 'מוכנים'
+  const done = today.n >= DAILY_GOAL
+  const startToday = () => focus && nav.go('practice', { subjectId: focus.id, subjectName: focus.name, mode: 'practice' })
+  const cardMeta = (s) => {
+    const ex = s.exams[0]
+    if (ex && ex.days <= 14) return ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`
+    return `${s.nTopics} נושאים · ${s.nMaterials} חומרים`
+  }
 
   return (
-    <div>
-      <div className="hello mt-1.5 mb-5">
-        <div className="eyebrow">שלום{profile?.name ? ` ${profile.name}` : ''} 👋</div>
-        <h1 className="font-black">
-          {profile?.gender === 'בת' ? 'מוכנה ללמוד?' : profile?.gender === 'בן' ? 'מוכן ללמוד?' : 'מוכנים ללמוד?'}
-        </h1>
-        {upcoming && (
-          <div className="sub">
-            הכי קרוב: <b>{upcoming.name}</b> — {upcoming.examDays === 0 ? 'היום' : `בעוד ${upcoming.examDays} ימים`}.
-          </div>
-        )}
-        {!profile && (
-          <button className="streak-line mt-3" onClick={() => nav.go('settings')}>
-            👤 מי מתרגל? הגדירו שם ומין ›
-          </button>
-        )}
+    <div className="home">
+      <div className="home-top">
+        <div>
+          <div className="home-hi">היי{name}</div>
+          <h1 className="home-title">{ready} לסבב<br />של היום?</h1>
+        </div>
         {coins != null && (
-          <button onClick={() => nav.go('store')}
-            className="mt-3 inline-flex items-center gap-2 rounded-full border border-line bg-accent-soft px-3.5 py-1.5 text-[14px] font-bold text-accent">
-            🪙 <span className="tnum">{coins}</span> מטבעות · חנות הפרסים ›
+          <button type="button" className="coin-pill" onClick={() => nav.go('store')} aria-label={`המטבעות שלי: ${coins}`}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /></svg>
+            <span className="tnum">{coins}</span>
           </button>
         )}
       </div>
 
-      <div className="section-title">
+      {!profile && (
+        <button className="streak-line mb-3" onClick={() => nav.go('settings')}>👤 מי מתרגל? הגדירו שם ומין ›</button>
+      )}
+
+      <div className="hero-grid">
+        <div className="hero hero-a">
+          <button type="button" className="arrow-btn" style={{ color: '#5E7A00' }} onClick={startToday} aria-label="להתחיל את משימת היום"><ArrowIcon /></button>
+          <div className="hero-num tnum">{Math.min(today.n, DAILY_GOAL)}<span>/{DAILY_GOAL}</span></div>
+          <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
+          <div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div>
+        </div>
+        <div className="hero hero-b">
+          <button type="button" className="arrow-btn" style={{ color: '#5A43D1' }} onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים"><ArrowIcon /></button>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3c.8 3.4 5 5.3 5 10a5 5 0 0 1-10 0c0-2.6 1.4-4.2 2.6-5.2.2 1.6.9 2.7 1.9 3.2-.1-3.1.3-5.6.5-8z" /></svg>
+          <div className="hero-bottom">
+            <div className="hero-num tnum">{today.streak}</div>
+            <div className="hero-lbl">ימים ברצף</div>
+            <div className="hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
+          </div>
+        </div>
+      </div>
+
+      {upcoming && (
+        <button type="button" className="milky-row" onClick={() => nav.go('planner', { subjectId: upcoming.id, subjectName: upcoming.name })}>
+          <span className="day-box" style={{ background: upcoming.bg }}>
+            <b className="tnum">{upcoming.examDays}</b><small>{upcoming.examDays === 1 ? 'יום' : 'ימים'}</small>
+          </span>
+          <span className="flex-1 min-w-0 flex flex-col gap-0.5 text-start">
+            <span className="font-bold text-[15px] truncate">{upcoming.exams[0].kind} ב{upcoming.name}</span>
+            <span className="text-[13px] text-muted">{upcoming.examDays === 0 ? 'היום! בהצלחה 🍀' : upcoming.ready == null ? 'אוספים נתונים על המוכנות' : `מוכנות ${upcoming.ready}%`}</span>
+          </span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
+      )}
+
+      <div className="home-h2">
         <h2>המקצועות שלי</h2>
-        <span>לחצו כדי להיכנס</span>
+        <span>{subjects.length} מקצועות</span>
       </div>
 
       {loading ? (
         <div className="text-muted">טוען…</div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 max-[440px]:grid-cols-1">
+        <div className="subj-grid">
           {subjects.map((s) => (
-            <button key={s.id} className="subject-card" style={{ background: s.bg }}
-              onClick={() => nav.go('subject', { id: s.id })}>
-              <h3>{s.name}</h3>
-              <div className="meta">{s.nTopics} נושאים · {s.nMaterials} חומרים</div>
-              {s.exams.length > 0 && (
-                <div className="card-chips">
-                  {s.exams.map((ex) => (
-                    <span key={ex.kind} className={`exam-chip ${ex.days > 7 ? 'calm' : ''}`}>
-                      {ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="tile-sp" />
+            <div key={s.id} className="subj-card" style={{ background: s.bg }} onClick={() => nav.go('subject', { id: s.id })}>
+              <button type="button" className="arrow-btn sm" style={{ color: s.color }} aria-label={`לפתוח את ${s.name}`}
+                onClick={(e) => { e.stopPropagation(); nav.go('subject', { id: s.id }) }}><ArrowIcon size={17} /></button>
+              <div>
+                <div className="subj-name">{s.name}</div>
+                <div className="subj-meta">{cardMeta(s)}</div>
+              </div>
               {s.ready == null ? (
-                <div className="collecting">אוספים נתונים…</div>
+                <div className="subj-meta italic">אוספים נתונים…</div>
               ) : (
-                <div className="bar-row">
-                  <div className="bar"><i style={{ width: `${s.ready}%` }} /></div>
-                  <span className="pct tnum">{s.ready}%</span>
+                <div className="subj-bar">
+                  <div className="hero-track"><i style={{ width: `${s.ready}%` }} /></div>
+                  <b className="tnum">{s.ready}%</b>
                 </div>
               )}
-            </button>
+            </div>
           ))}
-          <button onClick={addSubject}
-            className="rounded-[22px] p-[17px] min-h-[132px] flex flex-col items-center justify-center gap-1 border-2 border-dashed border-line text-muted hover:border-primary hover:text-primary transition">
-            <span className="text-[30px] leading-none font-black">+</span>
+          <button type="button" onClick={addSubject} className="subj-add">
+            <span className="text-[26px] leading-none font-black">+</span>
             <span className="text-[14px] font-bold">הוסף מקצוע</span>
           </button>
         </div>
       )}
 
-      <div className="action-row mt-5">
-        <button className="btn btn-wide" onClick={() => nav.go('examBoard')}>
-          🗓️ לוח המבחנים והלו״ז
-        </button>
-        <button className="btn btn-wide" onClick={() => nav.go('parentReport')}>
-          👨‍👩‍👦 דוח הורה
-        </button>
-      </div>
+      <button type="button" className="milky-row mt-5" onClick={() => nav.go('parentReport')}>
+        <span className="flex-1 text-start font-semibold text-[15px]">👨‍👩‍👦 דוח הורה</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+      </button>
     </div>
+  )
+}
+
+function ArrowIcon({ size = 20 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 17L7 7M7 7h9M7 7v9" />
+    </svg>
   )
 }
