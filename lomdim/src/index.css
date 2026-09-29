@@ -206,7 +206,7 @@ button{font-family:inherit; cursor:pointer}
 .hero-grid, .subj-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px }
 .hero{ position:relative; height:164px; border-radius:30px; padding:16px; display:flex; flex-direction:column; justify-content:flex-end; gap:6px; color:var(--on-fill) }
 .hero-numrow{ display:flex; align-items:flex-end; gap:4px }
-.hero-flame{ width:clamp(34px,10.5vw,46px); height:clamp(34px,10.5vw,46px); flex:none; margin-bottom:2px }
+.hero-flame{ width:clamp(15px,5vw,21px); height:clamp(15px,5vw,21px); flex:none; margin-bottom:3px }
 .hero-foot{ height:18px; display:flex; align-items:center }
 .hero-a{ background:#D4F46A }
 .hero-b{ background:#B7A5FF }
