@@ -78,7 +78,13 @@ export function BottomSheet({ children, className = '', scroll = false, role }) 
     measure()
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
     ro?.observe(el)
-    if (scroll) requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }))
+    // בלי קפיצה: גוללים רק אם התשובה המסומנת מוסתרת מאחורי הגיליון, ורק בדיוק כמה שצריך
+    if (scroll) requestAnimationFrame(() => {
+      const target = [...document.querySelectorAll('.q-opt.ok, .q-opt.bad')].pop()
+      if (!target) return
+      const hiddenBy = target.getBoundingClientRect().bottom - (window.innerHeight - el.offsetHeight) + 12
+      if (hiddenBy > 0) window.scrollBy({ top: hiddenBy, behavior: 'smooth' })
+    })
     return () => ro?.disconnect()
   }, [scroll])
   return (
