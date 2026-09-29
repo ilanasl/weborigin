@@ -406,3 +406,33 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .up-thumb{ width:40px; height:40px; flex:none; border-radius:12px; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; font-size:19px }
 .up-x{ width:34px; height:34px; flex:none; border-radius:17px; border:1px solid var(--milky-line); background:transparent; color:var(--ink);
   display:flex; align-items:center; justify-content:center }
+
+/* ── חנות הפרסים ── */
+.coin-hero{ border-radius:30px; background:var(--primary); color:var(--on-fill); padding:16px 18px 18px; display:flex; flex-direction:column; gap:8px }
+.coin-hero-num{ font-family:var(--disp); font-weight:900; font-size:clamp(56px,18vw,76px); line-height:.9; letter-spacing:-2px; text-align:right }
+.store-ok{ height:36px; padding:0 14px; border-radius:18px; border:none; background:#fff; color:var(--on-fill); font-weight:700; font-size:13.5px; flex:none }
+.prize{ min-height:148px; border-radius:26px; padding:14px; display:flex; flex-direction:column; justify-content:space-between; gap:10px;
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi); color:var(--ink) }
+.prize-btn{ height:40px; border-radius:20px; border:none; background:var(--on-fill); font-family:var(--disp); font-weight:700; font-size:14.5px }
+
+/* ── צ'אט "תסביר לי" ── */
+.bubble{ font-size:15px; line-height:1.6 }
+.bubble.me{ background:var(--primary); color:var(--on-fill); border-radius:22px 6px 22px 22px; padding:12px 15px; font-weight:500; max-width:80% }
+.bubble.ai{ background:#F4F1EA; color:#26262B; border:none; border-radius:6px 22px 22px 22px; padding:13px 16px 12px; max-width:92% }
+.bubble.ai .who{ color:#5E7A00; font-size:12.5px; font-weight:700 }
+.bubble.ai .md p, .bubble.ai .md li{ color:#26262B }
+.bubble.ai .md strong, .bubble.ai .md .font-disp{ color:#141416 }
+.bubble.ai .md th{ background:#E7E3D9 !important; color:#141416 }
+.bubble.ai .md th, .bubble.ai .md td{ border-color:rgba(20,20,22,.15) !important }
+.bubble.ai .field{ background:#fff; color:#141416; border-color:rgba(20,20,22,.2) }
+.bubble.ai .text-muted{ color:#6B6B72 }
+.bubble.ai .text-primary{ color:#5E7A00 }
+.bubble.ai .text-good{ color:#1F7A45 }
+.bubble-add{ margin-top:8px; height:34px; padding:0 12px; border-radius:17px; border:1.5px solid rgba(20,20,22,.22); background:transparent; color:#141416;
+  font-size:13px; font-weight:700; display:inline-flex; align-items:center; gap:6px }
+.chips .chip{ height:38px; padding:0 14px; border-radius:19px; font-size:13.5px }
+.composer{ align-items:center; border-top:none; margin-top:16px; padding:6px 6px 6px 8px; border-radius:30px;
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi) }
+.composer input{ border:none; background:transparent; height:44px; padding:0 12px; font-size:15px }
+.composer button{ width:44px; height:44px; padding:0; border-radius:22px; background:#fff; color:#5E7A00; display:flex; align-items:center; justify-content:center }
+.composer button:disabled{ opacity:.5 }

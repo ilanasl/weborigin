@@ -103,44 +103,42 @@ export default function Explain({ nav, params }) {
   const isIntro = (m) => m.who === 'ai' && /מה לא ברור/.test(m.text || '')
 
   return (
-    <div className="pt-2">
-      <div className="flex items-center gap-2 mb-1">
-        <h1 className="text-[23px] font-black flex-1">תסביר לי</h1>
-        <button className="text-primary text-sm font-bold" onClick={newChat}>+ שיחה חדשה</button>
-      </div>
-      <div className="text-muted text-[13.5px] mb-3">{subjectName}</div>
-
-      {/* היסטוריה — מקופלת תחת חץ */}
-      {history.length > 0 && (
-        <>
-          <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowHist((v) => !v)}>
-            <span className="flex-1 text-start">💬 שיחות קודמות ({history.length})</span>
-            <span className="text-[12px] font-bold">{showHist ? 'הסתר ▲' : 'הצג ▼'}</span>
+    <div className="pt-1">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="flex-1" />
+        {history.length > 0 && (
+          <button type="button" className="hbtn !text-[13px]" onClick={() => setShowHist((v) => !v)} aria-expanded={showHist}>
+            💬 שיחות קודמות ({history.length})
           </button>
-          {showHist && (
-            <div className="card mb-3">
-              {history.map((c) => (
-                <div key={c.id}
-                  className="flex items-center gap-2 w-full py-2.5 border-b border-line last:border-0">
-                  <button onClick={() => openChat(c)} className="flex-1 min-w-0 text-start">
-                    <div className="text-[14.5px] font-semibold truncate">{c.title || 'שיחה'}</div>
-                    <div className="text-[12px] text-muted">{new Date(c.updated_at).toLocaleDateString('he-IL')}</div>
-                  </button>
-                  <button onClick={() => openChat(c)} className="text-muted text-[13px]">פתח ›</button>
-                  <button onClick={(e) => deleteChat(e, c)} title="מחק שיחה"
-                    className="w-8 h-8 rounded-[9px] grid place-items-center text-[15px]"
-                    style={{ color: 'var(--bad)' }}>🗑</button>
-                </div>
-              ))}
+        )}
+        <button type="button" className="up-pill !h-10" onClick={newChat}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5E7A00" strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          שיחה חדשה
+        </button>
+      </div>
+      <h1 className="font-black text-[30px] leading-none">תסביר לי</h1>
+      <div className="text-muted text-[13.5px] mt-1.5 mb-4">{subjectName}</div>
+
+      {/* היסטוריה — נפתחת מהכפתור למעלה */}
+      {showHist && history.length > 0 && (
+        <div className="flex flex-col gap-1.5 mb-4">
+          {history.map((c) => (
+            <div key={c.id} className="milky-row !py-2">
+              <button type="button" onClick={() => openChat(c)} className="flex-1 min-w-0 text-start">
+                <div className="text-[14.5px] font-semibold truncate">{c.title || 'שיחה'}</div>
+                <div className="text-[12px] text-muted">{new Date(c.updated_at).toLocaleDateString('he-IL')}</div>
+              </button>
+              <button type="button" onClick={(e) => deleteChat(e, c)} title="מחק שיחה" aria-label="מחק שיחה"
+                className="text-[12.5px] font-bold px-2.5 py-1 rounded-full" style={{ color: 'var(--bad)', border: '1.5px solid color-mix(in srgb, var(--bad) 40%, transparent)' }}>מחק</button>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
       <div className="chat">
         {msgs.map((m, i) => (
           <div key={i} className={`bubble ${m.who}`}>
-            {m.who === 'ai' && <div className="who">מורה 🤖</div>}
+            {m.who === 'ai' && <div className="who">מורה</div>}
             {m.who === 'ai' ? <Markdown text={m.text} /> : m.text}
             {m.who === 'ai' && !isIntro(m) && (
               saved[i] ? (
@@ -160,13 +158,15 @@ export default function Explain({ nav, params }) {
                   </div>
                 </div>
               ) : (
-                <button className="text-[12px] text-primary font-semibold mt-2 hover:underline"
-                  onClick={() => openAdd(i)}>➕ הוסף לסיכומים שלי</button>
+                <button type="button" className="bubble-add" onClick={() => openAdd(i)}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                  הוסף לסיכומים שלי
+                </button>
               )
             )}
           </div>
         ))}
-        {busy && <div className="bubble ai"><div className="who">מורה 🤖</div>חושב…</div>}
+        {busy && <div className="bubble ai"><div className="who">מורה</div>חושב…</div>}
         <div ref={endRef} />
       </div>
 
@@ -180,7 +180,9 @@ export default function Explain({ nav, params }) {
 
       <form className="composer" onSubmit={(e) => { e.preventDefault(); send() }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="כתבו כאן שאלה חופשית…" />
-        <button type="submit" disabled={busy || !input.trim()}>שלח</button>
+        <button type="submit" disabled={busy || !input.trim()} aria-label="שלח">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6" /></svg>
+        </button>
       </form>
     </div>
   )
