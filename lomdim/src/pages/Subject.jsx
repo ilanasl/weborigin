@@ -364,7 +364,7 @@ export default function Subject({ nav, params }) {
                   {/* שיוך לנושא — ניתן לשינוי מכאן */}
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <span className="text-[11.5px] text-muted">נושא:</span>
-                    <select className="field !py-1 !px-2 text-[12.5px] !w-auto" value={m.topic_id || ''}
+                    <select className="field !py-1 !px-2 !text-[16px] !w-auto" value={m.topic_id || ''}
                       onChange={(e) => moveMaterialTopic(m, e.target.value)}>
                       {!m.topic_id && <option value="">— ללא —</option>}
                       {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -395,13 +395,13 @@ export default function Subject({ nav, params }) {
                         <div className="text-[12px] text-muted leading-relaxed">
                           לאיזה נושא נוסף שייך הדף? המערכת תקרא אותו שוב ותכין לנושא הזה סיכום, שאלות וכרטיסיות רק מהחלק הרלוונטי.
                         </div>
-                        <select className="field !py-1.5 text-[13px]" value={addSel} onChange={(e) => setAddSel(e.target.value)}>
+                        <select className="field !py-1.5 !text-[16px]" value={addSel} onChange={(e) => setAddSel(e.target.value)}>
                           <option value="">בחר/י נושא…</option>
                           {topics.filter((t) => !usedTopics.has(t.id)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                           <option value="__new">+ נושא חדש…</option>
                         </select>
                         {addSel === '__new' && (
-                          <input className="field !py-1.5 text-[13px]" placeholder="שם הנושא החדש"
+                          <input className="field !py-1.5 !text-[16px]" placeholder="שם הנושא החדש"
                             value={addNew} onChange={(e) => setAddNew(e.target.value)} />
                         )}
                         <div className="flex gap-2">

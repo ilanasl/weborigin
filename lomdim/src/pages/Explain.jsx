@@ -150,7 +150,7 @@ export default function Explain({ nav, params }) {
                     {detecting ? 'מזהה את הנושא… ✍️' : 'לשמור בנושא (אפשר לשנות):'}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <select className="field !py-1.5 !w-auto text-[13px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)} disabled={detecting}>
+                    <select className="field !py-1.5 !w-auto !text-[16px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)} disabled={detecting}>
                       {topics.length === 0 && <option value="">אין נושאים</option>}
                       {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
