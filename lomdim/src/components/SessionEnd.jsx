@@ -5,11 +5,10 @@ import { playDing, isMuted, setMuted } from '../lib/celebrate'
 const CONFETTI_COLORS = ['#D4F46A', '#B7A5FF', '#FFB28A', '#7FDCCB', '#FFA3C4', '#F5F4EF']
 
 // מסך סיום סבב — רגיל, או חגיגה כשהסבב השלים את משימת היום
-export default function SessionEnd({ correct, total, title, subtitle, tag, reward, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
-  // משימת היום הושלמה עכשיו → מסך חגיגה מלא. סבב מושלם (הכול נכון) → קונפטי וצליל גם על המסך הרגיל.
+export default function SessionEnd({ correct, total, title, subtitle, tag, reward, planDay, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
+  // חגיגה: משימת היום הושלמה עכשיו, או היום בתוכנית הלמידה למבחן הושלם עכשיו
   const celebrate = !!reward?.events?.some((e) => e.reason === 'daily_goal')
-  const perfect = total >= 5 && correct === total
-  const party = celebrate || perfect
+  const party = celebrate || !!planDay
   const [muted, setMute] = useState(isMuted())
   useEffect(() => { if (party) playDing() }, [party])
 
@@ -77,6 +76,22 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
           </div>
           <div className="end-title">{title}</div>
           {subtitle && <div className="end-sub">{subtitle}</div>}
+        </div>
+      )}
+
+      {planDay && (
+        <div className="plan-win">
+          <span className="plan-win-check" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+          </span>
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="font-disp font-extrabold text-[18px] leading-tight">
+              {planDay.review ? 'סיימת את החזרה הכללית!' : 'סיימת את היום בתוכנית!'}
+            </span>
+            <span className="text-[13px] font-semibold opacity-75">
+              {planDay.examDays === 1 ? `מחר ה${planDay.kind} ב${planDay.subjectName} — בהצלחה!` : `עוד ${planDay.examDays} ימים עד ה${planDay.kind} ב${planDay.subjectName}`}
+            </span>
+          </span>
         </div>
       )}
 
