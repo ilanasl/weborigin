@@ -212,10 +212,21 @@ export default function Subject({ nav, params }) {
         <div className="ready-hero-num tnum" dir="ltr">{ready == null ? '—' : `${ready}%`}</div>
         <div className="hero-track !flex-none"><i style={{ width: `${ready || 0}%` }} /></div>
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
-        {(strong.length > 0 || weak.length > 0) && (
-          <div className="flex gap-1.5 flex-wrap">
-            {strong.slice(0, 3).map((t) => <span key={t.id} className="ready-chip">חזק: {t.name}</span>)}
-            {weak.slice(0, 3).map((t) => <span key={t.id} className="ready-chip">לתרגל: {t.name}</span>)}
+        {ready != null && (
+          <div className="flex flex-col gap-2 mt-0.5">
+            {[
+              { h: 'חזק בנושא', arr: strong, cls: 'ready-chip-good', mark: '✓' },
+              { h: 'כדאי לתרגל', arr: weak, cls: 'ready-chip-weak', mark: '!' },
+            ].map((g) => (
+              <div key={g.h} className="flex flex-col gap-1">
+                <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>{g.h}</span>
+                <div className="flex gap-1.5 flex-wrap">
+                  {g.arr.length ? g.arr.map((t) => (
+                    <span key={t.id} className={`ready-chip ${g.cls}`}><b aria-hidden="true">{g.mark}</b>{t.name}</span>
+                  )) : <span className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.55)' }}>עוד אין</span>}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <div className="flex gap-2 mt-0.5">
