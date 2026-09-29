@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { isConfigured, supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
@@ -106,9 +106,37 @@ const PAGES = {
 function Shell() {
   const { user, loading, signOut } = useAuth()
   const [stack, setStack] = useState([{ name: 'home', params: {}, id: 0 }])
-  const go = useCallback((name, params = {}) => setStack((s) => [...s, { name, params, id: ++seq }]), [])
-  const back = useCallback(() => setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)), [])
-  const reset = useCallback((name = 'home', params = {}) => setStack([{ name, params, id: ++seq }]), [])
+  // מיקום הגלילה של כל מסך נשמר כשיוצאים ממנו, ו"חזרה" מחזירה בדיוק לאותו מקום
+  const scrollMem = useRef({})
+  const pendingY = useRef(0)
+  const go = useCallback((name, params = {}) => setStack((s) => {
+    const top = s[s.length - 1]
+    if (top) scrollMem.current[top.id] = window.scrollY
+    pendingY.current = 0
+    return [...s, { name, params, id: ++seq }]
+  }), [])
+  const back = useCallback(() => setStack((s) => {
+    if (s.length <= 1) return s
+    const prev = s[s.length - 2]
+    pendingY.current = scrollMem.current[prev.id] || 0
+    return s.slice(0, -1)
+  }), [])
+  const reset = useCallback((name = 'home', params = {}) => { pendingY.current = 0; setStack([{ name, params, id: ++seq }]) }, [])
+
+  const topId = stack[stack.length - 1]?.id
+  useEffect(() => {
+    const y = pendingY.current
+    if (!y) { window.scrollTo(0, 0); return }
+    // המסך טוען נתונים מחדש — מחכים שיהיה מספיק גובה ואז גוללים (עד ~2.5 שניות)
+    let tries = 0, raf
+    const tick = () => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      if (max >= y - 4 || tries++ > 150) { window.scrollTo(0, Math.min(y, max)); return }
+      raf = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(raf)
+  }, [topId])
 
   if (loading) return <div className="app-shell pt-16 text-muted">טוען…</div>
   if (!user) return <Login />
