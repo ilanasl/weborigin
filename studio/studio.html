@@ -411,6 +411,14 @@ function drawProductShadow(ctx,cx,by,rw,alpha){const a=(alpha!=null?alpha:0.22);
 const EXTRA_IMGS=new Map();
 function extraImg(src){const c=EXTRA_IMGS.get(src);if(c)return Promise.resolve(c);return loadImage(src).then(i=>{EXTRA_IMGS.set(src,i);return i;});}
 function preloadExtras(over){return Promise.all(((over&&over.extras)||[]).map(e=>extraImg(e.src).catch(()=>null)));}
+// Add uploaded files as extra image layers, spread across the image area so they don't stack on each other.
+async function addExtraFiles(tpl,over,files){if(!Array.isArray(over.extras))over.extras=[];let added=0,failed=0;
+  const reg=tpl.productBox||tpl.imageBox||{x:50,w:50};const slots=[0.3,0.7,0.5,0.15,0.85];
+  for(const f of files){try{const src=await fileToDataUrl(f);const im=await extraImg(src);const n=over.extras.length;const pos={};
+    for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=(0.5*d.h)*(im.naturalWidth/im.naturalHeight)/d.w*100;w=Math.max(8,Math.min(40,w));
+      const x=reg.x+reg.w*slots[n%slots.length];pos[sz]={x:Math.round(Math.max(w/2,Math.min(100-w/2,x))),y:60,w:Math.round(w),rot:0};}
+    over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,pos});added++;}catch(_){failed++;}}
+  return {added,failed};}
 function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||!ex.length)return;
   for(const e of ex){if(!!e.under!==!!under)continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
     const p=(e.pos&&(e.pos[size]||e.pos.desktop))||{};const w=(p.w!=null?p.w:30)/100*W,h=w*im.naturalHeight/im.naturalWidth;
@@ -719,7 +727,7 @@ TEMPLATES.forEach(tpl=>{
     <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
     <div class="src">
       <span class="lab">Image: <b class="c-srclab">upload needed</b></span>
-      <label class="mini">Upload<input type="file" class="c-file" accept="image/*"></label>
+      <label class="mini">Upload<input type="file" class="c-file" accept="image/*" multiple></label>
       <button class="tiny c-clearimg" hidden>Remove</button>
     </div>
     <div class="src">
@@ -728,6 +736,7 @@ TEMPLATES.forEach(tpl=>{
       <button class="tiny c-clearlogo" hidden>Remove</button>
     </div>
     ${tpl.secondLayer?`<div class="src"><span class="lab">Subject: <b class="c-subjlab">none</b></span><label class="mini">Upload subject<input type="file" class="c-subjfile" accept="image/*"></label><button class="tiny c-clearsubj" hidden>Remove</button></div>`:''}
+    <div class="src"><span class="lab">Extra images: <b class="c-exlab">0</b></span><label class="mini">+ Add images<input type="file" class="c-exfile" accept="image/*" multiple></label><button class="tiny c-exedit" hidden title="position / size / rotate each image">Adjust</button></div>
     <div class="src c-logoszrow" hidden><span class="lab">Logo size</span><input type="range" class="c-logosz" min="0.4" max="2" step="0.05" style="flex:1"></div>
     <label class="chk"><input type="checkbox" class="c-tint"> Auto tint overlay from image</label>
     ${tpl.transparentOK?'<label class="chk"><input type="checkbox" class="c-transparent"> Transparent background (GPT — subject floats on your panel colour)</label>':''}
@@ -767,6 +776,7 @@ TEMPLATES.forEach(tpl=>{
     card.querySelector(".c-logoszrow").hidden=!st.logo;
     {const sl=card.querySelector(".c-subjlab"),sc=card.querySelector(".c-clearsubj");if(sl)sl.textContent=st.uploaded2?"added":"none";if(sc)sc.hidden=!st.uploaded2;}
     card.querySelector(".c-logosz").value=st.over.logoScale;
+    {const n=(st.over.extras||[]).length;card.querySelector(".c-exlab").textContent=n?String(n):"none";card.querySelector(".c-exedit").hidden=!n;}
     tintChk.checked=st.over.overlay.desktop.auto;
     textBtn.classList.toggle("on",st.text.enabled);
     drawThumb(canvasEl,tpl,st);
@@ -777,7 +787,11 @@ TEMPLATES.forEach(tpl=>{
   const afterEdit=()=>{refresh();autoSaveBanner(tpl,st);};
   card.querySelector(".thumb").addEventListener("click",()=>openEditor(tpl,st,afterEdit));
   card.querySelectorAll(".c-pv").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();st.previewSize=b.dataset.s;card.querySelectorAll(".c-pv").forEach(x=>x.classList.toggle("on",x===b));drawThumb(canvasEl,tpl,st);}));
-  fileEl.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);e.target.value="";refresh();autoSaveBanner(tpl,st);});
+  fileEl.addEventListener("change",async e=>{const all=[...e.target.files];const f=all[0];if(!f)return;e.target.value="";const url=await fileToDataUrl(f);st.uploaded=url;st.img=await loadImage(url);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);
+    const extra=all.length>1?await addExtraFiles(tpl,st.over,all.slice(1)):null;refresh();autoSaveBanner(tpl,st);if(extra&&extra.added)openEditor(tpl,st,afterEdit);});
+  card.querySelector(".c-exfile").addEventListener("change",async e=>{const all=[...e.target.files];e.target.value="";if(!all.length)return;const r=await addExtraFiles(tpl,st.over,all);
+    if(r.failed)alert(r.failed+" image(s) could not be read — please use PNG, JPG or WebP.");refresh();autoSaveBanner(tpl,st);if(r.added)openEditor(tpl,st,afterEdit);});
+  card.querySelector(".c-exedit").addEventListener("click",()=>openEditor(tpl,st,afterEdit));
   clearImg.addEventListener("click",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;refresh();forgetAuto(tpl);});
   logoFile.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.logo=url;st.logoImg=await loadImage(url);e.target.value="";refresh();});
   clearLogo.addEventListener("click",()=>{st.logo=null;st.logoImg=null;refresh();});
@@ -896,7 +910,7 @@ function openEditor(tpl,st,onClose){
   const showErr=(where,e)=>{try{const d=document.createElement("div");d.style.cssText="color:#b00020;font:600 11px monospace;padding:6px 8px;background:#fff3f3;border:1px solid #f3c0c0;border-radius:6px;margin:4px 0;white-space:pre-wrap";d.textContent=where+": "+((e&&e.message)||e)+"\n"+(((e&&e.stack)||"").split("\n").slice(1,3).join("\n"));controls.insertBefore(d,controls.firstChild);}catch(_){}};
 
   let html="";
-  html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*"></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
+  html+=`<div class="e-row"><label class="mini">Upload image<input type="file" class="e-img" accept="image/*" multiple></label><label class="mini">Upload logo<input type="file" class="e-logo" accept="image/*"></label>${tpl.secondLayer?'<label class="mini">Upload subject<input type="file" class="e-img2" accept="image/*"></label><button class="tiny e-img2clr" title="remove subject layer">Remove subject</button>':''}</div>`;
   if(tpl.splittable) html+=`<label class="chk cwhite" style="margin-top:4px;font-weight:700"><input type="checkbox" class="e-split"> ⬛ Split panel (half / half + right text)</label>`;
   html+=`<div class="f"><span>Extra images — as many as you like, layered on top</span><div class="e-row"><label class="mini">+ Add images<input type="file" class="e-extra-add" accept="image/*" multiple></label></div><div class="e-extras"></div></div>`;
   if(tpl.secondLayer){
@@ -1042,7 +1056,7 @@ function openEditor(tpl,st,onClose){
 
   // listeners
   q(".e-showtext").addEventListener("change",e=>{st.text.enabled=e.target.checked;draw();});
-  q(".e-img").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);syncSize();draw();});
+  q(".e-img").addEventListener("change",async e=>{const all=[...e.target.files];const f=all[0];if(!f)return;if(all.length>1){await addExtraFiles(tpl,o,all.slice(1));renderExtras();}const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);syncSize();draw();});
   q(".e-logo").addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const u=await fileToDataUrl(f);st.logo=u;st.logoImg=await loadImage(u);draw();});
   q(".e-logosz").addEventListener("input",e=>{o.logoScale=+e.target.value;q(".e-logoszv").textContent=Math.round(o.logoScale*100)+"%";draw();});
   controls.querySelectorAll(".e-pos button").forEach(b=>b.addEventListener("click",()=>{o.anchorX[size]=+b.dataset.p;syncSize();draw();}));
@@ -1125,12 +1139,7 @@ function openEditor(tpl,st,onClose){
       fr.addEventListener("click",()=>{o.extras.splice(i,1);o.extras.push(e);renderExtras();draw();});
       rm.addEventListener("click",()=>{o.extras.splice(i,1);renderExtras();draw();});
       box.appendChild(row);});}
-  q(".e-extra-add").addEventListener("change",async ev=>{const files=[...ev.target.files];ev.target.value="";
-    for(const f of files){try{const src=await fileToDataUrl(f);const im=await extraImg(src);const n=o.extras.length;const pos={};
-      for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=(0.5*d.h)*(im.naturalWidth/im.naturalHeight)/d.w*100;w=Math.max(8,Math.min(45,w));
-        pos[sz]={x:Math.min(85,50+n*12),y:55,w:Math.round(w),rot:0};}
-      o.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,pos});}catch(err){showErr("add image",err);}}
-    renderExtras();draw();});
+  q(".e-extra-add").addEventListener("change",async ev=>{const files=[...ev.target.files];ev.target.value="";const r=await addExtraFiles(tpl,o,files);if(r.failed)showErr("add image",r.failed+" file(s) could not be read — use PNG, JPG or WebP");renderExtras();draw();});
   back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));syncSize();renderExtras();draw();}));
 
   const close=()=>{back.remove();onClose();};
