@@ -113,7 +113,13 @@ export default function Home({ nav }) {
 
       <div className="hero-grid">
         <div className="hero hero-a">
-          <button type="button" className="arrow-btn" style={{ color: '#5E7A00' }} onClick={startToday} aria-label="להתחיל את משימת היום"><ArrowIcon /></button>
+          {done ? (
+            <span className="arrow-btn" style={{ color: '#5E7A00' }} role="img" aria-label="משימת היום הושלמה">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </span>
+          ) : (
+            <button type="button" className="arrow-btn" style={{ color: '#5E7A00' }} onClick={startToday} aria-label="להמשיך את משימת היום"><ArrowIcon /></button>
+          )}
           <div className="hero-num tnum">{Math.min(today.n, DAILY_GOAL)}<span>/{DAILY_GOAL}</span></div>
           <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
           <div className="hero-foot"><div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div></div>
