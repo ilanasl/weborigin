@@ -437,7 +437,7 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .chips .chip{ height:38px; padding:0 14px; border-radius:19px; font-size:13.5px }
 .composer{ align-items:center; border-top:none; margin-top:16px; padding:6px 6px 6px 8px; border-radius:30px;
   background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi) }
-.composer input{ border:none; background:transparent; height:44px; padding:0 12px; font-size:15px }
+.composer input{ border:none; background:transparent; height:44px; padding:0 12px; font-size:16px }
 .composer button{ width:44px; height:44px; padding:0; border-radius:22px; background:#fff; color:#5E7A00; display:flex; align-items:center; justify-content:center }
 .composer button:disabled{ opacity:.5 }
 
