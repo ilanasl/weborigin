@@ -372,7 +372,7 @@ export default function Subject({ nav, params }) {
                   <span className="font-disp font-bold text-[13px] tnum" dir="ltr">{t.m.pct}%</span>
                 </span>
               )}
-              <span className="text-[12px] text-muted inline-flex items-center gap-1"><Icon name="book" size={14} />לסיכום הנושא ›</span>
+              <span className="text-[12px] text-muted inline-flex items-center gap-1"><Icon name="book" size={14} />לצפייה בסיכום הנושא ›</span>
             </button>
             <button type="button" className="topic-go" aria-label={`לתרגל את ${t.name}`}
               onClick={() => nav.go('practice', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name, mode: 'practice' })}>
