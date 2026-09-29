@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
 import { settleSession } from '../lib/coins'
+import { VARIATIONS, varKind } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 import SessionEnd from '../components/SessionEnd'
 import { primeAudio } from '../lib/celebrate'
@@ -94,16 +95,16 @@ export default function Practice({ nav, params }) {
   async function spawnVariations(seed) {
     try {
       const { questions } = await generateVariations({
-        subjectName, topicName: topicName || '', concept: seed.q, learner: profile, count: 5,
+        subjectName, topicName: topicName || '', concept: seed.q, learner: profile, count: VARIATIONS,
       })
       if (!questions?.length) return
-      const { data: ins } = await supabase.from('questions').insert(questions.map((v) => ({
+      const { data: ins } = await supabase.from('questions').insert(questions.slice(0, VARIATIONS).map((v) => ({
         subject_id: subjectId, topic_id: seed.topic_id,
         q: v.q, choices: v.choices, answer: v.answer,
         difficulty: v.difficulty || 'בינוני', explain: v.explain || '', hint: v.hint || '',
       }))).select('id')
       if (ins?.length) await supabase.from('review_items')
-        .insert(ins.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
+        .insert(ins.map((r) => ({ subject_id: subjectId, kind: varKind(seed.id), ref_id: r.id, streak: 0 })))
     } catch { /* לא חוסם את התרגול */ }
   }
   async function next() {

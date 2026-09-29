@@ -12,6 +12,13 @@ const GUESS = 0.25
 const MIN_EFF = 3
 export const GRAD = 3 // הצלחות שנדרשות כדי שפריט "ייטמע" (עקומת למידה איטית יותר)
 
+// וריאציות = תרגול עזר סביב טעות: מעטות, יוצאות אחרי הצלחה אחת, ונמחקות כשהשאלה המקורית נטמעת.
+// מסומנות ב-review_items כ-kind = "var:<מזהה השאלה המקורית>"
+export const VARIATIONS = 2
+export const VAR_GRAD = 1
+export const varKind = (parentId) => `var:${parentId}`
+export const isVarKind = (k) => typeof k === 'string' && k.startsWith('var:')
+
 // attempts: [{ correct: bool, difficulty: 'קל'|'בינוני'|'קשה', ts: number(ms) }]
 // ref = "עכשיו" לחישוב — ברירת מחדל הרגע הנוכחי; מאפשר לחשב שליטה היסטורית לנקודת זמן.
 export function mastery(attempts = [], ref = Date.now()) {
