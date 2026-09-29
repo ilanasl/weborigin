@@ -120,8 +120,11 @@ export default function Home({ nav }) {
         </div>
         <div className="hero hero-b">
           <button type="button" className="arrow-btn" style={{ color: '#5A43D1' }} onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים"><ArrowIcon /></button>
-          <svg className="hero-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3c.8 3.4 5 5.3 5 10a5 5 0 0 1-10 0c0-2.6 1.4-4.2 2.6-5.2.2 1.6.9 2.7 1.9 3.2-.1-3.1.3-5.6.5-8z" /></svg>
-          <div className="hero-num tnum">{today.streak}</div>
+          
+          <div className="hero-numrow">
+            <FlameIcon />
+            <div className="hero-num tnum">{today.streak}</div>
+          </div>
           <div className="hero-lbl">ימים ברצף</div>
           <div className="hero-foot hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
         </div>
@@ -186,6 +189,16 @@ function ArrowIcon({ size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M17 17L7 7M7 7h9M7 7v9" />
+    </svg>
+  )
+}
+
+// להבה מלאה ונועזת: גוף כהה עם לשון פנימית בצבע הכרטיס
+function FlameIcon() {
+  return (
+    <svg className="hero-flame" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M12 1.5c.6 3.6 3.2 5.6 5 7.8A8 8 0 0 1 12 22.5a8 8 0 0 1-6.6-12.4c.5 2 1.7 3.2 3.1 3.6C8.2 9.3 9.5 5 12 1.5z" />
+      <path fill="#B7A5FF" d="M12 12.6c1.8 1.5 3.1 3 3.1 4.9a3.1 3.1 0 0 1-6.2 0c0-1.5.9-2.7 1.8-3.4.1 1 .6 1.7 1.2 2-.3-1.3-.2-2.5.1-3.5z" />
     </svg>
   )
 }
