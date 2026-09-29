@@ -233,41 +233,40 @@ export default function Subject({ nav, params }) {
 
       {/* כלים */}
       {(() => {
-        // כלי תרגול: 3 בשורה (אם השורה האחרונה חסרה — האריחים בה מתרחבים). כלי המבחן: שורה נפרדת למטה, שני אריחים רחבים.
+        // שני טורים, אריחים זהים. מספר אי-זוגי → "תסביר לי" עובר לסוף ברוחב מלא, כך שאף פעם אין חור.
         const tools = [
-          fcCount > 0 && { k: 'fc', label: 'כרטיסיות', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
-          { k: 'rv', label: 'לחיזוק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
-          { k: 'ex', label: 'תסביר לי', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
-          isLang && { k: 'sx', label: 'ניתוח משפט', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
-          isLang && { k: 'pos', label: 'חלקי דיבר', icon: '🔤', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'pos' }) },
-          { k: 'ck', label: 'בדוק תרגיל', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
+          fcCount > 0 && { k: 'fc', label: 'כרטיסיות', sub: 'מושגים לשינון', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
+          { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
+          isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          isLang && { k: 'pos', label: 'חלקי דיבר', sub: 'פועל, שם עצם…', icon: '🔤', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'pos' }) },
+          { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
+          { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
         ].filter(Boolean)
-        const rest = tools.length % 3
-        const span = (i) => (rest && i >= tools.length - rest ? 6 / rest : 2)
+        const odd = tools.length % 2 === 1
         const exam = [
           { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : 'תוכנית עד המבחן', icon: '📅', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
           { k: 'pe', label: 'מבחנים שעברו', sub: 'ציונים וטעויות', icon: '🗂️', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
         ]
+        const Tile = ({ t, full }) => (
+          <button type="button" className="tool" style={full ? { gridColumn: '1 / -1' } : undefined} onClick={t.go}>
+            <span className="text-[22px] leading-none flex-none">{t.icon}</span>
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="leading-tight">{t.label}</span>
+              <span className="text-[12px] font-medium text-muted leading-tight">{t.sub}</span>
+            </span>
+            {t.count > 0 && <span className="tool-badge tnum">{t.count}</span>}
+            {t.dot && <span className="tool-dot" aria-hidden="true" />}
+          </button>
+        )
         return (
-          <div className="tools-grid">
-            {tools.map((t, i) => (
-              <button key={t.k} type="button" className="tool" style={{ gridColumn: `span ${span(i)}` }} onClick={t.go}>
-                <span className="text-[20px] leading-none">{t.icon}</span>
-                <span className="leading-tight">{t.label}</span>
-                {t.count > 0 && <span className="tool-badge tnum">{t.count}</span>}
-              </button>
-            ))}
-            {exam.map((t) => (
-              <button key={t.k} type="button" className="tool tool-wide" style={{ gridColumn: 'span 3' }} onClick={t.go}>
-                <span className="text-[24px] leading-none">{t.icon}</span>
-                <span className="flex flex-col gap-0.5 min-w-0">
-                  <span className="leading-tight">{t.label}</span>
-                  <span className="text-[12px] font-medium text-muted leading-tight">{t.sub}</span>
-                </span>
-                {t.dot && <span className="tool-dot" aria-hidden="true" />}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="tools-grid">
+              {tools.map((t, i) => <Tile key={t.k} t={t} full={odd && i === tools.length - 1} />)}
+            </div>
+            <div className="tools-grid mt-3">
+              {exam.map((t) => <Tile key={t.k} t={t} />)}
+            </div>
+          </>
         )
       })()}
 
