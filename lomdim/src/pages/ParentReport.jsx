@@ -138,16 +138,16 @@ export default function ParentReport({ nav }) {
       {/* פעילות אחרונה — שורה לכל יום+מקצוע, עם אחוז ההצלחה לצידה */}
       {data.feed.length > 0 && (
         <div>
-          <div className="home-h2 mb-2.5"><h2>פעילות אחרונה</h2><span>אחוז הצלחה</span></div>
+          <div className="home-h2 mb-1"><h2>פעילות אחרונה</h2></div>
+          <div className="text-[12.5px] text-muted mb-2.5">האחוז = כמה מהשאלות באותו יום באותו מקצוע נענו נכון</div>
           <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
             {data.feed.map((g, i) => {
               const pct = g.n ? Math.round((g.ok / g.n) * 100) : 0
-              const col = pct >= 80 ? 'var(--good)' : pct >= 60 ? 'var(--primary)' : 'var(--accent)'
               return (
                 <div key={i} className="flex items-center gap-2.5 py-2.5" style={i ? { borderTop: '1px solid rgba(255,255,255,.08)' } : undefined}>
                   <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: g.color }} />
                   <div className="flex-1 min-w-0 text-[14px]"><b>{g.name}</b> — {g.n} שאלות · {g.ok} נכון</div>
-                  <span className="font-disp font-extrabold text-[15px] tnum flex-none" dir="ltr" style={{ color: col }}>{pct}%</span>
+                  <span className="font-disp font-extrabold text-[15px] tnum flex-none" dir="ltr">{pct}%</span>
                   <span className="text-[12px] text-muted flex-none w-[52px] text-end">{fmtDay(g.day)}</span>
                 </div>
               )
