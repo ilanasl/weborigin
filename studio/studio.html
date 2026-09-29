@@ -407,7 +407,22 @@ function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+p
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
 function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
 // Soft elliptical contact shadow under a product.
-function drawProductShadow(ctx,cx,by,rw,alpha){const a=(alpha!=null?alpha:0.22);if(a<=0)return;const rh=Math.max(4,rw*0.15);const g=ctx.createRadialGradient(cx,by,0,cx,by,rw);g.addColorStop(0,`rgba(18,22,32,${a})`);g.addColorStop(0.55,`rgba(18,22,32,${a*0.45})`);g.addColorStop(1,"rgba(18,22,32,0)");ctx.save();ctx.translate(cx,by);ctx.scale(1,rh/rw);ctx.beginPath();ctx.arc(0,0,rw,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();}
+// Visible (non-transparent) bounds of an image as fractions {l,t,r,b} — so shadows sit under the object, not under empty PNG padding.
+const ALPHA_BOUNDS=new WeakMap();
+function alphaBounds(img){let r=ALPHA_BOUNDS.get(img);if(r)return r;r={l:0,t:0,r:1,b:1};
+  try{const sc=Math.min(1,160/Math.max(img.naturalWidth,img.naturalHeight));const w=Math.max(1,Math.round(img.naturalWidth*sc)),h=Math.max(1,Math.round(img.naturalHeight*sc));
+    const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");x.drawImage(img,0,0,w,h);const d=x.getImageData(0,0,w,h).data;
+    let l=w,t=h,rr=-1,b=-1;for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){if(d[(yy*w+xx)*4+3]>24){if(xx<l)l=xx;if(xx>rr)rr=xx;if(yy<t)t=yy;if(yy>b)b=yy;}}
+    if(rr>=0)r={l:l/w,t:t/h,r:(rr+1)/w,b:(b+1)/h};}catch(_){}
+  ALPHA_BOUNDS.set(img,r);return r;}
+// Soft "standing on the floor" shadow: a tight dark contact shadow at the base + a wider soft cast shadow off to the side.
+function drawGroundShadow(ctx,cx,by,vw,alpha){const a=(alpha!=null?alpha:0.22);if(a<=0||!(vw>0))return;
+  const ell=(ex,ey,rx,ry,stops)=>{const g=ctx.createRadialGradient(0,0,0,0,0,rx);stops.forEach(([o,al])=>g.addColorStop(o,`rgba(20,26,45,${al})`));
+    ctx.save();ctx.translate(ex,ey);ctx.scale(1,ry/rx);ctx.beginPath();ctx.arc(0,0,rx,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();ctx.restore();};
+  const soft=Math.min(0.45,a*1.1),core=Math.min(0.85,a*2.2);
+  ell(cx+vw*0.14,by+vw*0.01,vw*0.85,vw*0.11,[[0,soft],[0.5,soft*0.45],[1,0]]);
+  ell(cx,by,vw*0.56,vw*0.05,[[0,core],[0.55,core*0.6],[1,0]]);}
+function groundShadowFor(ctx,img,f,alpha){const ab=alphaBounds(img);drawGroundShadow(ctx,f.dx+f.dw*(ab.l+ab.r)/2,f.dy+f.dh*ab.b,f.dw*(ab.r-ab.l),alpha);}
 // Extra images: any number of uploaded images layered inside one banner. Each lives in over.extras as
 // {id,src,shadow,pos:{desktop:{x,y,w,rot},mobile:{...}}} — x/y = centre in %, w = width in % of the banner.
 const EXTRA_IMGS=new Map();
@@ -427,7 +442,7 @@ function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||
   for(const e of ex){if(!!e.under!==!!under)continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
     const p=(e.pos&&(e.pos[size]||e.pos.desktop))||{};const w=(p.w!=null?p.w:30)/100*W,h=w*im.naturalHeight/im.naturalWidth;
     const cx=(p.x!=null?p.x:50)/100*W,cy=(p.y!=null?p.y:55)/100*H;const f={dx:cx-w/2,dy:cy-h/2,dw:w,dh:h};
-    if(e.shadow)drawProductShadow(ctx,cx,f.dy+h*0.985,Math.max(12,w*0.42),0.22);
+    if(e.shadow)groundShadowFor(ctx,im,f,(over.shadow!=null?over.shadow:0.3));
     drawRotated(ctx,im,f,p.rot||0);if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"extra",id:e.id,x:f.dx,y:f.dy,w:f.dw,h:f.dh});}}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
 function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
@@ -511,7 +526,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
       {const po=(over.prodOff&&over.prodOff[size])||{};f.dx+=(po.x||0)/100*dim.w;f.dy+=(po.y||0)/100*dim.h;}
       if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"prod",x:f.dx,y:f.dy,w:f.dw,h:f.dh});
-      if(tpl.productShadow)drawProductShadow(ctx,f.dx+f.dw/2,f.dy+f.dh*0.985,Math.max(20,f.dw*0.42),(over.shadow!=null?over.shadow:0.22));
+      if(tpl.productShadow)groundShadowFor(ctx,image,f,(over.shadow!=null?over.shadow:0.22));
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
@@ -941,7 +956,7 @@ function openEditor(tpl,st,onClose){
   html+=`<label class="f"><span>Font</span><select class="e-font">${FONTS.map(f=>`<option value="${f}">${f}</option>`).join("")}</select></label>`;
   if(tpl.panelBg) html+=`<div class="f"><span>Panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelc"><input type="text" class="e-panelh" maxlength="7" style="text-transform:uppercase"></div></div>`;
   if(tpl.splittable) html+=`<div class="e-splitctl"><div class="f"><span>Right panel color (HEX)</span><div class="e-inline"><input type="color" class="e-panelcr"><input type="text" class="e-panelhr" maxlength="7" style="text-transform:uppercase"></div></div><label class="f"><span>Split position <b class="e-splitv"></b></span><input type="range" class="e-splitat" min="30" max="70" step="1"></label></div>`;
-  if(tpl.productShadow) html+=`<label class="f"><span>Product shadow <b class="e-shv"></b></span><input type="range" class="e-sh" min="0" max="0.5" step="0.01"></label>`;
+  if(tpl.productShadow) html+=`<label class="f"><span>Shadow under products <b class="e-shv"></b> (also extra images with Shadow on)</span><input type="range" class="e-sh" min="0" max="0.5" step="0.01"></label>`;
   html+=`<div class="e-adv">`;
   html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovauto"> Overlay color: auto tint from image</label>`;
   if(hasLogoTint) html+=`<label class="chk cwhite"><input type="checkbox" class="e-ovautologo"> Overlay color: auto tint from logo</label>`;
