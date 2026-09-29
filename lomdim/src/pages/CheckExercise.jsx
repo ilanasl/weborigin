@@ -4,6 +4,7 @@ import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 import { pickTopicId } from '../lib/checkTopic'
+import Icon from '../components/Icon'
 import { VARIATIONS, varKind } from '../lib/mastery'
 
 function fileToBase64(file) {
@@ -115,82 +116,106 @@ export default function CheckExercise({ params }) {
 
   return (
     <div className="pt-2">
-      <h1 className="text-[23px] font-black mb-1">בדוק תרגיל שפתרתי</h1>
-      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
+      <span className="end-tag inline-block mb-3">{subjectName}</span>
+      <h1 className="font-black text-[30px] leading-[1.1]">בדוק תרגיל</h1>
+      <div className="text-[13.5px] text-muted mt-1.5 mb-4">צלמו תרגיל שפתרתם במחברת — המערכת תגיד איפה הטעות, אם יש.</div>
 
-      {/* היסטוריית בדיקות — מקופלת תחת חץ */}
+      {/* צילום / בחירה */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <label className="up-big up-big-lime">
+          <Icon name="camera" size={28} />
+          <span className="font-disp font-extrabold text-[18px]">צלם</span>
+          <input type="file" accept="image/*" capture="environment" className="hidden"
+            onChange={(e) => { setFile(e.target.files?.[0] || null); setRes(null); setErr(''); e.target.value = '' }} />
+        </label>
+        <label className="up-big">
+          <Icon name="image" size={28} />
+          <span className="font-disp font-extrabold text-[18px]">מהגלריה</span>
+          <input type="file" accept="image/*" className="hidden"
+            onChange={(e) => { setFile(e.target.files?.[0] || null); setRes(null); setErr(''); e.target.value = '' }} />
+        </label>
+      </div>
+
+      {file && (
+        <div className="milky-row mt-3 !py-2 !px-2.5">
+          <span className="up-thumb"><Icon name="image" /></span>
+          <span className="flex-1 min-w-0 font-semibold text-[14px] truncate" dir="ltr" style={{ textAlign: 'right' }}>{file.name}</span>
+          <button type="button" className="up-x" aria-label="הסר" onClick={() => setFile(null)}><Icon name="x" size={15} stroke={2.4} /></button>
+        </div>
+      )}
+
+      <button type="button" className="ts-practice mt-3" onClick={run} disabled={!file || busy}>
+        <Icon name="sparkle" size={19} />{busy ? 'בודק…' : 'בדוק את הפתרון'}
+      </button>
+      {err && <div className="text-[13.5px] mt-1 font-semibold" style={{ color: 'var(--bad)' }}>{err}</div>}
+
+      {/* תוצאה */}
+      {res && (
+        <div className="flex flex-col gap-3 mt-2">
+          <div className="ce-head" style={{ background: res.correct ? 'var(--good)' : 'var(--accent)' }}>
+            <span className="ce-head-ic"><Icon name={res.correct ? 'check' : 'bulb'} size={20} stroke={2.4} /></span>
+            <span className="font-disp font-extrabold text-[18px]">{res.correct ? 'הפתרון נכון!' : 'יש טעות — בואו נבין'}</span>
+          </div>
+          {res.exercise && <div className="ce-eq !mb-0 text-center" dir="auto">{res.exercise}</div>}
+          {Array.isArray(res.steps) && res.steps.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {res.steps.map((st, i) => (
+                <div key={i} className={`ce-row ${st.ok ? 'ok' : 'bad'}`}>
+                  <span className="ce-row-ic"><Icon name={st.ok ? 'check' : 'x'} size={14} stroke={3} /></span>
+                  <span className="flex-1">{st.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {(res.feedback || res.reteach) && (
+            <div className="paper">
+              {res.feedback && <Markdown text={res.feedback} />}
+              {res.reteach && (
+                <div className="md-exam !mb-0">
+                  <div className="md-exam-h"><Icon name="check" size={17} stroke={2.6} style={{ color: '#5E7A00' }} />לזכור</div>
+                  <div className="text-[14.5px]" style={{ color: '#26262B' }}>{res.reteach}</div>
+                </div>
+              )}
+            </div>
+          )}
+          {!res.correct && (adding || added) && (
+            <div className="milky-row text-[14px] font-semibold" style={{ color: added ? 'var(--good)' : 'var(--muted)' }}>
+              <Icon name={added ? 'check' : 'book'} size={18} />
+              {added ? 'נוסף אוטומטית ל"לחיזוק" — יחזור בתרגול' : 'מוסיף ל"לחיזוק"…'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* בדיקות קודמות — מקופל */}
       {history.length > 0 && (
-        <>
-          <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowHist((v) => !v)}>
-            <span className="flex-1 text-start">📷 בדיקות קודמות ({history.length})</span>
-            <span className="text-[12px] font-bold">{showHist ? 'הסתר ▲' : 'הצג ▼'}</span>
+        <div className="mt-6">
+          <button type="button" className="milky-row" onClick={() => setShowHist((v) => !v)} aria-expanded={showHist}>
+            <Icon name="archive" />
+            <span className="flex-1 text-start font-bold text-[14.5px]">בדיקות קודמות ({history.length})</span>
+            <Icon name="down" size={18} style={{ transform: showHist ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
           </button>
           {showHist && (
-            <div className="card mb-3">
+            <div className="flex flex-col gap-1.5 mt-2">
               {history.map((m) => {
                 let saved = null
                 try { saved = JSON.parse(m.source_text) } catch { /* ignore */ }
                 const ok = saved?.correct
                 return (
-                  <div key={m.id} className="flex items-center gap-2 w-full py-2.5 border-b border-line last:border-0">
-                    <button onClick={() => { setRes(saved); setFile(null); setAdded(false); setShowHist(false) }}
+                  <div key={m.id} className="milky-row !py-2">
+                    <button type="button" onClick={() => { setRes(saved); setFile(null); setAdded(false); setShowHist(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                       className="flex-1 min-w-0 text-start">
                       <div className="text-[14px] font-semibold truncate">{m.title || 'תרגיל'}</div>
                       <div className="text-[12px] text-muted">
                         {new Date(m.created_at).toLocaleDateString('he-IL')}
-                        {saved != null && <span className={ok ? 'text-good' : 'text-bad'}> · {ok ? 'נכון ✓' : 'הייתה טעות'}</span>}
+                        {saved != null && <span style={{ color: ok ? 'var(--good)' : 'var(--accent)' }}> · {ok ? 'נכון' : 'הייתה טעות'}</span>}
                       </div>
                     </button>
-                    <button onClick={(ev) => deleteCheck(ev, m)} title="מחק"
-                      className="w-8 h-8 rounded-[9px] grid place-items-center text-[15px]" style={{ color: 'var(--bad)' }}>🗑</button>
+                    <button type="button" onClick={(ev) => deleteCheck(ev, m)} title="מחק" aria-label="מחק"
+                      className="up-x" style={{ color: 'var(--bad)' }}><Icon name="trash" size={16} /></button>
                   </div>
                 )
               })}
-            </div>
-          )}
-        </>
-      )}
-
-      <div className="card">
-        <div className="dropzone">
-          <div className="text-3xl">📷</div>
-          <div className="font-semibold text-[15px] text-ink">צלמו את התרגיל הפתור מהמחברת</div>
-          <div className="text-[12.5px]">המערכת תקרא את הפתרון ותגיד איפה הטעות (אם יש).</div>
-          <input type="file" accept="image/*" className="text-sm mt-1"
-            onChange={(e) => { setFile(e.target.files?.[0] || null); setRes(null); setErr('') }} />
-        </div>
-        <button className="btn btn-primary btn-wide mt-4" onClick={run} disabled={!file || busy}>
-          {busy ? 'בודק…' : 'בדוק את הפתרון'}
-        </button>
-        {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
-      </div>
-
-      {res && (
-        <div className="card mt-3">
-          <div className={`font-extrabold mb-2 ${res.correct ? 'text-good' : 'text-bad'}`}>
-            {res.correct ? '✅ הפתרון נכון!' : '💡 יש טעות — בואו נבין'}
-          </div>
-          {res.exercise && <div className="ce-eq">{res.exercise}</div>}
-          {Array.isArray(res.steps) && res.steps.length > 0 && (
-            <div className="ce-steps mb-3">
-              {res.steps.map((st, i) => (
-                <div key={i} className={`ce-step ${st.ok ? 'ok' : 'bad'}`}>
-                  <span>{st.ok ? '✓' : '✗'}</span><span>{st.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {res.feedback && (
-            <div className="text-[14px] leading-relaxed"><Markdown text={res.feedback} /></div>
-          )}
-          {res.reteach && (
-            <div className="mt-3 pt-3 border-t border-line text-[13.5px] text-muted">
-              <b className="text-ink">לזכור: </b>{res.reteach}
-            </div>
-          )}
-          {!res.correct && (adding || added) && (
-            <div className="mt-4 text-[14px] font-semibold text-good">
-              {added ? '✓ נוסף אוטומטית ל"לחיזוק" — יחזור לתרגול' : '📓 מוסיף ל"לחיזוק"…'}
             </div>
           )}
         </div>

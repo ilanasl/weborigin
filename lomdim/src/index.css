@@ -437,6 +437,16 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .composer button{ width:44px; height:44px; padding:0; border-radius:22px; background:#fff; color:#5E7A00; display:flex; align-items:center; justify-content:center }
 .composer button:disabled{ opacity:.5 }
 
+/* ── בדוק תרגיל ── */
+.ce-head{ display:flex; align-items:center; gap:12px; border-radius:22px; padding:12px 14px; color:var(--on-fill) }
+.ce-head-ic{ width:36px; height:36px; flex:none; border-radius:18px; background:var(--on-fill); color:#fff; display:flex; align-items:center; justify-content:center }
+.ce-row{ display:flex; align-items:flex-start; gap:10px; border-radius:16px; padding:10px 12px; font-size:15px; line-height:1.45;
+  background:var(--milky); border:1px solid var(--milky-line) }
+.ce-row-ic{ width:24px; height:24px; flex:none; border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--on-fill); margin-top:1px }
+.ce-row.ok .ce-row-ic{ background:var(--good) }
+.ce-row.bad{ border-color:color-mix(in srgb, var(--accent) 55%, transparent); background:var(--accent-soft) }
+.ce-row.bad .ce-row-ic{ background:var(--accent) }
+
 /* בורר מקטעים (מבחן מסכם / מבדק) */
 .seg{ display:flex; gap:6px; padding:4px; border-radius:20px; background:var(--milky); border:1px solid var(--milky-line) }
 .seg button{ flex:1; border:none; background:transparent; color:var(--ink); border-radius:16px; padding:8px 6px; display:flex; flex-direction:column; align-items:center; gap:1px }
