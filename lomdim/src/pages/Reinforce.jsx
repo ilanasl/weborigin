@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { GRAD } from '../lib/mastery'
+import { GRAD, VAR_GRAD, varKind, isVarKind } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
 import SessionEnd from '../components/SessionEnd'
 import { primeAudio } from '../lib/celebrate'
@@ -34,7 +34,8 @@ export default function Reinforce({ nav, params }) {
   useEffect(() => {
     (async () => {
       const { data: ri } = await supabase.from('review_items').select('*').eq('subject_id', subjectId)
-      const qIds = (ri || []).filter((r) => r.kind === 'question').map((r) => r.ref_id)
+      const isQ = (r) => r.kind === 'question' || isVarKind(r.kind)
+      const qIds = (ri || []).filter(isQ).map((r) => r.ref_id)
       const fIds = (ri || []).filter((r) => r.kind === 'flashcard').map((r) => r.ref_id)
       const [{ data: qs }, { data: fcs }, { data: tp }] = await Promise.all([
         qIds.length ? supabase.from('questions').select('*').in('id', qIds) : Promise.resolve({ data: [] }),
@@ -44,7 +45,7 @@ export default function Reinforce({ nav, params }) {
       setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       const items = []
       for (const r of ri || []) {
-        if (r.kind === 'question') { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, streak: r.streak || 0, q: shuffleChoices(q) }) }
+        if (isQ(r)) { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, kind: r.kind, streak: r.streak || 0, q: shuffleChoices(q) }) }
         else { const c = (fcs || []).find((x) => x.id === r.ref_id); if (c) items.push({ type: 'fc', reviewId: r.id, streak: r.streak || 0, card: c }) }
       }
       // סבב של עד ROUND פריטים: קודם אלה שחיכו הכי הרבה זמן, ואז מערבבים
@@ -57,8 +58,13 @@ export default function Reinforce({ nav, params }) {
 
   async function grade(item, success) {
     const s = success ? item.streak + 1 : 0
-    if (success && s >= GRAD) {
+    const need = isVarKind(item.kind) ? VAR_GRAD : GRAD
+    if (success && s >= need) {
       await supabase.from('review_items').delete().eq('id', item.reviewId)
+      // השאלה המקורית נטמעה → הטעות תוקנה, הוריאציות שלה כבר לא נחוצות
+      if (item.type === 'q' && item.kind === 'question') {
+        await supabase.from('review_items').delete().eq('kind', varKind(item.q.id))
+      }
       setGraduated((g) => g + 1)
     } else {
       await supabase.from('review_items').update({ streak: s, updated_at: now() }).eq('id', item.reviewId)

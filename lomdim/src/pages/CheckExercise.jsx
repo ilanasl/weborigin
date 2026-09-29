@@ -4,6 +4,7 @@ import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 import { pickTopicId } from '../lib/checkTopic'
+import { VARIATIONS, varKind } from '../lib/mastery'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -77,14 +78,19 @@ export default function CheckExercise({ params }) {
       const topicId = await pickTopicId({ subjectId, subjectName, text: src, topics })
         || await ensureTopic('תרגול כללי')
       const topicName = (topics || []).find((t) => t.id === topicId)?.name
-      const { questions } = await generateQuestions({ subjectName, topic: topicName, sourceText: src, count: 5, learner: profile })
+      // שאלה אחת "ראשית" על הטעות + VARIATIONS וריאציות עזר (יוצאות אחרי הצלחה אחת)
+      const { questions } = await generateQuestions({ subjectName, topic: topicName, sourceText: src, count: 1 + VARIATIONS, learner: profile })
       if (questions?.length) {
-        const { data: inserted } = await supabase.from('questions').insert(questions.map((q) => ({
+        const { data: inserted } = await supabase.from('questions').insert(questions.slice(0, 1 + VARIATIONS).map((q) => ({
           subject_id: subjectId, topic_id: topicId, q: q.q, choices: q.choices, answer: q.answer,
           difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
         }))).select('id')
         if (inserted?.length) {
-          await supabase.from('review_items').insert(inserted.map((r) => ({ subject_id: subjectId, kind: 'question', ref_id: r.id, streak: 0 })))
+          const [main, ...vars] = inserted
+          await supabase.from('review_items').insert([
+            { subject_id: subjectId, kind: 'question', ref_id: main.id, streak: 0 },
+            ...vars.map((r) => ({ subject_id: subjectId, kind: varKind(main.id), ref_id: r.id, streak: 0 })),
+          ])
         }
       }
       setAdded(true)
