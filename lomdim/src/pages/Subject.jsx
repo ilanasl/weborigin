@@ -170,6 +170,48 @@ export default function Subject({ nav, params }) {
     if (!error) setMaterials((arr) => arr.filter((x) => x.id !== m.id))
   }
 
+  // מחיקת חומר לגמרי: הקובץ (כל הנושאים שהוא משויך אליהם), השאלות שנוצרו ממנו והפריטים שלהן ב"לחיזוק".
+  // נושא שלא נשאר בו אף חומר שהועלה — נמחק כולו (שאלות, כרטיסיות, סיכומים).
+  const [deleting, setDeleting] = useState(null)
+  async function deleteMaterial(m) {
+    const siblings = materials.filter((x) => fileKey(x) === fileKey(m))
+    const topicIds = [...new Set(siblings.map((x) => x.topic_id).filter(Boolean))]
+    const willEmpty = topicIds.filter((tid) => !materials.some((x) => x.topic_id === tid && !siblings.includes(x)))
+    const emptyNames = topics.filter((t) => willEmpty.includes(t.id)).map((t) => `"${t.name}"`)
+    const msg = `למחוק את "${m.title || 'החומר'}" ואת כל השאלות שנוצרו ממנו?` +
+      (emptyNames.length ? `\n\nלא יישאר חומר בנושא ${emptyNames.join(', ')} — הנושא יימחק כולו (שאלות, כרטיסיות וסיכום).` : '') +
+      '\n\nאי אפשר לבטל.'
+    if (!window.confirm(msg)) return
+    setDeleting(m.id)
+    try {
+      const dropQuestions = async (qIds) => {
+        if (!qIds.length) return
+        await supabase.from('review_items').delete().in('ref_id', qIds)
+        await supabase.from('questions').delete().in('id', qIds)
+      }
+      for (const s of siblings) {
+        const { data: qs } = await supabase.from('questions').select('id').eq('material_id', s.id)
+        await dropQuestions((qs || []).map((q) => q.id))
+      }
+      await supabase.from('materials').delete().in('id', siblings.map((s) => s.id))
+      const paths = [...new Set(siblings.map((s) => s.storage_path).filter(Boolean))]
+      if (paths.length) await supabase.storage.from('materials').remove(paths)
+      for (const tid of willEmpty) {
+        const { data: qs } = await supabase.from('questions').select('id').eq('topic_id', tid)
+        await dropQuestions((qs || []).map((q) => q.id))
+        const { data: fcs } = await supabase.from('flashcards').select('id').eq('topic_id', tid)
+        if (fcs?.length) {
+          await supabase.from('review_items').delete().in('ref_id', fcs.map((f) => f.id))
+          await supabase.from('flashcards').delete().eq('topic_id', tid)
+        }
+        await supabase.from('materials').delete().eq('topic_id', tid)
+        await supabase.from('topics').delete().eq('id', tid)
+      }
+    } catch { /* ממשיכים לרענון — מה שנמחק נמחק */ }
+    setDeleting(null)
+    load()
+  }
+
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
   const name = subject.name
@@ -342,49 +384,58 @@ export default function Subject({ nav, params }) {
       </div>
 
       {/* חומרים — מכווץ כברירת מחדל */}
-      <button className="list-title flex items-center gap-2 w-full" onClick={() => setShowMats((v) => !v)}>
-        <span className="flex-1 text-start">החומרים שהעליתי ({materials.length})</span>
-        <span className="text-[12px] font-bold">{showMats ? 'הסתר ▲' : 'הצג ▼'}</span>
+      <button type="button" className="milky-row mt-6" onClick={() => setShowMats((v) => !v)} aria-expanded={showMats}>
+        <Icon name="archive" />
+        <span className="flex-1 text-start font-bold text-[15px]">החומרים שהעליתי ({materials.length})</span>
+        <Icon name="down" size={18} style={{ transform: showMats ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
       </button>
-      <div className="card">
+      <div className="flex flex-col gap-2 mt-2">
         {showMats && (materials.length === 0 ? (
-          <div className="text-muted text-sm mb-3">עדיין לא הועלה חומר.</div>
+          <div className="milky-row text-muted text-sm">עדיין לא הועלה חומר.</div>
         ) : (
-          <div className="timeline mb-3">
+          <>
             {materials.map((m) => (
-              <div key={m.id} className="tl-item">
-                <div className="d">{new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</div>
-                <div className="t">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold">{m.title || 'חומר'}</span>
-                    {m.storage_path && (
-                      <button className="text-primary text-[12px] font-semibold" onClick={() => openMaterial(m)}><span className="inline-flex items-center gap-1"><Icon name="eye" size={14} />צפה</span></button>
-                    )}
+              <div key={m.id} className="milky-row !flex-col !items-stretch !gap-2" style={deleting === m.id ? { opacity: 0.5 } : undefined}>
+                <div className="flex items-start gap-2.5">
+                  <span className="up-thumb"><Icon name={m.kind === 'image' ? 'image' : m.kind === 'text' ? 'text' : 'file'} /></span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[14.5px] leading-snug">{m.title || 'חומר'}</div>
+                    <div className="text-[12px] text-muted">
+                      {new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}
+                    </div>
                   </div>
-                  {/* שיוך לנושא — ניתן לשינוי מכאן */}
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <span className="text-[11.5px] text-muted">נושא:</span>
-                    <select className="field !py-1 !px-2 !text-[16px] !w-auto" value={m.topic_id || ''}
-                      onChange={(e) => moveMaterialTopic(m, e.target.value)}>
-                      {!m.topic_id && <option value="">— ללא —</option>}
-                      {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                    {savingMat === m.id && <span className="text-[11.5px] text-muted">שומר…</span>}
-                    {savedMat === m.id && <span className="text-[11.5px] text-good font-semibold">✓ נשמר</span>}
-                    {addDone === m.id && <span className="text-[11.5px] text-good font-semibold">✓ נוסף לנושא</span>}
-                  </div>
+                  {m.storage_path && (
+                    <button type="button" className="up-x" aria-label="צפה בקובץ" onClick={() => openMaterial(m)}><Icon name="eye" size={16} /></button>
+                  )}
+                  <button type="button" className="up-x" aria-label="מחק חומר" style={{ color: 'var(--bad)' }}
+                    disabled={deleting === m.id} onClick={() => deleteMaterial(m)}><Icon name="trash" size={16} /></button>
+                </div>
+                {/* שיוך לנושא — ניתן לשינוי מכאן */}
+                <div>
+                  <div className="text-[12px] text-muted mb-1">נושא</div>
+                  <select className="field !py-1.5 !text-[16px]" value={m.topic_id || ''}
+                    onChange={(e) => moveMaterialTopic(m, e.target.value)}>
+                    {!m.topic_id && <option value="">— ללא —</option>}
+                    {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  {(savingMat === m.id || savedMat === m.id || addDone === m.id) && (
+                    <div className="text-[12px] font-semibold mt-1" style={{ color: savingMat === m.id ? 'var(--muted)' : 'var(--good)' }}>
+                      {savingMat === m.id ? 'שומר…' : savedMat === m.id ? '✓ נשמר' : '✓ נוסף לנושא'}
+                    </div>
+                  )}
+                </div>
                   {(() => {
                     const siblings = materials.filter((x) => fileKey(x) === fileKey(m))
                     const usedTopics = new Set(siblings.map((x) => x.topic_id))
                     const isShared = siblings.length > 1
                     if (addFor !== m.id) return (
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <button className="text-primary text-[12px] font-semibold"
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <button type="button" className="text-primary text-[12.5px] font-semibold inline-flex items-center gap-1"
                           onClick={() => { setAddFor(m.id); setAddSel(''); setAddNew(''); setAddErr('') }}>
-                          <Icon name="plus" size={14} stroke={2.6} /> הדף כולל גם נושא נוסף
+                          <Icon name="plus" size={14} stroke={2.6} />הדף כולל גם נושא נוסף
                         </button>
                         {isShared && (
-                          <button className="text-muted text-[12px] font-semibold hover:text-bad" onClick={() => removeMaterialRow(m)}>
+                          <button type="button" className="text-muted text-[12.5px] font-semibold" onClick={() => removeMaterialRow(m)}>
                             הסר מנושא זה
                           </button>
                         )}
@@ -416,13 +467,11 @@ export default function Subject({ nav, params }) {
                       </div>
                     )
                   })()}
-                </div>
-                <div className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}</div>
               </div>
             ))}
-          </div>
+          </>
         ))}
-        <button className="btn w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+        <button type="button" className="btn w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
           <Icon name="upload" size={18} />העלה חומר חדש
         </button>
       </div>
