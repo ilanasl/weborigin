@@ -15,19 +15,32 @@ const norm = (s) => String(s || '').replace(/[\u0591-\u05C7]/g, '').replace(/[\s
 
 // בונה שאלת בחירה מכרטיסייה: לפעמים מושג→הגדרה, לפעמים הגדרה→מושג.
 // המסיחים נלקחים מכרטיסיות אחרות (עדיפות לאותו נושא) — שליפה אמיתית, לא דירוג עצמי.
+// מושג שנשמר כשאלה ("מהו נשוא מורחב?") → המושג עצמו ("נשוא מורחב")
+const cleanTerm = (s) => String(s || '').trim()
+  .replace(/^(מה\s*(הוא|היא|הם|הן|זה|זו)?|מהו|מהי|מהם|מהן|איך\s+מזהים|הגדר\/?י?|הסבר\/?י?)\s+/, '')
+  .replace(/[?؟]+\s*$/, '').trim()
+const termKey = (c) => norm(cleanTerm(c.front))
+// אותו מושג בשני ניסוחים ("נשוא מורחב" / "מהו נשוא מורחב?") — נחשב כפילות
+const sameTerm = (a, b) => !!a && !!b && (a === b || (Math.min(a.length, b.length) >= 3 && (a.includes(b) || b.includes(a))))
+
 function buildItem(card, all) {
   const reversed = Math.random() < 0.5
   const key = reversed ? 'front' : 'back'      // מה צריך לבחור
-  const correct = reversed ? card.front : card.back
-  const same = all.filter((c) => c.id !== card.id && c.topic_id === card.topic_id && c[key])
-  const rest = all.filter((c) => c.id !== card.id && c.topic_id !== card.topic_id && c[key])
+  const show = (c) => (key === 'front' ? cleanTerm(c.front) : c.back)
+  const correct = show(card)
+  const myTerm = termKey(card)
+  // בלי כרטיסיות על אותו מושג (הגדרה שלהן תהיה נכונה גם היא)
+  const others = all.filter((c) => c.id !== card.id && c[key] && !sameTerm(termKey(c), myTerm))
+  const same = others.filter((c) => c.topic_id === card.topic_id)
+  const rest = others.filter((c) => c.topic_id !== card.topic_id)
   const prompt = reversed ? card.back : card.front
-  const seen = new Set([norm(correct), norm(prompt)])
+  const seen = [norm(correct), norm(prompt)]
   const distract = []
   for (const c of [...shuffle(same), ...shuffle(rest)]) {
-    const k = norm(c[key])
-    if (!k || seen.has(k)) continue
-    seen.add(k); distract.push(c[key])
+    const text = show(c)
+    const k = norm(text)
+    if (!k || seen.some((s) => sameTerm(s, k))) continue
+    seen.push(k); distract.push(text)
     if (distract.length >= 3) break
   }
   const choices = shuffle([correct, ...distract])
