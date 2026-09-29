@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
 import { settleSession } from '../lib/coins'
@@ -133,8 +134,8 @@ export default function Practice({ nav, params }) {
 
       {!answered && q.hint && !examMode && (
         showHint
-          ? <div className="q-hint">💡 {q.hint}</div>
-          : <button type="button" className="q-hint" onClick={() => setShowHint(true)}>💡 רמז</button>
+          ? <div className="q-hint flex gap-2"><Icon name="bulb" size={18} />{q.hint}</div>
+          : <button type="button" className="q-hint inline-flex items-center gap-1.5" onClick={() => setShowHint(true)}><Icon name="bulb" size={18} />רמז</button>
       )}
 
       {answered && (

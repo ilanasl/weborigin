@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { GRAD, VAR_GRAD, varKind, isVarKind } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
@@ -106,7 +107,7 @@ export default function Reinforce({ nav, params }) {
 
   if (!queue.length) return (
     <div className="empty pt-10">
-      <div className="big">🎉</div>
+      <div className="big"><Icon name="check" size={40} stroke={2.4} /></div>
       אין כרגע פריטים לחיזוק!<br />כל מה שטעו בו כבר נטמע. כל הכבוד.
       <div className="mt-4"><button className="btn" onClick={() => nav.back()}>→ חזרה</button></div>
     </div>
@@ -130,7 +131,7 @@ export default function Reinforce({ nav, params }) {
     <div className="pt-2">
       <SegProgress total={queue.length} idx={idx} />
 
-      {item.type !== 'q' && itemTopic && <div className="topic-tag mb-1">📖 {itemTopic}</div>}
+      {item.type !== 'q' && itemTopic && <div className="topic-tag mb-1"><Icon name="book" size={17} />{itemTopic}</div>}
 
       {item.type === 'q' ? (
         <QuestionCard item={item} topic={itemTopic} picked={picked} onPick={answerQ} onNext={next} />

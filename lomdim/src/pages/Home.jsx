@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
@@ -110,7 +111,7 @@ export default function Home({ nav }) {
       </div>
 
       {!profile && (
-        <button className="streak-line mb-3" onClick={() => nav.go('settings')}>👤 מי מתרגל? הגדירו שם ומין ›</button>
+        <button className="streak-line mb-3" onClick={() => nav.go('settings')}><Icon name="user" size={16} />מי מתרגל? הגדירו שם ומין ›</button>
       )}
 
       <div className="hero-grid">
@@ -186,11 +187,11 @@ export default function Home({ nav }) {
       )}
 
       <button type="button" className="milky-row mt-5" onClick={() => nav.go('examBoard')}>
-        <span className="flex-1 text-start font-semibold text-[15px]">🗓️ לוח המבחנים והלו״ז</span>
+        <Icon name="calendar" /><span className="flex-1 text-start font-semibold text-[15px]">לוח המבחנים והלו״ז</span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
       <button type="button" className="milky-row -mt-1" onClick={() => nav.go('parentReport')}>
-        <span className="flex-1 text-start font-semibold text-[15px]">👨‍👩‍👦 דוח הורה</span>
+        <Icon name="users" /><span className="flex-1 text-start font-semibold text-[15px]">דוח הורה</span>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
       </button>
     </div>

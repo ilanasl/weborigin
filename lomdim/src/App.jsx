@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import Icon from './components/Icon'
 import { isConfigured, supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
@@ -161,8 +162,8 @@ function Shell() {
         )}
         <div className="flex-1" />
         {showNav && <>
-        <button onClick={() => go('settings')} title="הגדרות" aria-label="הגדרות" className="hbtn">⚙︎</button>
-        <button onClick={signOut} className="hbtn">יציאה</button>
+        <button onClick={() => go('settings')} title="הגדרות" aria-label="הגדרות" className="hbtn !px-0 w-10"><Icon name="settings" size={19} /></button>
+        <button onClick={signOut} className="hbtn" aria-label="יציאה"><Icon name="logout" size={18} />יציאה</button>
         </>}
       </header>
       <Page key={route.id} nav={nav} params={route.params} />

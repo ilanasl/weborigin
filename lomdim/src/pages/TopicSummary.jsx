@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { topicSummary, fetchSourceText } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
@@ -40,14 +41,14 @@ export default function TopicSummary({ nav, params }) {
   const g = (extra) => `https://www.google.com/search?q=${q}${extra ? '%20' + extra : ''}`
   const SOURCES = isBible
     ? [
-        { label: '📖 ספריא', url: g('site:sefaria.org.il') },
-        { label: '📚 ויקיטקסט', url: g('site:he.wikisource.org') },
-        { label: '🔍 חיפוש', url: g('פסוקים') },
+        { label: 'ספריא', url: g('site:sefaria.org.il') },
+        { label: 'ויקיטקסט', url: g('site:he.wikisource.org') },
+        { label: 'חיפוש', url: g('פסוקים') },
       ]
     : [
-        { label: '📖 פרויקט בן־יהודה', url: g('site:benyehuda.org') },
-        { label: '📚 ויקיטקסט', url: g('site:he.wikisource.org') },
-        { label: '🔍 חיפוש', url: g('שיר%20מלא%20טקסט') },
+        { label: 'פרויקט בן־יהודה', url: g('site:benyehuda.org') },
+        { label: 'ויקיטקסט', url: g('site:he.wikisource.org') },
+        { label: 'חיפוש', url: g('שיר%20מלא%20טקסט') },
       ]
 
   async function savePasted() {
@@ -161,7 +162,7 @@ export default function TopicSummary({ nav, params }) {
       {sourceText && !pasteMode ? (
         <>
           <button type="button" className="milky-row mb-3" onClick={() => setShowSource((v) => !v)}>
-            <span className="text-[17px] leading-none">📜</span>
+            <Icon name="text" />
             <span className="flex-1 text-start font-bold text-[14.5px]">הטקסט המלא</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: showSource ? 'rotate(180deg)' : 'none', transition: '.2s' }}><path d="M6 9l6 6 6-6" /></svg>
           </button>
@@ -170,29 +171,29 @@ export default function TopicSummary({ nav, params }) {
               <div className="whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
               {fetchedSources.length > 0 && (
                 <div className="text-[12px] text-muted mt-3">
-                  📖 נמצא מהמקור: {fetchedSources.slice(0, 2).map((u, i) => (
+                  נמצא מהמקור: {fetchedSources.slice(0, 2).map((u, i) => (
                     <a key={i} href={u} target="_blank" rel="noreferrer" className="text-primary underline break-all">{new URL(u).hostname.replace('www.', '')}</a>
                   )).reduce((a, b) => [a, ' · ', b])}
                 </div>
               )}
               <div className="flex gap-3 mt-3">
                 <button className="text-muted text-[12.5px] font-semibold hover:text-primary"
-                  onClick={fetchSource} disabled={fetching}>{fetching ? 'מביא…' : '🔄 הבא שוב מהרשת'}</button>
+                  onClick={fetchSource} disabled={fetching}>{fetching ? 'מביא…' : <span className="inline-flex items-center gap-1"><Icon name="refresh" size={14} />הבא שוב מהרשת</span>}</button>
                 <button className="text-muted text-[12.5px] font-semibold hover:text-primary"
-                  onClick={() => { setPasteVal(sourceText); setPasteMode(true) }}>✏️ ערוך / החלף ידנית</button>
+                  onClick={() => { setPasteVal(sourceText); setPasteMode(true) }}><span className="inline-flex items-center gap-1"><Icon name="pencil" size={14} />ערוך / החלף ידנית</span></button>
               </div>
             </div>
           )}
         </>
       ) : !(isLiterary || wantSource) ? (
         <button type="button" className="milky-row mb-3" onClick={() => setWantSource(true)}>
-          <span className="text-[17px] leading-none">📜</span>
+          <Icon name="text" />
           <span className="flex-1 text-start text-[13.5px] font-semibold">יש לנושא טקסט מקור (שיר / פסוקים)? הבא אותו</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
       ) : (
         <div className="card mb-3">
-          <div className="text-[14px] font-semibold mb-1">📜 הבא את הטקסט המלא ({srcKind})</div>
+          <div className="text-[14px] font-semibold mb-1 flex items-center gap-1.5"><Icon name="text" size={18} />הבא את הטקסט המלא ({srcKind})</div>
           <div className="text-muted text-[12.5px] mb-2 leading-relaxed">
             כתבו את שם {isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — והמערכת תחפש ותביא אותו מהרשת ממקור אמין, עם קישור למקור.
           </div>
@@ -200,7 +201,7 @@ export default function TopicSummary({ nav, params }) {
             placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — ${topicName}`} />
           {!pasteMode && (
             <button className="btn btn-primary btn-wide" onClick={fetchSource} disabled={fetching}>
-              {fetching ? 'מחפש ומביא מהרשת…' : '📥 הבא טקסט מלא מהרשת'}
+              {fetching ? 'מחפש ומביא מהרשת…' : <><Icon name="download" size={18} />הבא טקסט מלא מהרשת</>}
             </button>
           )}
           {err && <div className="text-bad text-[12.5px] mt-2">{err}</div>}
@@ -216,7 +217,7 @@ export default function TopicSummary({ nav, params }) {
                 {SOURCES.map((s) => (
                   <a key={s.label} href={s.url} target="_blank" rel="noreferrer"
                     className="text-[13px] font-semibold text-primary border border-line rounded-[10px] px-2.5 py-1.5 hover:border-primary">
-                    {s.label} ↗
+                    {s.label} <Icon name="link" size={13} />
                   </a>
                 ))}
               </div>
@@ -228,12 +229,12 @@ export default function TopicSummary({ nav, params }) {
                   <div className="action-row">
                     <button className="btn" onClick={() => { setPasteMode(false); setPasteVal('') }} disabled={busy}>ביטול</button>
                     <button className="btn btn-primary" onClick={savePasted} disabled={busy || !pasteVal.trim()}>
-                      {busy ? 'שומר…' : '💾 שמור טקסט מדויק'}
+                      {busy ? 'שומר…' : <><Icon name="save" size={18} />שמור טקסט מדויק</>}
                     </button>
                   </div>
                 </>
               ) : (
-                <button className="btn btn-wide" onClick={() => setPasteMode(true)}>📋 הדבק טקסט מהמקור</button>
+                <button className="btn btn-wide" onClick={() => setPasteMode(true)}><Icon name="paste" size={18} />הדבק טקסט מהמקור</button>
               )}
             </div>
           )}
@@ -246,7 +247,7 @@ export default function TopicSummary({ nav, params }) {
           <Markdown text={summary} examBox />
         ) : (
           <div className="text-center py-6">
-            <div className="text-[34px] mb-2">📖</div>
+            <div className="flex justify-center mb-2" style={{ color: '#5E7A00' }}><Icon name="book" size={36} /></div>
             <div className="font-disp font-extrabold text-[17px]">עדיין אין סיכום לנושא הזה</div>
             <div className="text-[14px] mt-1" style={{ color: '#3E3E45' }}>לחצו למטה כדי שהמערכת תכין אחד מסודר.</div>
           </div>
@@ -276,7 +277,7 @@ export default function TopicSummary({ nav, params }) {
           {notes.map((n) => (
             <div key={n.id} className="paper mb-3">
               <div className="flex items-start gap-2 mb-1">
-                <div className="flex-1 font-disp font-extrabold text-[16px]">📝 {n.title || 'סיכום'}</div>
+                <div className="flex-1 font-disp font-extrabold text-[16px] flex items-center gap-1.5"><Icon name="note" size={18} />{n.title || 'סיכום'}</div>
                 <button type="button" onClick={() => deleteNote(n.id)} title="הסר סיכום" aria-label="הסר סיכום"
                   className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#B8501C', border: '1.5px solid rgba(184,80,28,.35)' }}>הסר</button>
               </div>

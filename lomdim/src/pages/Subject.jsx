@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
 
@@ -256,20 +257,20 @@ export default function Subject({ nav, params }) {
       {(() => {
         // שני טורים, אריחים זהים. מספר אי-זוגי → "תסביר לי" עובר לסוף ברוחב מלא, כך שאף פעם אין חור.
         const tools = [
-          fcCount > 0 && { k: 'fc', label: 'כרטיסיות', sub: 'מושגים לשינון', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
-          { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
-          isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
-          { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
-          { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
+          fcCount > 0 && { k: 'fc', label: 'כרטיסיות', sub: 'מושגים לשינון', icon: 'cards', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
+          { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
+          isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
+          { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: 'chat', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
         ].filter(Boolean)
         const odd = tools.length % 2 === 1
         const exam = [
-          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : 'תוכנית עד המבחן', icon: '📅', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
-          { k: 'pe', label: 'מבחנים שעברו', sub: 'ציונים וטעויות', icon: '🗂️', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
+          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pe', label: 'מבחנים שעברו', sub: 'ציונים וטעויות', icon: 'archive', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
         ]
         const Tile = ({ t, full }) => (
           <button type="button" className="tool" style={full ? { gridColumn: '1 / -1' } : undefined} onClick={t.go}>
-            <span className="text-[22px] leading-none flex-none">{t.icon}</span>
+            <Icon name={t.icon} size={22} />
             <span className="flex flex-col gap-0.5 min-w-0">
               <span className="leading-tight">{t.label}</span>
               <span className="text-[12px] font-medium text-muted leading-tight">{t.sub}</span>
@@ -295,7 +296,7 @@ export default function Subject({ nav, params }) {
         <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
           style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
-          <span className="text-[17px] leading-none">📤</span>
+          <Icon name="upload" size={19} />
           <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו ›</span>
         </button>
       )}
@@ -329,7 +330,7 @@ export default function Subject({ nav, params }) {
                   <span className="font-disp font-bold text-[13px] tnum" dir="ltr">{t.m.pct}%</span>
                 </span>
               )}
-              <span className="text-[12px] text-muted">📖 לסיכום הנושא ›</span>
+              <span className="text-[12px] text-muted inline-flex items-center gap-1"><Icon name="book" size={14} />לסיכום הנושא ›</span>
             </button>
             <button type="button" className="topic-go" aria-label={`לתרגל את ${t.name}`}
               onClick={() => nav.go('practice', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name, mode: 'practice' })}>
@@ -357,7 +358,7 @@ export default function Subject({ nav, params }) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold">{m.title || 'חומר'}</span>
                     {m.storage_path && (
-                      <button className="text-primary text-[12px] font-semibold" onClick={() => openMaterial(m)}>👁 צפה</button>
+                      <button className="text-primary text-[12px] font-semibold" onClick={() => openMaterial(m)}><span className="inline-flex items-center gap-1"><Icon name="eye" size={14} />צפה</span></button>
                     )}
                   </div>
                   {/* שיוך לנושא — ניתן לשינוי מכאן */}
@@ -380,7 +381,7 @@ export default function Subject({ nav, params }) {
                       <div className="flex items-center gap-3 mt-1.5">
                         <button className="text-primary text-[12px] font-semibold"
                           onClick={() => { setAddFor(m.id); setAddSel(''); setAddNew(''); setAddErr('') }}>
-                          ➕ הדף כולל גם נושא נוסף
+                          <Icon name="plus" size={14} stroke={2.6} /> הדף כולל גם נושא נוסף
                         </button>
                         {isShared && (
                           <button className="text-muted text-[12px] font-semibold hover:text-bad" onClick={() => removeMaterialRow(m)}>
@@ -397,7 +398,7 @@ export default function Subject({ nav, params }) {
                         <select className="field !py-1.5 text-[13px]" value={addSel} onChange={(e) => setAddSel(e.target.value)}>
                           <option value="">בחר/י נושא…</option>
                           {topics.filter((t) => !usedTopics.has(t.id)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                          <option value="__new">➕ נושא חדש…</option>
+                          <option value="__new">+ נושא חדש…</option>
                         </select>
                         {addSel === '__new' && (
                           <input className="field !py-1.5 text-[13px]" placeholder="שם הנושא החדש"
@@ -422,7 +423,7 @@ export default function Subject({ nav, params }) {
           </div>
         ))}
         <button className="btn w-full" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
-          ➕ העלה חומר חדש
+          <Icon name="upload" size={18} />העלה חומר חדש
         </button>
       </div>
     </div>

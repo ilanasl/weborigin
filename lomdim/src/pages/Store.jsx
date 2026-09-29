@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { coinSummary } from '../lib/coins'
 
-const REASON_ICON = { practice: '✏️', daily_goal: '🎯', streak: '🔥', mastery: '💎', redeem: '🎁' }
+const REASON_ICON = { practice: 'pencil', daily_goal: 'target', streak: 'flame', mastery: 'gem', redeem: 'gift' }
 // פרס שאפשר כבר לקנות — כרטיס צבעוני; פרס שעוד חסר לו — חלבי עם פס התקדמות
 const PRIZE_FILLS = ['#D4F46A', '#B7A5FF', '#FFB28A', '#7FDCCB']
 
@@ -72,7 +73,7 @@ export default function Store({ nav }) {
       <div className="flex items-center gap-2.5">
         <h1 className="flex-1 font-black text-[28px] leading-none">חנות הפרסים</h1>
         <button type="button" className="hbtn !text-[13px]" onClick={() => setManage((v) => !v)}>
-          {manage ? 'סיום ניהול' : '✎ ניהול הורה'}
+          {manage ? 'סיום ניהול' : <><Icon name="pencil" size={15} />ניהול הורה</>}
         </button>
       </div>
 
@@ -111,7 +112,7 @@ export default function Store({ nav }) {
                 <div key={rw.id} className="prize" style={can && !manage ? { background: fill, color: 'var(--on-fill)', borderColor: 'transparent', boxShadow: 'none' } : undefined}>
                   <div className="flex flex-col gap-1">
                     <div className="font-disp font-extrabold text-[17px] leading-tight">{rw.title}</div>
-                    <div className="font-disp font-bold text-[14px] tnum">🪙 {rw.cost}</div>
+                    <div className="font-disp font-bold text-[14px] tnum flex items-center gap-1.5"><Icon name="coin" size={16} />{rw.cost}</div>
                   </div>
                   {manage ? (
                     <button type="button" className="prize-btn" style={{ background: 'transparent', color: 'var(--bad)', border: '1.5px solid color-mix(in srgb, var(--bad) 45%, transparent)' }}
@@ -132,7 +133,7 @@ export default function Store({ nav }) {
           </div>
         )}
         {manage && (
-          <button type="button" className="ts-practice mt-3" disabled={busy} onClick={addReward}>➕ הוסף פרס</button>
+          <button type="button" className="ts-practice mt-3" disabled={busy} onClick={addReward}><Icon name="plus" size={18} stroke={2.6} />הוסף פרס</button>
         )}
       </div>
 
@@ -143,7 +144,7 @@ export default function Store({ nav }) {
           <div className="flex flex-col gap-1.5">
             {sum.recent.map((e, i) => (
               <div key={i} className="milky-row !py-2.5">
-                <span className="text-[17px] leading-none">{REASON_ICON[e.reason] || '•'}</span>
+                <span className="w-9 h-9 rounded-[11px] grid place-items-center flex-none" style={{ background: 'rgba(255,255,255,.1)' }}><Icon name={REASON_ICON[e.reason] || 'coin'} size={18} /></span>
                 <span className="flex-1 min-w-0 flex flex-col">
                   <span className="font-semibold text-[14px] truncate">{e.label || e.reason}</span>
                   <span className="text-[12px] text-muted">{new Date(e.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}</span>
