@@ -109,7 +109,7 @@ export default function Settings({ nav }) {
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">השם</label>
           <input className="field" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="למשל: דניאל" autoFocus />
+            placeholder="למשל: דניאל" />
         </div>
 
         <div>
