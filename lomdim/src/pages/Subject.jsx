@@ -191,73 +191,71 @@ export default function Subject({ nav, params }) {
 
   const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
 
-  const Chips = ({ arr, kind }) => (
-    <div className="rc-chips">
-      {(arr.length ? arr : [{ id: '_', name: '—' }]).map((t) => (
-        <span key={t.id} className={`rc-chip ${kind}`}>● {t.name}</span>
-      ))}
-    </div>
-  )
-
   return (
     <div>
-      <div className="subj-head">
-        <div className="avatar" style={{ background: subject.bg, color: subject.color }}>{name.charAt(0)}</div>
-        <div>
-          <h1>{name}</h1>
-          <div className="meta">
-            {topics.length} נושאים{examDays != null && examDays >= 0 ? ` · ${examKind} בעוד ${examDays} ימים` : ''}
+      <div className="flex items-end justify-between gap-3 mb-4 mt-1">
+        <div className="min-w-0">
+          <h1 className="font-black text-[38px] leading-none tracking-tight">{name}</h1>
+          <div className="text-[14px] text-muted mt-1.5">
+            {topics.length} נושאים{hasExam ? ` · ${examKind} ${examDays === 0 ? 'היום' : `בעוד ${examDays} ימים`}` : ''}
           </div>
         </div>
+        <button type="button" className="up-pill" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={subject.color} strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          העלה חומר
+        </button>
       </div>
 
-      {/* כרטיס מוכנות */}
-      <div className="ready-card">
-        <div className="ready-top">
-          <div className="ready-lbl">מוכנות ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</div>
-          <div className="ready-pct tnum">{ready == null ? '—' : ready + '%'}</div>
-        </div>
-        <div className="bar mt-3"><i style={{ width: `${ready || 0}%` }} /></div>
-        {ready == null && <div className="collecting mt-2">עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
+      {/* כרטיס מוכנות — בצבע המקצוע */}
+      <div className="ready-hero" style={{ background: subject.bg }}>
+        <div className="text-[14px] font-semibold">מוכנות ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</div>
+        <div className="ready-hero-num tnum" dir="ltr">{ready == null ? '—' : `${ready}%`}</div>
+        <div className="hero-track !flex-none"><i style={{ width: `${ready || 0}%` }} /></div>
+        {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
         {(strong.length > 0 || weak.length > 0) && (
-          <>
-            <div className="rc-group"><div className="rc-h">חזק בנושא</div><Chips arr={strong} kind="good" /></div>
-            <div className="rc-group"><div className="rc-h">כדאי לתרגל</div><Chips arr={weak} kind="weak" /></div>
-          </>
+          <div className="flex gap-1.5 flex-wrap">
+            {strong.slice(0, 3).map((t) => <span key={t.id} className="ready-chip">חזק: {t.name}</span>)}
+            {weak.slice(0, 3).map((t) => <span key={t.id} className="ready-chip">לתרגל: {t.name}</span>)}
+          </div>
         )}
-        <div className="action-row" style={{ margin: '16px 0 0' }}>
-          <button className="btn btn-primary" disabled={qCount === 0}
-            onClick={() => nav.go('practicePicker', { subjectId: id, subjectName: name, mode: 'practice' })}>🎯 תרגול</button>
-          <button className="btn" disabled={qCount === 0} onClick={() => goPractice('exam')}>📝 {examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</button>
+        <div className="flex gap-2 mt-0.5">
+          <button type="button" className="ready-btn" style={{ background: 'var(--on-fill)', color: subject.bg }} disabled={qCount === 0}
+            onClick={() => nav.go('practicePicker', { subjectId: id, subjectName: name, mode: 'practice' })}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
+            תרגול
+          </button>
+          <button type="button" className="ready-btn" style={{ background: '#fff', color: 'var(--on-fill)' }} disabled={qCount === 0} onClick={() => goPractice('exam')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+            {examKind === 'מבדק' ? 'מבדק' : 'מבחן'}
+          </button>
         </div>
       </div>
 
-      {/* מודולים */}
-      <div className="action-row">
-        {fcCount > 0 && (
-          <button className="btn" onClick={() => nav.go('flashcards', { subjectId: id, subjectName: name })}>🃏 כרטיסיות</button>
-        )}
-        <button className="btn" onClick={() => nav.go('check', { subjectId: id, subjectName: name })}>📷 בדוק תרגיל שפתרתי</button>
-        {isLang && (
-          <button className="btn" onClick={() => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' })}>🧩 ניתוח משפט</button>
-        )}
-        <button className="btn" onClick={() => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md })}>💬 תסביר לי</button>
-        <button className="btn" onClick={() => nav.go('reinforce', { subjectId: id, subjectName: name })}>
-          📓 לחיזוק{rvCount > 0 ? ` (${rvCount})` : ''}
-        </button>
-        <button className="btn" onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}>
-          📅 מתכנן המבחן{needsMaterial ? ' ●' : ''}
-        </button>
-        <button className="btn" onClick={() => nav.go('pastExams', { subjectId: id, subjectName: name })}>
-          🗂️ מבחנים שעברו
-        </button>
+      {/* כלים */}
+      <div className="tools-grid">
+        {[
+          fcCount > 0 && { k: 'fc', label: 'כרטיסיות', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
+          { k: 'rv', label: 'לחיזוק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
+          { k: 'ex', label: 'תסביר לי', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
+          isLang && { k: 'sx', label: 'ניתוח משפט', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          { k: 'ck', label: 'בדוק תרגיל', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
+          { k: 'pl', label: 'מתכנן המבחן', icon: '📅', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pe', label: 'מבחנים שעברו', icon: '🗂️', go: () => nav.go('pastExams', { subjectId: id, subjectName: name }) },
+        ].filter(Boolean).map((t) => (
+          <button key={t.k} type="button" className="tool" onClick={t.go}>
+            <span className="text-[20px] leading-none">{t.icon}</span>
+            <span className="leading-tight">{t.label}</span>
+            {t.count > 0 && <span className="tool-badge tnum">{t.count}</span>}
+            {t.dot && <span className="tool-dot" aria-label="צריך להגדיר חומר" />}
+          </button>
+        ))}
       </div>
 
       {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
       {needsMaterial && (
         <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
-          style={{ background: 'var(--accent-soft)', color: 'color-mix(in srgb,var(--accent) 80%,#7a4b00)' }}>
+          style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
           <span className="text-[17px] leading-none">📤</span>
           <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו ›</span>
         </button>

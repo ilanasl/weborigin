@@ -323,6 +323,23 @@ button{font-family:inherit; cursor:pointer}
 .syn-role:disabled{ opacity:.45 }
 .q-next:disabled{ cursor:not-allowed }
 
+/* ── מסך מקצוע ── */
+.up-pill{ height:40px; padding:0 14px; border-radius:20px; border:none; background:#fff; color:var(--on-fill); flex:none;
+  display:flex; align-items:center; gap:5px; font-size:13px; font-weight:700; white-space:nowrap }
+.ready-hero{ border-radius:30px; color:var(--on-fill); padding:16px; display:flex; flex-direction:column; gap:10px }
+.ready-hero-num{ font-family:var(--disp); font-weight:900; font-size:clamp(52px,17vw,72px); line-height:.9; letter-spacing:-2px; text-align:right }
+.ready-chip{ background:rgba(19,19,22,.1); border-radius:12px; padding:5px 10px; font-size:12.5px; font-weight:600 }
+.ready-btn{ flex:1; height:48px; border-radius:24px; border:none; font-family:var(--disp); font-weight:700; font-size:16px;
+  display:flex; align-items:center; justify-content:center; gap:8px }
+.ready-btn:disabled{ opacity:.5 }
+.tools-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px }
+.tool{ position:relative; min-height:76px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; gap:6px;
+  padding:11px 12px 10px; border-radius:20px; text-align:start; font-size:13.5px; font-weight:600; color:var(--ink);
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi) }
+.tool-badge{ position:absolute; top:9px; left:9px; min-width:22px; height:22px; padding:0 6px; border-radius:11px;
+  background:var(--primary); color:var(--on-fill); font-family:var(--disp); font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center }
+.tool-dot{ position:absolute; top:12px; left:12px; width:9px; height:9px; border-radius:50%; background:var(--accent) }
+
 /* ── תוכנית הלמידה במתכנן ── */
 .plan-row{ padding:6px 12px 6px 6px; gap:12px }
 .plan-tile{ width:52px; min-height:42px; flex:none; border-radius:14px; background:rgba(255,255,255,.12); color:var(--ink);
