@@ -166,19 +166,11 @@ export default function Planner({ nav, params }) {
           </div>
           <div className="text-[12px] text-muted mt-1.5">אפשר להגדיר תאריך גם למבדק וגם למבחן — שניהם יופיעו בבית ובלוח המבחנים.</div>
         </div>
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך ה{kind}</label>
-            <input type="date" className="field" value={date} onChange={(e) => setSlot({ date: e.target.value })} />
-          </div>
-          <div className="w-[130px]">
-            <label className="block text-[13.5px] font-bold text-muted mb-1.5">מתחילים ללמוד</label>
-            <div className="flex items-center gap-1.5">
-              <input type="number" min="1" max="30" className="field text-center" style={{ width: 60 }}
-                value={leadDays} onChange={(e) => setLeadDays(Math.max(1, parseInt(e.target.value, 10) || 1))} />
-              <span className="text-[12.5px] text-muted">ימים לפני</span>
-            </div>
-          </div>
+        {/* "מתחילים ללמוד X ימים לפני" הוסר מהמסך — מספר קבוע לפי סוג המבחן (LEAD_DEFAULT) */}
+        <div>
+          <label className="block text-[13.5px] font-bold text-muted mb-1.5">תאריך ה{kind}</label>
+          <input type="date" className="field" value={date} onChange={(e) => setSlot({ date: e.target.value })} />
+          <div className="text-[12px] text-muted mt-1.5">הלמידה ל{kind} מתחילה {leadDays} ימים לפני.</div>
         </div>
         <div>
           <label className="block text-[13.5px] font-bold text-muted mb-1.5">מיקוד החומר (חופשי)</label>
@@ -215,7 +207,7 @@ export default function Planner({ nav, params }) {
       {startsInDays != null && (
         <div className="card mt-3 text-[13.5px] leading-relaxed" style={{ background: 'var(--primary-soft)' }}>
           📅 המבחן עוד רחוק — אין צורך להתחיל עכשיו. לפי ההגדרה, הלמידה ל{kind} תתחיל <b>בעוד {startsInDays} ימים</b>.
-          עד אז אפשר להתמקד במבחנים קרובים יותר. (אפשר לשנות ב"מתחילים ללמוד".)
+          עד אז אפשר להתמקד במבחנים קרובים יותר.
         </div>
       )}
 
