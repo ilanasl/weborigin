@@ -187,3 +187,7 @@ button{font-family:inherit; cursor:pointer}
 .md{ overflow-wrap:break-word; word-break:break-word }
 .card{ overflow-wrap:break-word }
 .md table{ max-width:100% }
+
+/* תגית הנושא של השאלה — בולטת מעל השאלה (שיר/נושא) */
+.topic-tag{ display:inline-flex; align-items:center; gap:6px; max-width:100%; background:var(--primary-soft); color:var(--primary);
+  font-weight:800; font-size:15.5px; line-height:1.35; padding:7px 13px; border-radius:12px; }

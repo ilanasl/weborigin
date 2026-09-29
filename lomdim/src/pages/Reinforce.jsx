@@ -26,16 +26,19 @@ export default function Reinforce({ nav, params }) {
   const [correct, setCorrect] = useState(0)
   const [reward, setReward] = useState(null)
   const [done, setDone] = useState(false)
+  const [topicNames, setTopicNames] = useState({})
 
   useEffect(() => {
     (async () => {
       const { data: ri } = await supabase.from('review_items').select('*').eq('subject_id', subjectId)
       const qIds = (ri || []).filter((r) => r.kind === 'question').map((r) => r.ref_id)
       const fIds = (ri || []).filter((r) => r.kind === 'flashcard').map((r) => r.ref_id)
-      const [{ data: qs }, { data: fcs }] = await Promise.all([
+      const [{ data: qs }, { data: fcs }, { data: tp }] = await Promise.all([
         qIds.length ? supabase.from('questions').select('*').in('id', qIds) : Promise.resolve({ data: [] }),
         fIds.length ? supabase.from('flashcards').select('*').in('id', fIds) : Promise.resolve({ data: [] }),
+        supabase.from('topics').select('id, name').eq('subject_id', subjectId),
       ])
+      setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       const items = []
       for (const r of ri || []) {
         if (r.kind === 'question') { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, streak: r.streak || 0, q: shuffleChoices(q) }) }
@@ -117,13 +120,16 @@ export default function Reinforce({ nav, params }) {
   }
 
   const item = queue[idx]
+  const itemTopic = topicNames[item.type === 'q' ? item.q.topic_id : item.card.topic_id]
 
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1 text-[13px] text-muted font-semibold tnum">📓 חיזוק · {idx + 1} מתוך {queue.length}</div>
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex-1 text-[12.5px] text-muted font-semibold tnum">📓 חיזוק · {idx + 1} מתוך {queue.length}</div>
         <span className="text-[12px] text-muted">{subjectName}</span>
       </div>
+
+      {itemTopic && <div className="topic-tag mb-1">📖 {itemTopic}</div>}
 
       {item.type === 'q' ? (
         <QuestionCard item={item} picked={picked} onPick={answerQ} onNext={next} />

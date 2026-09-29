@@ -131,12 +131,14 @@ export default function Flashcards({ nav, params }) {
 
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-2 mb-1">
-        <div className="flex-1 text-[13px] text-muted font-semibold tnum">🃏 {eyebrow} · {idx + 1} מתוך {queue.length}</div>
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex-1 text-[12.5px] text-muted font-semibold tnum">🃏 {idx + 1} מתוך {queue.length}</div>
         <span className="text-[12px] text-muted">{subjectName}</span>
       </div>
 
-      <div className="text-[12.5px] text-muted mt-2">{item.prompt}</div>
+      <div className="topic-tag">📖 {eyebrow}</div>
+
+      <div className="text-[12.5px] text-muted mt-3">{item.prompt}</div>
       <div className="font-disp font-bold text-[21px] leading-snug mt-1 mb-4">{item.q}</div>
 
       <div className="flex flex-col gap-[10px]">

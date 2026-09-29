@@ -27,12 +27,17 @@ export default function Practice({ nav, params }) {
   const [loading, setLoading] = useState(true)
   const [done, setDone] = useState(false)
   const [reward, setReward] = useState(null)   // { earned, events } — מטבעות שנצברו בסבב
+  const [topicNames, setTopicNames] = useState({})
 
   useEffect(() => {
     (async () => {
       let q = supabase.from('questions').select('*').eq('subject_id', subjectId)
       if (topicId) q = q.eq('topic_id', topicId)
-      const { data } = await q.limit(40)
+      const [{ data }, { data: tp }] = await Promise.all([
+        q.limit(40),
+        supabase.from('topics').select('id, name').eq('subject_id', subjectId),
+      ])
+      setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10).map(shuffleChoices))
       setLoading(false)
     })()
@@ -121,12 +126,14 @@ export default function Practice({ nav, params }) {
 
   return (
     <div className="pt-2">
-      <div className="flex items-center gap-2 mb-1">
-        <div className="flex-1 text-[13px] text-muted font-semibold tnum">
-          {examMode ? 'מבחן · ' : ''}{topicName ? `${topicName} · ` : ''}שאלה {idx + 1} מתוך {queue.length}
+      <div className="flex items-center gap-2 mb-2.5">
+        <div className="flex-1 text-[12.5px] text-muted font-semibold tnum">
+          {examMode ? 'מבחן · ' : ''}שאלה {idx + 1} מתוך {queue.length}
         </div>
         <span className={`pill ${badge}`}>{q.difficulty}</span>
       </div>
+
+      {(topicNames[q.topic_id] || topicName) && <div className="topic-tag">📖 {topicNames[q.topic_id] || topicName}</div>}
 
       <div className="font-disp font-bold text-[19px] leading-snug my-4">{q.q}</div>
 
