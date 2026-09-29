@@ -182,9 +182,11 @@ export default function Subject({ nav, params }) {
   const pcts = topics.map((t) => t.m.pct).filter((p) => p != null)
   const ready = pcts.length ? Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length) : null
   const strong = topics.filter((t) => t.m.pct != null && t.m.pct >= 75)
-  // כל נושא שעוד לא "חזק" נכנס ל"כדאי לתרגל" — כולל נושאים שעוד לא תורגלו (מסומנים בנפרד), כך שאף נושא לא נעלם
-  const weak = topics.filter((t) => t.m.pct == null || t.m.pct < 75)
-    .sort((a, b) => (a.m.pct ?? -1) - (b.m.pct ?? -1))
+  // "הכי כדאי לתרגל עכשיו": 2 הנושאים החלשים — קודם כאלה שתורגלו והם מתחת ל-75%, ורק אחריהם נושאים שעוד לא תורגלו
+  const focus = [
+    ...topics.filter((t) => t.m.pct != null && t.m.pct < 75).sort((a, b) => a.m.pct - b.m.pct),
+    ...topics.filter((t) => t.m.pct == null),
+  ].slice(0, 2)
   // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
   const hasExam = examDays != null && examDays >= 0
   const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
@@ -216,22 +218,17 @@ export default function Subject({ nav, params }) {
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
         {ready != null && (
           <div className="flex flex-col gap-2 mt-0.5">
-            {[
-              { h: 'חזק בנושא', arr: strong, cls: 'ready-chip-good', mark: '✓', none: 'עדיין אין נושא חזק — ממשיכים לתרגל' },
-              { h: 'כדאי לתרגל', arr: weak, cls: 'ready-chip-weak', mark: '!', none: 'הכול חזק! 🎉' },
-            ].map((g) => (
-              <div key={g.h} className="flex flex-col gap-1">
-                <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>{g.h}</span>
+            <span className="text-[13.5px] font-bold">✓ חזק ב-{strong.length} מתוך {topics.length} נושאים</span>
+            {focus.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>הכי כדאי לתרגל עכשיו</span>
                 <div className="flex gap-1.5 flex-wrap">
-                  {g.arr.length ? g.arr.map((t) => (
-                    <span key={t.id} className={`ready-chip ${g.cls}`}>
-                      <b aria-hidden="true">{g.mark}</b>{t.name}
-                      {t.m.pct == null && <span className="font-medium opacity-60">· עוד לא תורגל</span>}
-                    </span>
-                  )) : <span className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.6)' }}>{g.none}</span>}
+                  {focus.map((t) => (
+                    <span key={t.id} className="ready-chip ready-chip-weak"><b aria-hidden="true">!</b>{t.name}</span>
+                  ))}
                 </div>
               </div>
-            ))}
+            ) : <span className="text-[13px] font-semibold">הכול חזק! 🎉</span>}
           </div>
         )}
         <div className="flex gap-2 mt-0.5">
