@@ -180,18 +180,60 @@ button{font-family:inherit; cursor:pointer}
   font-weight:800; font-size:15.5px; line-height:1.35; padding:7px 13px; border-radius:12px; }
 
 /* ── סרגל ניווט צף ── */
-.fnav{ position:fixed; z-index:30; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom,0));
-  width:min(358px, calc(100% - 32px)); height:68px; border-radius:34px; padding:0 10px;
-  display:flex; align-items:center; justify-content:space-between;
-  background:rgba(30,30,36,.58); border:1px solid rgba(255,255,255,.12);
-  -webkit-backdrop-filter:blur(18px) saturate(1.4); backdrop-filter:blur(18px) saturate(1.4);
-  box-shadow:0 18px 40px -12px rgba(0,0,0,.7) }
+.fnav-scrim{ position:fixed; z-index:29; left:0; right:0; bottom:0; height:calc(130px + env(safe-area-inset-bottom,0)); pointer-events:none;
+  background:linear-gradient(to bottom, rgba(14,14,17,0), var(--bg) 62%) }
+.fnav{ position:fixed; z-index:30; left:50%; transform:translateX(-50%); bottom:calc(16px + env(safe-area-inset-bottom,0));
+  width:min(370px, calc(100% - 40px)); height:72px; border-radius:36px; padding:0 10px;
+  display:flex; align-items:center; justify-content:space-around;
+  background:rgba(30,30,36,.82); border:1px solid rgba(255,255,255,.13);
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  box-shadow:0 12px 30px rgba(0,0,0,.35) }
 .fnav button{ width:48px; height:48px; border-radius:24px; border:none; background:transparent; color:var(--muted);
   display:flex; align-items:center; justify-content:center; transition:.15s }
-.fnav button[aria-current="page"]{ background:rgba(255,255,255,.12); color:var(--ink) }
+.fnav button[aria-current="page"]{ background:rgba(255,255,255,.14); color:var(--ink) }
 .fnav .fnav-go{ width:62px; height:62px; margin-top:-30px; border-radius:31px; background:var(--primary); color:var(--on-fill);
   box-shadow:0 0 0 7px var(--bg) }
 .fnav .fnav-go:disabled{ opacity:.7 }
+
+/* ── מסך הבית ── */
+.home{ display:flex; flex-direction:column; gap:16px; padding-top:6px }
+.home-top{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+.home-hi{ font-size:14px; font-weight:500; color:var(--muted) }
+.home-title{ font-weight:900; font-size:32px; line-height:1.05; letter-spacing:-.5px; margin-top:4px }
+.coin-pill{ display:flex; align-items:center; gap:6px; height:44px; padding:0 14px; border-radius:22px; flex:none;
+  background:rgba(255,255,255,.19); border:1px solid rgba(255,255,255,.26); box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+  color:var(--ink); font-family:var(--disp); font-weight:700; font-size:15px }
+.hero-grid, .subj-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px }
+.hero{ position:relative; height:188px; border-radius:30px; padding:16px; display:flex; flex-direction:column; color:var(--on-fill) }
+.hero-a{ background:#D4F46A; justify-content:flex-end; gap:6px }
+.hero-b{ background:#B7A5FF; justify-content:space-between }
+.hero-bottom{ display:flex; flex-direction:column; gap:6px }
+.hero-num{ font-family:var(--disp); font-weight:900; font-size:82px; line-height:.9; letter-spacing:-2px }
+.hero-a .hero-num{ direction:ltr; text-align:right }
+.hero-num span{ font-size:34px; opacity:.55 }
+.hero-lbl{ font-size:14px; font-weight:600 }
+.hero-sub{ font-size:12.5px; font-weight:500; color:rgba(19,19,22,.72) }
+.hero-track{ flex:1; height:6px; border-radius:3px; background:rgba(0,0,0,.15); overflow:hidden }
+.hero-a .hero-track{ flex:none }
+.hero-track>i{ display:block; height:100%; border-radius:3px; background:var(--on-fill) }
+.arrow-btn{ position:absolute; top:-5px; left:-5px; width:46px; height:46px; border-radius:23px; border:none; background:#fff;
+  box-shadow:0 0 0 6px var(--bg); display:flex; align-items:center; justify-content:center }
+.arrow-btn.sm{ top:-4px; left:-4px; width:40px; height:40px; border-radius:20px; box-shadow:0 0 0 5px var(--bg) }
+.milky-row{ display:flex; align-items:center; gap:12px; width:100%; border-radius:20px; padding:11px 14px; color:var(--ink);
+  background:var(--milky); border:1px solid var(--milky-line); box-shadow:var(--milky-hi) }
+.day-box{ width:44px; height:44px; flex:none; border-radius:14px; color:var(--on-fill); display:flex; flex-direction:column;
+  align-items:center; justify-content:center; font-family:var(--disp); line-height:1 }
+.day-box b{ font-size:18px; font-weight:800 } .day-box small{ font-size:10px; font-weight:700 }
+.home-h2{ display:flex; align-items:baseline; justify-content:space-between; margin-top:4px }
+.home-h2 h2{ font-weight:800; font-size:20px } .home-h2 span{ font-size:13px; color:var(--muted) }
+.subj-card{ position:relative; min-height:118px; border-radius:26px; padding:14px 14px 13px; color:var(--on-fill); cursor:pointer;
+  display:flex; flex-direction:column; justify-content:space-between; gap:10px }
+.subj-name{ font-family:var(--disp); font-weight:800; font-size:19px; line-height:1.2; padding-inline-end:34px }
+.subj-meta{ font-size:12.5px; font-weight:500; color:rgba(19,19,22,.72); margin-top:2px }
+.subj-bar{ display:flex; align-items:center; gap:8px }
+.subj-bar b{ font-family:var(--disp); font-weight:800; font-size:16px; direction:ltr }
+.subj-add{ min-height:118px; border-radius:26px; border:2px dashed var(--milky-line); color:var(--muted);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:transparent }
 
 /* כפתורי כותרת עליונה — עיגולים חלביים */
 .hbtn{ height:40px; min-width:40px; padding:0 12px; border-radius:20px; display:inline-flex; align-items:center; justify-content:center; gap:6px;

@@ -41,15 +41,15 @@ function ConfigNeeded() {
 const TASK_ROUTES = new Set(['practice', 'reinforce', 'flashcards', 'syntax'])
 
 const Ico = ({ d, size = 22 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>
 )
 const ICONS = {
-  home: <><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></>,
-  board: <><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
-  play: <path d="M8 5l11 7-11 7z" fill="currentColor" />,
-  boost: <><path d="M12 20V6" /><path d="M6 12l6-6 6 6" /></>,
-  store: <><path d="M4 9h16l-1 11H5z" /><path d="M9 9V7a3 3 0 016 0v2" /></>,
+  home: <path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" />,
+  board: <><rect x="3.5" y="5" width="17" height="15.5" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  play: <><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></>,
+  boost: <><path d="M6 4h11a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2z" /><path d="M6 18a2 2 0 0 1 2-2h11M10 8h5" /></>,
+  store: <><rect x="4" y="10" width="16" height="10" rx="2" /><path d="M3 7h18v3H3zM12 7v13" /><path d="M12 7c-1.5-3-5-3-5-1s3.5 1 5 1zM12 7c1.5-3 5-3 5-1s-3.5 1-5 1z" /></>,
 }
 
 // המקצוע עם המבחן הקרוב ביותר (או הראשון) — יעד ל"תרגל עכשיו" ו"לחיזוק"
@@ -80,6 +80,8 @@ function FloatingNav({ route, go, reset }) {
   }
   const cur = (n) => (route === n ? 'page' : undefined)
   return (
+    <>
+    <div className="fnav-scrim" aria-hidden="true" />
     <nav className="fnav" aria-label="ניווט ראשי">
       <button type="button" aria-label="בית" aria-current={cur('home')} onClick={() => reset('home')}><Ico d={ICONS.home} /></button>
       <button type="button" aria-label="לוח מבחנים" aria-current={cur('examBoard')} onClick={() => { reset('home'); go('examBoard') }}><Ico d={ICONS.board} /></button>
@@ -87,6 +89,7 @@ function FloatingNav({ route, go, reset }) {
       <button type="button" aria-label="לחיזוק" onClick={() => toSubject('reinforce')}><Ico d={ICONS.boost} /></button>
       <button type="button" aria-label="חנות הפרסים" aria-current={cur('store')} onClick={() => { reset('home'); go('store') }}><Ico d={ICONS.store} /></button>
     </nav>
+    </>
   )
 }
 
