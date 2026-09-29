@@ -80,7 +80,8 @@ export function BottomSheet({ children, className = '', scroll = false, role }) 
     ro?.observe(el)
     // בלי קפיצה: גוללים רק אם התשובה המסומנת מוסתרת מאחורי הגיליון, ורק בדיוק כמה שצריך
     if (scroll) requestAnimationFrame(() => {
-      const target = [...document.querySelectorAll('.q-opt.ok, .q-opt.bad')].pop()
+      // התשובה האחרונה ברשימה (או אריח המילה האחרון) — כך אף תשובה לא נשארת מוסתרת
+      const target = [...document.querySelectorAll('.q-opt, .syn-tile')].pop()
       if (!target) return
       const hiddenBy = target.getBoundingClientRect().bottom - (window.innerHeight - el.offsetHeight) + 12
       if (hiddenBy > 0) window.scrollBy({ top: hiddenBy, behavior: 'smooth' })
