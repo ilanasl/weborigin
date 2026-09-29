@@ -18,7 +18,8 @@ const splitRow = (line) =>
   line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim())
 const isTableSep = (line) => /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) && line.includes('-')
 
-export default function Markdown({ text, className = '' }) {
+// examBox: הפרק "מה לכתוב במבחן" (מהסיכום בספרות) מוצג בתיבה מודגשת
+export default function Markdown({ text, className = '', examBox = false }) {
   const lines = String(text || '').replace(/\r/g, '').split('\n')
   const blocks = []
   let list = null
@@ -60,9 +61,7 @@ export default function Markdown({ text, className = '' }) {
   }
   flush()
 
-  return (
-    <div className={`md ${className}`}>
-      {blocks.map((b, i) => {
+  const render = (b, i) => {
         if (b.type === 'h') {
           const size = b.level === 1 ? 'text-[16px]' : b.level === 2 ? 'text-[15px]' : 'text-[14px]'
           return <div key={i} className={`font-disp font-bold ${size} mt-4 first:mt-0 mb-1`}><Inline text={b.text} /></div>
@@ -100,7 +99,30 @@ export default function Markdown({ text, className = '' }) {
           )
         }
         return <p key={i} className="my-1.5"><Inline text={b.text} /></p>
-      })}
-    </div>
-  )
+  }
+
+  // מקבצים את הפרק "מה לכתוב במבחן" (עד הכותרת הבאה) לתיבה אחת
+  const out = []
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i]
+    if (examBox && b.type === 'h' && /מה לכתוב במבחן/.test(b.text)) {
+      const inner = []
+      let j = i + 1
+      while (j < blocks.length && !(blocks[j].type === 'h' && blocks[j].level <= b.level)) inner.push(blocks[j++])
+      out.push(
+        <div key={i} className="md-exam">
+          <div className="md-exam-h">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E7A00" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            <Inline text={b.text.replace(/^[^\p{L}]+/u, '')} />
+          </div>
+          {inner.map((x, k) => render(x, `${i}-${k}`))}
+        </div>
+      )
+      i = j - 1
+      continue
+    }
+    out.push(render(b, i))
+  }
+
+  return <div className={`md ${className}`}>{out}</div>
 }

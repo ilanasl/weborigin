@@ -145,15 +145,25 @@ export default function TopicSummary({ nav, params }) {
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
   return (
-    <div className="pt-2">
-      <h1 className="text-[22px] font-black mb-1">{topicName}</h1>
-      <div className="text-muted text-[13.5px] mb-4">{subjectName}</div>
+    <div className="pt-1">
+      <span className="end-tag inline-block mb-3">{subjectName}</span>
+      <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">{topicName}</h1>
+      <div className="text-[13.5px] text-muted mt-1.5 mb-4">
+        {summary ? 'סיכום' : 'אין עדיין סיכום'} · {qCount} שאלות{notes.length ? ` · ${notes.length} סיכומים שהוספתי` : ''}
+      </div>
+      <button type="button" className="ts-practice" disabled={qCount === 0}
+        onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
+        <span>תרגל את הנושא</span>
+        {qCount > 0 && <span className="ts-count tnum">{qCount}</span>}
+      </button>
 
       {sourceText && !pasteMode ? (
         <>
-          <button className="list-title flex items-center gap-2 w-full !mt-0" onClick={() => setShowSource((v) => !v)}>
-            <span className="flex-1 text-start">📜 הטקסט המלא</span>
-            <span className="text-[12px] font-bold">{showSource ? 'הסתר ▲' : 'הצג ▼'}</span>
+          <button type="button" className="milky-row mb-3" onClick={() => setShowSource((v) => !v)}>
+            <span className="text-[17px] leading-none">📜</span>
+            <span className="flex-1 text-start font-bold text-[14.5px]">הטקסט המלא</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: showSource ? 'rotate(180deg)' : 'none', transition: '.2s' }}><path d="M6 9l6 6 6-6" /></svg>
           </button>
           {showSource && (
             <div className="card mb-3">
@@ -175,9 +185,10 @@ export default function TopicSummary({ nav, params }) {
           )}
         </>
       ) : !(isLiterary || wantSource) ? (
-        <button className="text-muted text-[12.5px] font-semibold mb-3 hover:text-primary"
-          onClick={() => setWantSource(true)}>
-          📜 יש לנושא הזה טקסט מקור (שיר / פסוקים)? הבא אותו ›
+        <button type="button" className="milky-row mb-3" onClick={() => setWantSource(true)}>
+          <span className="text-[17px] leading-none">📜</span>
+          <span className="flex-1 text-start text-[13.5px] font-semibold">יש לנושא טקסט מקור (שיר / פסוקים)? הבא אותו</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
       ) : (
         <div className="card mb-3">
@@ -229,48 +240,47 @@ export default function TopicSummary({ nav, params }) {
         </div>
       )}
 
-      {summary ? (
-        <div className="card text-[14.5px] leading-relaxed"><Markdown text={summary} /></div>
-      ) : (
-        <div className="card empty">
-          <div className="big">📖</div>
-          עדיין אין סיכום עיוני לנושא הזה.<br />לחצו למטה כדי שהמערכת תכין אחד מסודר.
+      {/* הסיכום — "דף" בהיר ונוח לקריאה */}
+      <div className="paper">
+        {summary ? (
+          <Markdown text={summary} examBox />
+        ) : (
+          <div className="text-center py-6">
+            <div className="text-[34px] mb-2">📖</div>
+            <div className="font-disp font-extrabold text-[17px]">עדיין אין סיכום לנושא הזה</div>
+            <div className="text-[14px] mt-1" style={{ color: '#3E3E45' }}>לחצו למטה כדי שהמערכת תכין אחד מסודר.</div>
+          </div>
+        )}
+
+        {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
+
+        <div className="paper-actions">
+          <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
+            {busy ? 'מכין…' : aggSource ? 'אחד סיכום מהחומרים' : summary ? 'סכם מחדש' : 'צור סיכום'}
+          </button>
+          {aggSource && (
+            <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer" style={{ color: '#3E3E45' }}>
+              <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[18px] h-[18px]" style={{ accentColor: '#5E7A00' }} />
+              להשלים גם מהידע הכללי
+            </label>
+          )}
         </div>
-      )}
-
-      {err && <div className="text-bad text-[13.5px] mt-3">{err}</div>}
-
-      <div className="action-row mt-3">
-        <button className="btn" onClick={generate} disabled={busy}>
-          {busy ? 'מכין…' : aggSource ? '✨ אחד סיכום מהחומרים' : summary ? '✨ סכם מחדש' : '✨ צור סיכום עיוני'}
-        </button>
-        <button className="btn btn-primary" disabled={qCount === 0}
-          onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
-          🎯 תרגל נושא זה
-        </button>
+        {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>}
       </div>
-      {aggSource && (
-        <div className="mt-2">
-          <div className="text-[12px] text-muted mb-1.5">"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>
-          <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
-            <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[17px] h-[17px]" />
-            להשלים גם מהידע הכללי (לא רק מהחומר שלי)
-          </label>
-        </div>
-      )}
 
-      {/* סיכומים שהוספתי (מהצ'אט) — מתחת לכפתורים; קבועים, לא נמחקים ב"סכם מחדש" */}
+      {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
         <>
-          <div className="list-title">סיכומים שהוספתי</div>
+          <div className="home-h2 mt-6 mb-2.5"><h2>סיכומים שהוספתי</h2><span>{notes.length}</span></div>
           {notes.map((n) => (
-            <div key={n.id} className="card mb-3">
+            <div key={n.id} className="paper mb-3">
               <div className="flex items-start gap-2 mb-1">
-                <div className="flex-1 font-extrabold text-[15px]">📝 {n.title || 'סיכום'}</div>
-                <button onClick={() => deleteNote(n.id)} title="הסר סיכום"
-                  className="text-[15px]" style={{ color: 'var(--bad)' }}>🗑</button>
+                <div className="flex-1 font-disp font-extrabold text-[16px]">📝 {n.title || 'סיכום'}</div>
+                <button type="button" onClick={() => deleteNote(n.id)} title="הסר סיכום" aria-label="הסר סיכום"
+                  className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#B8501C', border: '1.5px solid rgba(184,80,28,.35)' }}>הסר</button>
               </div>
-              <div className="text-[14.5px] leading-relaxed"><Markdown text={n.summary_md} /></div>
+              <Markdown text={n.summary_md} />
             </div>
           ))}
         </>
