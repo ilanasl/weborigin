@@ -238,7 +238,6 @@ export default function Subject({ nav, params }) {
           fcCount > 0 && { k: 'fc', label: 'כרטיסיות', sub: 'מושגים לשינון', icon: '🃏', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: '📓', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: '🧩', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
-          isLang && { k: 'pos', label: 'חלקי דיבר', sub: 'פועל, שם עצם…', icon: '🔤', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'pos' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: '📷', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
           { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: '💬', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) },
         ].filter(Boolean)
