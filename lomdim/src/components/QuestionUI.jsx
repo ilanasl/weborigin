@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import Markdown from './Markdown'
 
 const LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו']
@@ -57,10 +58,19 @@ export function Options({ choices, answer, picked, onPick }) {
 
 // גיליון משוב שעולה מלמטה אחרי תשובה
 export function FeedbackSheet({ ok, title, explain, nextLabel = 'הבא', onNext }) {
+  // מקום ריק בגובה הגיליון + גלילה, כדי שהגיליון לא יסתיר את התשובות
+  const sheet = useRef(null)
+  const [h, setH] = useState(260)
+  useEffect(() => {
+    const el = sheet.current
+    if (!el) return
+    setH(el.offsetHeight + 12)
+    requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' }))
+  }, [])
   return (
     <>
-      <div className="q-sheet-space" />
-      <div className={`q-sheet ${ok ? 'ok' : 'bad'}`} role="status">
+      <div style={{ height: h }} />
+      <div ref={sheet} className={`q-sheet ${ok ? 'ok' : 'bad'}`} role="status">
         <div className="q-grip" />
         <div className="q-sheet-title">{title}</div>
         {explain && <div className="q-sheet-body"><Markdown text={explain} /></div>}
