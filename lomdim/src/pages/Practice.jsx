@@ -132,7 +132,7 @@ export default function Practice({ nav, params }) {
     <div className="pt-1">
       <SegProgress total={queue.length} idx={idx} results={results} />
 
-      <QuestionBlock topic={topicLabel} sub={`${examMode ? 'מבחן · ' : ''}${q.difficulty || ''}`} text={q.q} />
+      <QuestionBlock topic={topicLabel} sub={`${examMode ? 'סימולציה · ' : ''}${q.difficulty || ''}`} text={q.q} />
 
       <Options choices={q.choices} answer={q.answer} picked={picked} onPick={answer} />
 
