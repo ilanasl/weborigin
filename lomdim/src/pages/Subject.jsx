@@ -3,6 +3,7 @@ import { toAIInput } from '../lib/image'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
+import { expirePastExams, PASSED_KEY } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { analyzeMaterial } from '../lib/gemini'
@@ -37,8 +38,9 @@ export default function Subject({ nav, params }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: s }, { data: tp }, { data: mt }, { data: at }, { count: qc }, { count: fc }, { count: rc }] = await Promise.all([
-      supabase.from('subjects').select('*').eq('id', id).single(),
+    const { data: s0 } = await supabase.from('subjects').select('*').eq('id', id).single()
+    const [s] = await expirePastExams(s0 ? [s0] : [])
+    const [{ data: tp }, { data: mt }, { data: at }, { count: qc }, { count: fc }, { count: rc }] = await Promise.all([
       supabase.from('topics').select('*').eq('subject_id', id).order('created_at'),
       supabase.from('materials').select('*').eq('subject_id', id).order('created_at', { ascending: false }),
       supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id),
@@ -253,6 +255,15 @@ export default function Subject({ nav, params }) {
   // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
   const hasExam = examDays != null && examDays >= 0
   const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
+  // מבחן שעבר (התאפס אוטומטית) — מבקשים חומר חדש עד שמעלים משהו אחרי מועד האיפוס
+  const passed = (() => {
+    try {
+      const p = JSON.parse(localStorage.getItem(PASSED_KEY(id)) || 'null')
+      if (!p) return null
+      const uploadedAfter = materials.some((m) => new Date(m.created_at).getTime() > p.ts)
+      return uploadedAfter ? null : p
+    } catch { return null }
+  })()
   // תרגיל ניתוח משפט רלוונטי ללשון/עברית/דקדוק
   const isLang = /עברית|לשון|דקדוק|תחביר/.test(name || '')
 
@@ -350,6 +361,15 @@ export default function Subject({ nav, params }) {
       })()}
 
       {/* אזהרה: מבחן קרוב בלי חומר מוגדר */}
+      {passed && !hasExam && (
+        <button onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}
+          className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
+          style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
+          <Icon name="upload" size={19} />
+          <span><b>ה{passed.kind} עבר 🎉</b> העלו את החומר החדש שלומדים עכשיו. עד שתגדירו מיקוד למבדק הבא — המבדק יהיה על כל החומר.</span>
+        </button>
+      )}
+
       {needsMaterial && (
         <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"

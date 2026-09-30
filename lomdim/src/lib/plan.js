@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { mastery, STRONG } from './mastery'
+import { matchScopeTopics } from './gemini'
 
 // ── תוכנית הלמידה למבחן (משותף למתכנן ולבדיקת "סיימת את היום בתוכנית") ──
 
@@ -14,6 +15,45 @@ export const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); 
 export function nearestKind(subject) {
   const qd = daysUntil(subject?.quiz_date), ed = daysUntil(subject?.exam_date)
   return (qd != null && qd >= 0 && (ed == null || ed < 0 || qd <= ed)) ? 'מבדק' : 'מבחן מסכם'
+}
+
+// ── מבחן/מבדק שעבר: מאפסים תאריך ומיקוד, ומעדכנים את סימון הנושאים ──
+// אחרי האיפוס: אם נשאר מבחן קרוב עם מיקוד — הנושאים מסומנים לפיו; אחרת "מבדק" הוא על כל החומר.
+// נשמר סימון מקומי כדי להציג במסך המקצוע "המבחן עבר — העלו חומר חדש".
+export const PASSED_KEY = (id) => `lomdim-exam-passed:${id}`
+export async function expirePastExams(subjects) {
+  const out = []
+  for (const s of subjects || []) {
+    const patch = {}
+    let passedKind = null
+    if (s.quiz_date && daysUntil(s.quiz_date) < 0) { patch.quiz_date = null; patch.quiz_scope_text = null; passedKind = 'מבדק' }
+    if (s.exam_date && daysUntil(s.exam_date) < 0) { patch.exam_date = null; patch.exam_scope_text = null; passedKind = passedKind || 'מבחן מסכם' }
+    if (!passedKind) { out.push(s); continue }
+    const next = { ...s, ...patch }
+    try {
+      await supabase.from('subjects').update(patch).eq('id', s.id)
+      await refreshScopeTopics(next)
+      try { localStorage.setItem(PASSED_KEY(s.id), JSON.stringify({ kind: passedKind, ts: Date.now() })) } catch { /* */ }
+    } catch { /* ננסה בפעם הבאה */ }
+    out.push(next)
+  }
+  return out
+}
+
+// סימון "במבחן" לפי המיקוד של המבחן הקרוב; בלי מיקוד — אף נושא לא מסומן (= כל החומר)
+export async function refreshScopeTopics(subject) {
+  const kind = nearestKind(subject)
+  const date = kind === 'מבדק' ? subject.quiz_date : subject.exam_date
+  const scope = String((kind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim()
+  const { data: topics } = await supabase.from('topics').select('id, name').eq('subject_id', subject.id)
+  if (!topics?.length) return null
+  let set = new Set()
+  if (date && daysUntil(date) >= 0 && scope) {
+    const { in_exam } = await matchScopeTopics({ subjectName: subject.name, scopeText: scope, knownTopics: topics.map((t) => t.name) })
+    set = new Set(in_exam || [])
+  }
+  await Promise.all(topics.map((t) => supabase.from('topics').update({ in_exam: set.has(t.name) }).eq('id', t.id)))
+  return set
 }
 
 // topics: [{ id, name, in_exam, att: [{ correct, difficulty, ts }] }] · allTs: זמני כל התשובות במקצוע

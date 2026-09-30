@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
-import { scanScope, matchScopeTopics } from '../lib/gemini'
+import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
-import { LEAD_DEFAULT, daysUntil, buildStudyPlan } from '../lib/plan'
+import { LEAD_DEFAULT, daysUntil, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams } from '../lib/plan'
 
 const Chev = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.55, flex: 'none' }}><path d="M15 6l-6 6 6 6" /></svg>
@@ -32,8 +32,10 @@ export default function Planner({ nav, params }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: s }, { data: tp }, { data: at }] = await Promise.all([
-      supabase.from('subjects').select('*').eq('id', subjectId).single(),
+    // מבחן שעבר — מתאפס לפני הטעינה (תאריך + מיקוד), כדי שהטופס יתחיל נקי
+    const { data: s0 } = await supabase.from('subjects').select('*').eq('id', subjectId).single()
+    const [s] = await expirePastExams(s0 ? [s0] : [])
+    const [{ data: tp }, { data: at }] = await Promise.all([
       supabase.from('topics').select('*').eq('subject_id', subjectId).order('created_at'),
       supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
     ])
@@ -80,14 +82,17 @@ export default function Planner({ nav, params }) {
       ? { quiz_date: date || null, quiz_scope_text: scope || null }
       : { exam_kind: 'מבחן מסכם', exam_date: date || null, exam_scope_text: scope || null }
     await supabase.from('subjects').update(cols).eq('id', subjectId)
-    // מיקוד → נושאים: מזהה אילו נושאים כלולים במבחן ומסמן אותם (התוכנית תתמקד בהם)
-    if (scope.trim() && topics.length) {
+    // מיקוד → נושאים: הסימון "במבחן" תמיד לפי המבחן הקרוב (מבדק ומבחן לא דורסים זה את זה).
+    // בלי מיקוד — אף נושא לא מסומן, והמבדק יהיה על כל החומר.
+    const updated = { ...subject, name: subjectName, ...cols }
+    if (nearestKind(updated) === kind) {
       try {
-        const { in_exam } = await matchScopeTopics({ subjectName, scopeText: scope.trim(), knownTopics: topics.map((t) => t.name) })
-        const set = new Set(in_exam || [])
-        await Promise.all(topics.map((t) => supabase.from('topics').update({ in_exam: set.has(t.name) }).eq('id', t.id)))
-        if (set.size) setMatchNote(`זוהו ${set.size} נושאים במבחן — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
+        const set = await refreshScopeTopics(updated)
+        if (set?.size) setMatchNote(`זוהו ${set.size} נושאים במיקוד — התוכנית והמבדק יתמקדו בהם: ${[...set].join(', ')}`)
+        else if (scope.trim()) setMatchNote('לא נמצאו נושאים שמתאימים למיקוד — אולי צריך להעלות את החומר. בינתיים המבדק יהיה על כל החומר.')
       } catch { /* לא חוסם את שמירת התוכנית */ }
+    } else if (scope.trim()) {
+      setMatchNote(`נשמר. המיקוד הזה ייכנס לתוקף אחרי ה${kind === 'מבדק' ? 'מבחן' : 'מבדק'} הקרוב.`)
     }
     // שמירת צילום המיקוד כחומר (כדי שיישמר וייראה ב"החומרים שהעליתי")
     if (scopeFile) {
