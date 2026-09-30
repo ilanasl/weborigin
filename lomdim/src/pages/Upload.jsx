@@ -195,7 +195,7 @@ export default function Upload({ nav, params }) {
       <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">{results ? 'נותח!' : 'העלאת חומר'}</h1>
       <div className="text-[13.5px] text-muted mt-1.5 mb-4 leading-relaxed">
         {results
-          ? `${analyzable > 1 ? `${analyzable} קבצים · ` : ''}${chosen.length} נושאים. אפשר לשנות שם או לבחור נושא קיים — נושאים עם אותו שם יתאחדו.`
+          ? `${analyzable > 1 ? `${analyzable} קבצים · ` : ''}${chosen.length} נושאים. אפשר לשנות שם או לבחור נושא קיים — נושאים עם אותו שם יתאחדו. שום דבר לא נשמר עד שלוחצים «שמור למקצוע» למטה.`
           : 'אפשר כמה קבצים יחד. בלי לתייג נושא — המערכת תזהה לבד.'}
       </div>
 
@@ -269,7 +269,9 @@ export default function Upload({ nav, params }) {
                   {total > 1 ? `מנתח קובץ ${Math.min(fin + 1, total)} מתוך ${total}…` : 'מנתח את החומר…'}
                 </div>
                 <div className="up-bar"><i style={{ width: `${Math.max(6, (fin / Math.max(total, 1)) * 100)}%` }} /></div>
-                <div className="text-[12px] text-muted">כל דף לוקח בערך חצי דקה. אפשר להשאיר את המסך פתוח ולחכות.</div>
+                <div className="text-[12.5px] font-semibold leading-snug" style={{ color: 'var(--accent)' }}>
+                  ⚠️ צריך להישאר במסך הזה עד הסוף — יציאה מהמסך מבטלת את הניתוח. גם מעבר לאפליקציה אחרת או נעילת המסך עלולים לעצור אותו. כל דף לוקח בערך חצי דקה.
+                </div>
               </div>
             )
           })()}
