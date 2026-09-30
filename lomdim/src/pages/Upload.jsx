@@ -81,7 +81,7 @@ export default function Upload({ nav, params }) {
     try {
       const { data: tp } = await supabase.from('topics').select('name').eq('subject_id', subjectId)
       const knownTopics = (tp || []).map((t) => t.name)
-      setTopicsList(knownTopics)
+      setTopicsList([...knownTopics])
       const res = []
       const flat = []
       for (let fi = 0; fi < files.length; fi++) {
@@ -101,6 +101,8 @@ export default function Upload({ nav, params }) {
           res[fi] = { source_text: out.source_text || null, topics: out.topics || [], error: null }
           mark(fi, 'done')
           for (const t of (out.topics || [])) {
+            // הדפים הבאים באותה העלאה יכירו גם את הנושאים שזוהו עכשיו — כדי לא לפצל אותו פרק לשני נושאים
+            if (t.topic && !knownTopics.includes(t.topic)) knownTopics.push(t.topic)
             flat.push({
               fileIdx: fi, name: t.topic || '', summary_md: t.summary_md || '',
               questions: t.questions || [], flashcards: t.flashcards || [],
@@ -111,6 +113,7 @@ export default function Upload({ nav, params }) {
           mark(fi, 'fail')
         }
       }
+      setTopicsList([...knownTopics])
       setResults(res)
       setChosen(flat)
       if (flat.length === 0) setErr('לא זוהה תוכן באף קובץ. נסו לצלם ברור יותר / בתאורה טובה.')
