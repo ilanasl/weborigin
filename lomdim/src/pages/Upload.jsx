@@ -376,7 +376,8 @@ function failReason(err) {
   const e = String(err || '')
   if (/timeout|504|deadline|timed out/i.test(e)) return 'לקח יותר מדי זמן. נסו שוב, או העלו את הדף הזה לבד.'
   if (/413|too large|payload/i.test(e)) return 'הקובץ גדול מדי. נסו לצלם מחדש.'
-  if (/429|quota|rate|overload|503|unavailable/i.test(e)) return 'השירות עמוס כרגע. נסו שוב בעוד דקה.'
+  if (/credit|billing|prepa|insufficient|exhausted|quota/i.test(e)) return 'נגמרו הקרדיטים בחשבון Google Gemini — צריך להטעין/לבדוק חיוב ב-Google AI Studio, ואז לנסות שוב.'
+  if (/429|rate|overload|503|unavailable/i.test(e)) return 'השירות עמוס כרגע. נסו שוב בעוד דקה.'
   if (/network|failed to fetch|load failed/i.test(e)) return 'בעיית חיבור לאינטרנט. נסו שוב.'
   if (/parse|json/i.test(e)) return 'התשובה מה-AI הגיעה חתוכה. נסו שוב.'
   if (/safety|blocked|recitation/i.test(e)) return 'ה-AI סירב לעבד את הדף. נסו לצלם רק את החלק עם החומר.'
