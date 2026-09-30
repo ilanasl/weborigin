@@ -23,6 +23,7 @@ import Soon from './pages/Soon'
 import Settings from './pages/Settings'
 import Parent from './pages/Parent'
 import { confirmLeave } from './lib/leaveGuard'
+import { parseDay } from './lib/plan'
 import { startUpdateWatch, updateReady, reloadInto, restoredStack } from './lib/appUpdate'
 
 startUpdateWatch()
@@ -65,7 +66,7 @@ async function focusSubject() {
   let best = null, bestT = Infinity
   for (const s of data || []) {
     for (const d of [s.exam_date, s.quiz_date]) {
-      const t = d ? new Date(d).getTime() : NaN
+      const t = d ? parseDay(d).getTime() : NaN
       if (t >= today.getTime() && t < bestT) { best = s; bestT = t }
     }
   }

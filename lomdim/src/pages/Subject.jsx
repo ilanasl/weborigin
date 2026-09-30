@@ -3,7 +3,7 @@ import { toAIInput } from '../lib/image'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
-import { expirePastExams, PASSED_KEY } from '../lib/plan'
+import { expirePastExams, PASSED_KEY, daysUntil, parseDay } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { analyzeMaterial } from '../lib/gemini'
@@ -11,7 +11,6 @@ import { useAuth } from '../context/AuthContext'
 import { withTone } from '../lib/tone'
 import { foldLegacyCheckTopic, LEGACY_CHECK_TOPIC } from '../lib/checkTopic'
 
-const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
 const fileKey = (m) => m.storage_path || (m.content_hash || '').split(':')[0] || m.id
 
@@ -242,7 +241,7 @@ export default function Subject({ nav, params }) {
   const examKind = upcomingExams[0]?.kind || 'מבחן'
   // תאריך המבחן הקרוב, קצר ("8 באוק׳") — לכפתור הסימולציה
   const examRaw = upcomingExams[0] ? (upcomingExams[0].kind === 'מבדק' ? subject.quiz_date : subject.exam_date) : null
-  const examDate = examRaw ? new Date(examRaw).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : null
+  const examDate = examRaw ? parseDay(examRaw).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : null
   const summary = materials.find((m) => m.summary_md)
 
   // מוכנות למבחן: נושאי המבחן (או כולם אם לא הוגדר מיקוד); נושא שלא תורגל נספר כ-0

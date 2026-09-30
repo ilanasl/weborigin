@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
-import { LEAD_DEFAULT } from '../lib/plan'
+import { LEAD_DEFAULT, daysUntil } from '../lib/plan'
 import Icon from '../components/Icon'
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d }
-const offsetOf = (dateStr) => Math.ceil((new Date(dateStr) - startOfToday()) / 86400000)
+const offsetOf = (dateStr) => daysUntil(dateStr)
 const addDays = (d) => { const dt = startOfToday(); dt.setDate(dt.getDate() + d); return dt }
 
 export default function ExamBoard({ nav }) {

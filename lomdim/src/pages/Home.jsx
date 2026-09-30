@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
-import { expirePastExams } from '../lib/plan'
+import { expirePastExams, daysUntil } from '../lib/plan'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
@@ -23,7 +23,6 @@ function dayStats(att) {
   return { n, streak, toBonus: next - streak }
 }
 
-const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 
 export default function Home({ nav }) {
   const { profile } = useAuth()

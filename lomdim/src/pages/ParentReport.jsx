@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { daysUntil } from '../lib/plan'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level } from '../lib/mastery'
@@ -7,7 +8,6 @@ import Icon from '../components/Icon'
 
 const DAY = 86400000
 const WEEK = 7 * DAY
-const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date(new Date().toDateString())) / DAY) : null
 
 // רצף ימי למידה — ימים רצופים (עד היום/אתמול) שבהם היה לפחות תרגול אחד
 function calcStreak(tsList) {

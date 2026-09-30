@@ -5,7 +5,7 @@ import { mastery } from '../lib/mastery'
 import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
-import { LEAD_DEFAULT, daysUntil, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams } from '../lib/plan'
+import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams } from '../lib/plan'
 
 const Chev = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.55, flex: 'none' }}><path d="M15 6l-6 6 6 6" /></svg>
@@ -151,7 +151,7 @@ export default function Planner({ nav, params }) {
               return (
                 <button key={k} type="button" onClick={() => { setKind(k); setLeadDays(LEAD_DEFAULT[k]) }} aria-pressed={kind === k}>
                   <span className="font-bold text-[14.5px]">{k}</span>
-                  <span className="text-[11.5px] opacity-70">{d ? new Date(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'ללא תאריך'}</span>
+                  <span className="text-[11.5px] opacity-70">{d ? parseDay(d).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : 'ללא תאריך'}</span>
                 </button>
               )
             })}
