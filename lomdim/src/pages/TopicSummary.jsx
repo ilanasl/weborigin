@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
-import { topicSummary, fetchSourceText } from '../lib/gemini'
+import { topicSummary, fetchSourceText, stripNotebookWarnings } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 
@@ -86,8 +86,7 @@ export default function TopicSummary({ nav, params }) {
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
     // בלי שורות "⚠️ במחברת כתוב…" מסיכומי הדפים — אלה הערות של ה-AI, לא תוכן המחברת (אחרת הן מתגלגלות ומתרבות)
-    const noWarn = (s) => String(s || '').split('\n').filter((l) => !/⚠️|במחברת (כתוב|נרשם|נרשמה)/.test(l)).join('\n')
-    setAggSource(pages.map((m) => [noWarn(m.summary_md), m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
+    setAggSource(pages.map((m) => [stripNotebookWarnings(m.summary_md), m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
     setOtherTopics((tps || []).filter((t) => t.id !== topicId))
     setQCount(count || 0)
     setLoading(false)
