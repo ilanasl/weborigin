@@ -269,6 +269,10 @@ const TEMPLATES = [
     bgPos:{desktop:"center", mobile:"center"},
     bgColor:"#5588f1", panelBg:true,
     splittable:true, panelColorL:"#e9eef7", panelColorR:"#e7dfd0", splitAt:50,
+    // Background modes for the new editor: each chip is a complete background on its own (fade colour over its own background colour).
+    bgModes:{side:{bg:"#5588f1",color:"#ffffff",src:"custom",from:"left",hold:15,fade:100,tintTop:true},
+             top:{bg:"#ffffff",color:"#5588f1",src:"custom",hold:0,fade:35,tintTop:false},
+             bottom:{bg:"#ffffff",color:"#5588f1",src:"custom",hold:0,fade:35,tintTop:false}},
     productBox:{x:52,y:8,w:46,h:86}, productContain:true, productShadow:true,
     secondLayer:true, subjectBox:{x:46,y:2,w:54,h:98},
     logo:{x:5,y:9,widthPct:40,anchor:"top-left", mobile:{x:5,y:9,widthPct:40,anchor:"top-left"}},
@@ -598,7 +602,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f"};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{})};
 }
 
 /* ---------------- State ---------------- */
@@ -924,6 +928,8 @@ function backfillOver(tpl,o){
   if(!o.sizes)o.sizes={desktop:{},mobile:{}};
   if(!o.pads)o.pads={desktop:{},mobile:{}};
   if(!o.bold)o.bold={desktop:{},mobile:{}};
+  if(tpl.bgModes){if(!o.bgModes||typeof o.bgModes!=="object"){o.bgModes=JSON.parse(JSON.stringify(tpl.bgModes));o._bgFresh=true;}
+    ["side","top","bottom"].forEach(k=>{if(!o.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":"side";}
 }
 /* ---------------- Editor v2 — Popup (Product): one tab per object, click-to-select, area-aware align ---------------- */
 const V2_COL={bg:"#6b7a92",prod:"#2f6bff",subj:"#9a5cf0",extra:"#10a39a",logo:"#e2811f",text:"#1f9d5a"};
@@ -1002,9 +1008,9 @@ function openEditorV2(tpl,st,onClose){
   const firstText=(els.find(e=>!e.splitOnly)||els[0]).key;
 
   /* ---- selection ---- */
-  let sel={t:"prod"};const lastIn={bg:{t:"bg",id:"panel"},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
+  let sel={t:"prod"};const lastIn={bg:{t:"bg",id:(o.split?"split":(o.bgMode||"side"))},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
   const colOf=s=>V2_COL[s.t];
-  const bgNames={panel:"Panel",fade:"Fade",bottom:"Bottom fade",split:"Split (half / half)"};
+  const bgNames={side:"Fade from side",top:"Fade from top",bottom:"Fade from bottom",split:"Split (half / half)"};
   const nameOf=s=>s.t==="bg"?bgNames[s.id]:s.t==="extra"?("Image "+(o.extras.findIndex(e=>e.id===s.id)+1)):s.t==="text"?((elOf(s.key)||{}).label||s.key):V2_NAME[s.t];
   const select=s=>{sel=s;lastIn[s.t]=s;renderAll();};
 
@@ -1015,7 +1021,14 @@ function openEditorV2(tpl,st,onClose){
   const setMode=split=>{if(!!o.split===split)return;if(split){o._fadeSnap=snap();o.split=true;if(o._splitSnap)load(o._splitSnap);else if(tpl.panelColorL)o.panelColor=tpl.panelColorL;}else{o._splitSnap=snap();o.split=false;if(o._fadeSnap)load(o._fadeSnap);}backfillOver(tpl,o);rebuildPending=true;};
   const settle=()=>{if(rebuildPending){rebuildPending=false;renderAll();}};
   const ov=()=>o.overlay[size],ov2=()=>o.overlay2&&o.overlay2[size];
-  const bgInUse=id=>o.split?id==="split":(id==="panel"||(id==="fade"&&ov().opacity>0)||(id==="bottom"&&ov2()&&ov2().opacity>0));
+  const bgInUse=id=>o.split?id==="split":id===o.bgMode;
+  // Show exactly one background: the chosen mode's fade colour over its own background colour; every other fade is off.
+  const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;o.panelColor=m.bg;o.panelTop=m.tintTop?null:m.bg;o.panelDir="top";
+    const cov=id==="side"?(m.from||"left"):id;
+    ["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:1,hold:m.hold||0,fade:(m.fade!=null?m.fade:100),coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
+      if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});};
+  const chooseBg=id=>{if(id==="split")setMode(true);else{setMode(false);applyMode(id);}select({t:"bg",id});};
+  if(o._bgFresh){delete o._bgFresh;if(!o.split)applyMode(o.bgMode||"side");}
 
   /* ---- areas: texts/logo on the left, images on the right (split moves the divider) ---- */
   const divider=()=>o.split?(o.splitAt!=null?o.splitAt:50):50;
@@ -1043,13 +1056,11 @@ function openEditorV2(tpl,st,onClose){
     const fs=Math.max(11,Math.round(W/64));if(kind==="v")tagAt(x,W,H,v+4,H-fs*2.4,label,col,true);else tagAt(x,W,H,W-fs*9,v+4,label,col,true);}
   function drawMarks(x,W,H){const col=colOf(sel),lw=Math.max(2,W/320);
     if(sel.t==="bg"){const id=sel.id,unused=o.split&&id!=="split";let box=[0,0,W,H],label=bgNames[id],g=[];
-      if(id==="fade"&&!unused){const s=ov(),cov=s.coverage||(tpl.overlay[size]||tpl.overlay.desktop).coverage||"left",e=(s.fade!=null?s.fade:100)/100,h0=Math.min(s.hold||0,s.fade!=null?s.fade:100)/100;
+      if((id==="side"||id==="top"||id==="bottom")&&!unused){const s=ov(),cov=s.coverage||(tpl.overlay[size]||tpl.overlay.desktop).coverage||"left",e=(s.fade!=null?s.fade:100)/100,h0=Math.min(s.hold||0,s.fade!=null?s.fade:100)/100;
         if(cov==="left"){box=[0,0,W*e,H];g=[["v",W*h0,"Solid"],["v",W*e,"Fade end"]];}else if(cov==="right"){box=[W*(1-e),0,W*e,H];g=[["v",W*(1-h0),"Solid"],["v",W*(1-e),"Fade end"]];}
         else if(cov==="top"){box=[0,0,W,H*e];g=[["h",H*h0,"Solid"],["h",H*e,"Fade end"]];}else if(cov==="bottom"){box=[0,H*(1-e),W,H*e];g=[["h",H*(1-h0),"Solid"],["h",H*(1-e),"Fade end"]];}
-        label+=` — from the ${cov}`+(s.opacity>0?"":" (off)");}
-      else if(id==="bottom"&&!unused&&ov2()){const s=ov2(),e=(s.fade!=null?s.fade:100)/100,h0=Math.min(s.hold||0,s.fade!=null?s.fade:100)/100;box=[0,H*(1-e),W,H*e];g=[["h",H*(1-h0),"Solid"],["h",H*(1-e),"Fade end"]];if(!(s.opacity>0))label+=" (off)";}
+        if(id==="side")label+=` — from the ${cov}`;}
       else if(id==="split"){const sx=W*divider()/100;g=[["v",sx,"Split "+Math.round(o.splitAt||50)+"%"]];label=o.split?"Split — left / right halves (in use)":"Split — not in use · change a setting to use it";}
-      else if(id==="panel"){label="Panel — gradient from the "+(o.panelDir||"top");}
       if(unused)label+=" — not in use (Split is on)";
       if(id==="split"){const sx=W*(o.splitAt||50)/100;frame(x,W,H,[lw,lw,sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);frame(x,W,H,[sx+lw,lw,W-sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);}
       else frame(x,W,H,[box[0]+lw,box[1]+lw,Math.max(4,box[2]-2*lw),Math.max(4,box[3]-2*lw)],col,lw,[lw*4,lw*3]);
@@ -1078,30 +1089,25 @@ function openEditorV2(tpl,st,onClose){
   const alignRow=(active,pick)=>rowSeg("Align",[["left","Left"],["center","Center"],["right","Right"]],active,pick);
 
   /* ---- panes ---- */
-  function paneBg(p){const ids=["panel","fade","bottom","split"].filter(id=>id!=="bottom"||tpl.bottomOverlay).filter(id=>id!=="split"||tpl.splittable);
-    const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.title=bgInUse(id)?"In use now":"Not in use";c.onclick=()=>select({t:"bg",id});chips.append(c);});p.append(chips);
-    const id=sel.id;const toFade=()=>setMode(false),toSplit=()=>setMode(true);
-    if(id!=="split"&&o.split)p.append(note("Split is in use now. Changing anything here switches back to this background."));
-    if(id==="panel"){p.append(group("Base colours (gradient)"));
-      p.append(rowSeg("Gradient from",[["top","Top"],["bottom","Bottom"],["left","Left"],["right","Right"]],()=>o.panelDir||"top",v=>{toFade();o.panelDir=v;}));
-      p.append(rowColor("Start colour",()=>o.panelTop||paleHex(o.panelColor||tpl.bgColor,0.28),v=>{toFade();o.panelTop=v;}));
-      p.append(rowColor("End colour",()=>o.panelColor||tpl.bgColor,v=>{toFade();o.panelColor=v;}));
-      p.append(note(`The start colour sits at the ${o.panelDir||"top"} and blends into the end colour on the other side.`));
-      const b=mk("div","v2-slot");b.append(btn("Auto start colour",()=>{toFade();o.panelTop=null;draw();rebuildPending=true;settle();},"start colour = a light tint of the end colour"));p.append(b);}
-    else if(id==="fade"||id==="bottom"){const S=id==="fade"?ov:ov2;if(!S()){p.append(note("This banner has no bottom fade."));return;}
-      p.append(group(id==="fade"?"Fade":"Bottom fade"));
-      p.append(rowSeg("Colour",[["custom","Custom"],["image","From image"],...(tpl.logoTint?[["logo","From logo"]]:[])],()=>S().autoLogo?"logo":S().auto?"image":"custom",v=>{toFade();S().auto=v==="image";S().autoLogo=v==="logo";}));
-      if(!S().auto&&!S().autoLogo)p.append(rowColor("Custom colour",()=>S().color,v=>{toFade();S().color=v;S().userColor=true;}));
-      p.append(rowRange("Strength",{min:0,max:100,get:()=>Math.round((S().opacity||0)*100),set:v=>{toFade();S().opacity=v/100;},fmt:v=>v+"%",def:()=>Math.round(((id==="fade"?D.overlay[size]:D.overlay2[size]).opacity||0)*100)}));
-      if(id==="fade")p.append(rowSeg("From",[["left","Left"],["right","Right"],["top","Top"],["bottom","Bottom"]],()=>S().coverage||(tpl.overlay[size]||tpl.overlay.desktop).coverage||"left",v=>{toFade();S().coverage=v;}));
-      p.append(rowRange("Solid area",{min:0,max:100,get:()=>S().hold||0,set:v=>{toFade();const s=S();s.hold=v;if((s.fade!=null?s.fade:100)<v+5)s.fade=Math.min(100,v+5);},fmt:v=>Math.round(v)+"%"}));
-      p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>S().fade!=null?S().fade:100,set:v=>{toFade();const s=S();s.fade=v;if(v<(s.hold||0)+5)s.hold=Math.max(0,v-5);},fmt:v=>Math.round(v)+"%"}));
-      p.append(note(`Desktop and Mobile each have their own ${id==="fade"?"fade":"bottom fade"} — switch above the preview.`));}
-    else if(id==="split"){p.append(note(o.split?"● In use. Change Panel, Fade or Bottom fade to switch back to the normal background.":"Not in use. Change any setting below and the banner switches to two flat halves."));
-      p.append(group("Split (half / half)"));
+  function paneBg(p){const ids=["side","top","bottom"].concat(tpl.splittable?["split"]:[]);
+    const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.onclick=()=>chooseBg(id);chips.append(c);});p.append(chips);
+    const id=sel.id;
+    if(id==="split"){p.append(note("Two flat halves. Pick one of the fades above to go back to it."));p.append(group("Split (half / half)"));
+      const toSplit=()=>setMode(true);
       p.append(rowColor("Left colour",()=>o.panelColor||tpl.bgColor,v=>{toSplit();o.panelColor=v;}));
       p.append(rowColor("Right colour",()=>o.panelColorR||tpl.panelColorR,v=>{toSplit();o.panelColorR=v;}));
-      p.append(rowRange("Split at",{min:30,max:70,get:()=>o.splitAt||50,set:v=>{toSplit();o.splitAt=v;},fmt:v=>Math.round(v)+"%",def:50}));}}
+      p.append(rowRange("Split at",{min:30,max:70,get:()=>o.splitAt||50,set:v=>{toSplit();o.splitAt=v;},fmt:v=>Math.round(v)+"%",def:50}));return;}
+    const m=o.bgModes[id];const upd=()=>{if(o.split)setMode(false);applyMode(id);};
+    p.append(note({side:"A colour fading in from the side",top:"A colour fading down from the top",bottom:"A colour rising up from the bottom"}[id]+", over its own background colour. Only this is shown while this chip is selected."));
+    p.append(group("Colours"));
+    p.append(rowSeg("Fade colour",[["custom","Custom"],["image","From image"],...(tpl.logoTint?[["logo","From logo"]]:[])],()=>m.src||"custom",v=>{m.src=v;upd();}));
+    if((m.src||"custom")==="custom")p.append(rowColor("Custom colour",()=>m.color,v=>{m.color=v;upd();}));
+    p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
+    p.append(checks([["Background slightly lighter at the top",()=>!!m.tintTop,v=>{m.tintTop=v;upd();}]]));
+    p.append(group("Shape"));
+    if(id==="side")p.append(rowSeg("From",[["left","Left"],["right","Right"]],()=>m.from||"left",v=>{m.from=v;upd();}));
+    p.append(rowRange("Solid area",{min:0,max:100,get:()=>m.hold||0,set:v=>{m.hold=v;if((m.fade!=null?m.fade:100)<v+5){m.fade=Math.min(100,v+5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].hold}));
+    p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>m.fade!=null?m.fade:100,set:v=>{m.fade=v;if(v<(m.hold||0)+5){m.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].fade}));}
   async function uploadMain(fs){const f=fs[0];const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);if(fs.length>1)await addExtraFiles(tpl,o,fs.slice(1));renderAll();}
   const swapMainSubj=()=>{const u=st.uploaded,i=st.img;st.uploaded=st.uploaded2||null;st.img=st.img2||null;st.uploaded2=u||null;st.img2=i||null;if(st.img){st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);}renderAll();};
   function paneProd(p){const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",true,uploadMain));
