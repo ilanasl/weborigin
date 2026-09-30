@@ -2,7 +2,7 @@ import Icon from '../components/Icon'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { renikudQuestions, fixQuestions, isUnbalanced } from '../lib/gemini'
+import { renikudQuestions, reviewBatch, readReview, isUnbalanced } from '../lib/gemini'
 
 const stripN = (s) => String(s || '').replace(/[֑-ׇ]/g, '')
 // שלד עיצורים "קשה" — בלי ניקוד ובלי אימות קריאה (י/ו) — כדי לסבול כתיב מלא/חסר בין המקור למנוקד
@@ -21,7 +21,7 @@ function isNikudCandidate(row) {
 }
 
 // שאלות שכבר נבדקו בכלי התיקון — כדי שהרצה חוזרת לא תשלם שוב עליהן
-const FIXED_KEY = 'lomdim-fixed-q'
+const FIXED_KEY = 'lomdim-reviewed-q'
 const readFixed = () => { try { return new Set(JSON.parse(localStorage.getItem(FIXED_KEY) || '[]')) } catch { return new Set() } }
 const saveFixed = (s) => { try { localStorage.setItem(FIXED_KEY, JSON.stringify([...s])) } catch { /* */ } }
 
@@ -87,9 +87,9 @@ export default function Settings({ nav }) {
   }
 
   async function fixExisting() {
-    if (!window.confirm('לעבור על השאלות הקיימות ולתקן תשובות ארוכות מדי, מסיחים לא סבירים וערבוב מקצועות?\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות). השאלות וההיסטוריה נשמרות — רק האפשרויות מנוסחות מחדש.')) return
+    if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים וערבוב מקצועות?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
     setFxBusy(true); setFxNote('טוען שאלות…')
-    let q = supabase.from('questions').select('id, subject_id, q, choices, answer, explain')
+    let q = supabase.from('questions').select('id, subject_id, material_id, q, choices, answer, explain')
     if (fxSubj !== 'all') q = q.eq('subject_id', fxSubj)
     const { data } = await q
     const done = readFixed()
@@ -97,31 +97,44 @@ export default function Settings({ nav }) {
     const all = (data || []).filter((x) => !done.has(x.id) && Array.isArray(x.choices) && typeof x.answer === 'number')
     if (!all.length) { setFxBusy(false); setFxNote('✓ אין שאלות חדשות לבדיקה — הכול כבר נבדק.'); return }
     const names = Object.fromEntries(subjects.map((s) => [s.id, s.name]))
-    let updated = 0, checked = 0
+    // החומר שממנו נוצרה כל שאלה — כדי לבדוק נכונות מול המקור
+    const matIds = [...new Set(all.map((x) => x.material_id).filter(Boolean))]
+    const { data: mats } = matIds.length ? await supabase.from('materials').select('id, summary_md, source_text').in('id', matIds) : { data: [] }
+    const srcOf = Object.fromEntries((mats || []).map((m) => [m.id, [m.summary_md, m.source_text].filter(Boolean).join('\n\n')]))
+    let updated = 0, removed = 0, checked = 0
     const CH = 10
-    for (const sid of [...new Set(all.map((x) => x.subject_id))]) {
-      // קודם השאלות שהתשובה הנכונה בהן בולטת באורכה
-      const list = all.filter((x) => x.subject_id === sid).sort((a, b) => isUnbalanced(b) - isUnbalanced(a))
+    // קבוצה לכל חומר (שאלות בלי חומר — לפי מקצוע), קודם השאלות שהתשובה בהן בולטת באורכה
+    const groups = {}
+    for (const x of all) (groups[`${x.subject_id}|${x.material_id || ''}`] ||= []).push(x)
+    for (const list of Object.values(groups)) {
+      list.sort((a, b) => isUnbalanced(b) - isUnbalanced(a))
+      const { subject_id: sid, material_id: mid } = list[0]
       for (let i = 0; i < list.length; i += CH) {
         const batch = list.slice(i, i + CH)
         setFxNote(`בודק… ${checked + batch.length}/${all.length}`)
         try {
-          const { items } = await fixQuestions({
-            subjectName: names[sid] || '', learner: profile,
+          const { items } = await reviewBatch({
+            subjectName: names[sid] || '', learner: profile, source: (mid && srcOf[mid]) || '',
             items: batch.map((x) => ({ id: x.id, q: x.q, choices: x.choices, answer: x.answer, explain: x.explain || '' })),
           })
           const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
-          for (const orig of batch) {
-            const it = byId[String(orig.id)]
-            if (!it) continue
-            done.add(orig.id)
-            // בטיחות: אותו מספר אפשרויות, כולן טקסט לא ריק; השאלה ומיקום התשובה לא משתנים
-            const ok = it.fixed && Array.isArray(it.choices) && it.choices.length === orig.choices.length &&
-              it.choices.every((c) => typeof c === 'string' && c.trim())
-            if (!ok || it.choices.every((c, k) => c === orig.choices[k])) continue
-            const patch = { choices: it.choices }
-            if (typeof it.explain === 'string' && it.explain.trim()) patch.explain = it.explain
-            try { await supabase.from('questions').update(patch).eq('id', orig.id); updated++ } catch { done.delete(orig.id) }
+          const res = batch.map((orig) => ({ orig, got: byId[String(orig.id)], r: readReview(orig, byId[String(orig.id)]) }))
+          // בודק שמוחק יותר מחצי מנה — חשוד; לא מוחקים במנה הזו
+          const tooMany = res.filter((x) => x.r.kind === 'drop').length > batch.length / 2
+          for (const { orig, got, r } of res) {
+            if (!got) continue
+            try {
+              if (r.kind === 'drop' && !tooMany) {
+                await supabase.from('review_items').delete().eq('ref_id', orig.id)
+                await supabase.from('questions').delete().eq('id', orig.id)
+                removed++
+              } else if (r.kind === 'fixed') {
+                const { q: nq, choices, answer, explain } = r.q
+                await supabase.from('questions').update({ q: nq, choices, answer, explain }).eq('id', orig.id)
+                updated++
+              }
+              done.add(orig.id)
+            } catch { /* תיבדק שוב בהרצה הבאה */ }
           }
         } catch { /* מדלגים על מנה שנכשלה — תיבדק בהרצה הבאה */ }
         checked += batch.length
@@ -129,7 +142,7 @@ export default function Settings({ nav }) {
       }
     }
     setFxBusy(false)
-    setFxNote(`✓ הסתיים — ${updated} שאלות תוקנו מתוך ${all.length} שנבדקו.`)
+    setFxNote(`✓ הסתיים — נבדקו ${all.length} שאלות: ${updated} תוקנו${removed ? `, ${removed} שגויות נמחקו` : ''}.`)
   }
 
   async function save() {
@@ -218,10 +231,10 @@ export default function Settings({ nav }) {
 
       <div className="home-h2 mt-7 mb-2.5"><h2>תיקון שאלות קיימות</h2></div>
       <div className="milky-row !flex-col !items-stretch !gap-2">
-        <div className="text-[14.5px] font-bold flex items-center gap-2"><Icon name="sparkle" size={18} />שיפור איכות השאלות</div>
+        <div className="text-[14.5px] font-bold flex items-center gap-2"><Icon name="sparkle" size={18} />בדיקת נכונות ואיכות השאלות</div>
         <div className="text-muted text-[13px] mb-3">
-          מעבר חד‑פעמי על השאלות שכבר נוצרו: מקצר תשובה נכונה שארוכה מדי, מחליף מסיחים לא סבירים, ומוציא מונחים ממקצוע אחר.
-          השאלה והתשובה הנכונה נשארות, וגם כל ההיסטוריה. שאלות חדשות כבר נוצרות לפי הכללים האלה.
+          מעבר חד‑פעמי על השאלות שכבר נוצרו, מול החומר שממנו נוצרו: מתקן תשובה שגויה או לא חד‑משמעית, מקצר תשובה נכונה שארוכה מדי,
+          מחליף מסיחים לא סבירים ומוציא מונחים ממקצוע אחר. שאלה שגויה שאי אפשר לתקן — נמחקת. שאלות חדשות כבר עוברות את הבדיקה הזו אוטומטית.
           שאלות שכבר נבדקו לא נשלחות שוב — אפשר להריץ שוב בלי לבזבז קרדיטים.
         </div>
         <select className="field mb-2" value={fxSubj} onChange={(e) => setFxSubj(e.target.value)}>
@@ -229,7 +242,7 @@ export default function Settings({ nav }) {
           {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <button className="btn btn-wide" onClick={fixExisting} disabled={fxBusy}>
-          {fxBusy ? 'בודק…' : <><Icon name="refresh" size={17} />תקן שאלות קיימות</>}
+          {fxBusy ? 'בודק…' : <><Icon name="refresh" size={17} />בדוק ותקן שאלות קיימות</>}
         </button>
         {fxNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: fxBusy ? 'var(--muted)' : 'var(--good)' }}>{fxNote}</div>}
       </div>
