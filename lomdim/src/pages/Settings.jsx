@@ -2,7 +2,7 @@ import Icon from '../components/Icon'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { renikudQuestions } from '../lib/gemini'
+import { renikudQuestions, fixQuestions, isUnbalanced } from '../lib/gemini'
 
 const stripN = (s) => String(s || '').replace(/[֑-ׇ]/g, '')
 // שלד עיצורים "קשה" — בלי ניקוד ובלי אימות קריאה (י/ו) — כדי לסבול כתיב מלא/חסר בין המקור למנוקד
@@ -20,6 +20,11 @@ function isNikudCandidate(row) {
   return words.some((w) => BINYANIM.includes(w)) || words.some((w) => NUMWORDS.includes(w))
 }
 
+// שאלות שכבר נבדקו בכלי התיקון — כדי שהרצה חוזרת לא תשלם שוב עליהן
+const FIXED_KEY = 'lomdim-fixed-q'
+const readFixed = () => { try { return new Set(JSON.parse(localStorage.getItem(FIXED_KEY) || '[]')) } catch { return new Set() } }
+const saveFixed = (s) => { try { localStorage.setItem(FIXED_KEY, JSON.stringify([...s])) } catch { /* */ } }
+
 const GRADES = ["ז'", "ח'", "ט'", "י'", 'י"א', 'י"ב']
 
 export default function Settings({ nav }) {
@@ -34,6 +39,9 @@ export default function Settings({ nav }) {
   const [nkSubj, setNkSubj] = useState('all')
   const [nkBusy, setNkBusy] = useState(false)
   const [nkNote, setNkNote] = useState('')
+  const [fxSubj, setFxSubj] = useState('all')
+  const [fxBusy, setFxBusy] = useState(false)
+  const [fxNote, setFxNote] = useState('')
 
   useEffect(() => {
     supabase.from('subjects').select('id, name').order('created_at').then(({ data }) => setSubjects(data || []))
@@ -75,6 +83,52 @@ export default function Settings({ nav }) {
     }
     setNkBusy(false)
     setNkNote(`✓ הסתיים — ${updated} שאלות נוקדו${all.length ? ` (מתוך ${all.length})` : ''}.`)
+  }
+
+  async function fixExisting() {
+    if (!window.confirm('לעבור על השאלות הקיימות ולתקן תשובות ארוכות מדי, מסיחים לא סבירים וערבוב מקצועות?\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות). השאלות וההיסטוריה נשמרות — רק האפשרויות מנוסחות מחדש.')) return
+    setFxBusy(true); setFxNote('טוען שאלות…')
+    let q = supabase.from('questions').select('id, subject_id, q, choices, answer, explain')
+    if (fxSubj !== 'all') q = q.eq('subject_id', fxSubj)
+    const { data } = await q
+    const done = readFixed()
+    // שאלות שנבדקו כבר בהרצה קודמת — מדלגים (חוסך קרדיטים)
+    const all = (data || []).filter((x) => !done.has(x.id) && Array.isArray(x.choices) && typeof x.answer === 'number')
+    if (!all.length) { setFxBusy(false); setFxNote('✓ אין שאלות חדשות לבדיקה — הכול כבר נבדק.'); return }
+    const names = Object.fromEntries(subjects.map((s) => [s.id, s.name]))
+    let updated = 0, checked = 0
+    const CH = 10
+    for (const sid of [...new Set(all.map((x) => x.subject_id))]) {
+      // קודם השאלות שהתשובה הנכונה בהן בולטת באורכה
+      const list = all.filter((x) => x.subject_id === sid).sort((a, b) => isUnbalanced(b) - isUnbalanced(a))
+      for (let i = 0; i < list.length; i += CH) {
+        const batch = list.slice(i, i + CH)
+        setFxNote(`בודק… ${checked + batch.length}/${all.length}`)
+        try {
+          const { items } = await fixQuestions({
+            subjectName: names[sid] || '', learner: profile,
+            items: batch.map((x) => ({ id: x.id, q: x.q, choices: x.choices, answer: x.answer, explain: x.explain || '' })),
+          })
+          const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
+          for (const orig of batch) {
+            const it = byId[String(orig.id)]
+            if (!it) continue
+            done.add(orig.id)
+            // בטיחות: אותו מספר אפשרויות, כולן טקסט לא ריק; השאלה ומיקום התשובה לא משתנים
+            const ok = it.fixed && Array.isArray(it.choices) && it.choices.length === orig.choices.length &&
+              it.choices.every((c) => typeof c === 'string' && c.trim())
+            if (!ok || it.choices.every((c, k) => c === orig.choices[k])) continue
+            const patch = { choices: it.choices }
+            if (typeof it.explain === 'string' && it.explain.trim()) patch.explain = it.explain
+            try { await supabase.from('questions').update(patch).eq('id', orig.id); updated++ } catch { done.delete(orig.id) }
+          }
+        } catch { /* מדלגים על מנה שנכשלה — תיבדק בהרצה הבאה */ }
+        checked += batch.length
+        saveFixed(done)
+      }
+    }
+    setFxBusy(false)
+    setFxNote(`✓ הסתיים — ${updated} שאלות תוקנו מתוך ${all.length} שנבדקו.`)
   }
 
   async function save() {
@@ -155,6 +209,24 @@ export default function Settings({ nav }) {
           {nkBusy ? 'מנקד…' : <><Icon name="pencil" size={17} />נקד שאלות קיימות</>}
         </button>
         {nkNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: nkBusy ? 'var(--muted)' : 'var(--good)' }}>{nkNote}</div>}
+      </div>
+
+      <div className="home-h2 mt-7 mb-2.5"><h2>תיקון שאלות קיימות</h2></div>
+      <div className="milky-row !flex-col !items-stretch !gap-2">
+        <div className="text-[14.5px] font-bold flex items-center gap-2"><Icon name="sparkle" size={18} />שיפור איכות השאלות</div>
+        <div className="text-muted text-[13px] mb-3">
+          מעבר חד‑פעמי על השאלות שכבר נוצרו: מקצר תשובה נכונה שארוכה מדי, מחליף מסיחים לא סבירים, ומוציא מונחים ממקצוע אחר.
+          השאלה והתשובה הנכונה נשארות, וגם כל ההיסטוריה. שאלות חדשות כבר נוצרות לפי הכללים האלה.
+          שאלות שכבר נבדקו לא נשלחות שוב — אפשר להריץ שוב בלי לבזבז קרדיטים.
+        </div>
+        <select className="field mb-2" value={fxSubj} onChange={(e) => setFxSubj(e.target.value)}>
+          <option value="all">כל המקצועות</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <button className="btn btn-wide" onClick={fixExisting} disabled={fxBusy}>
+          {fxBusy ? 'בודק…' : <><Icon name="refresh" size={17} />תקן שאלות קיימות</>}
+        </button>
+        {fxNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: fxBusy ? 'var(--muted)' : 'var(--good)' }}>{fxNote}</div>}
       </div>
 
       <div className="home-h2 mt-7 mb-2.5"><h2>איפוס</h2></div>
