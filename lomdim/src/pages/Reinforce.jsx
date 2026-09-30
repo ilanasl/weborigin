@@ -29,6 +29,7 @@ export default function Reinforce({ nav, params }) {
   const [flipped, setFlipped] = useState(false) // לכרטיסיות
   const [graduated, setGraduated] = useState(0)
   const [correct, setCorrect] = useState(0)
+  const [results, setResults] = useState([])   // לפס ההתקדמות: ירוק/אדום לכל פריט
   const [reward, setReward] = useState(null)
   const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [done, setDone] = useState(false)
@@ -92,6 +93,7 @@ export default function Reinforce({ nav, params }) {
     setPicked(i)
     const ok = i === item.q.answer
     if (ok) setCorrect((c) => c + 1)
+    setResults((r) => { const n = [...r]; n[idx] = ok; return n })
     await supabase.from('attempts').insert({
       question_id: item.q.id, topic_id: item.q.topic_id, subject_id: subjectId, correct: ok, difficulty: item.q.difficulty,
     })
@@ -99,6 +101,7 @@ export default function Reinforce({ nav, params }) {
   }
   async function rateFc(known) {
     if (known) setCorrect((c) => c + 1)
+    setResults((r) => { const n = [...r]; n[idx] = known; return n })
     await grade(queue[idx], known)
     next()
   }
@@ -129,7 +132,7 @@ export default function Reinforce({ nav, params }) {
 
   return (
     <div className="pt-2">
-      <SegProgress total={queue.length} idx={idx} />
+      <SegProgress total={queue.length} idx={idx} results={results} />
 
       {item.type !== 'q' && itemTopic && <div className="topic-tag mb-1"><Icon name="book" size={17} />{itemTopic}</div>}
 
