@@ -66,6 +66,7 @@ export default function Settings({ nav }) {
         <Icon name="users" /><span className="flex-1 text-start font-semibold text-[15px]">אזור הורה</span>
         <span className="text-muted text-[12.5px]">פרסים, כלים ואיפוס</span>
       </button>
+      <div className="text-center text-[11px] text-muted mt-6 tnum" dir="ltr">גרסה {__APP_VERSION__}</div>
     </div>
   )
 }
