@@ -35,6 +35,7 @@ export default function Settings({ nav }) {
   const [gradeNote, setGradeNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [rsSubj, setRsSubj] = useState('all')
   const [subjects, setSubjects] = useState([])
   const [nkSubj, setNkSubj] = useState('all')
   const [nkBusy, setNkBusy] = useState(false)
@@ -141,13 +142,17 @@ export default function Settings({ nav }) {
   }
 
   async function resetProgress() {
-    if (!window.confirm('לאפס את כל ההתקדמות (התשובות והאחוזים) ל-0?\nהחומרים, הנושאים והשאלות יישארו — רק היסטוריית התרגול תימחק.')) return
+    const one = rsSubj !== 'all' && subjects.find((s) => s.id === rsSubj)
+    const what = one ? `במקצוע "${one.name}" בלבד` : 'בכל המקצועות'
+    if (!window.confirm(`לאפס את ההתקדמות (התשובות והאחוזים) ${what} ל-0?\nהחומרים, הנושאים והשאלות יישארו — רק היסטוריית התרגול תימחק.`)) return
     setResetting(true)
     const uid = user?.id
-    await supabase.from('attempts').delete().eq('user_id', uid)
-    await supabase.from('review_items').delete().eq('user_id', uid)
+    let a = supabase.from('attempts').delete().eq('user_id', uid)
+    let r = supabase.from('review_items').delete().eq('user_id', uid)
+    if (one) { a = a.eq('subject_id', one.id); r = r.eq('subject_id', one.id) }
+    try { await a; await r } catch { /* */ }
     setResetting(false)
-    window.alert('ההתקדמות אופסה — הכול מ-0 ✨')
+    window.alert(one ? `ההתקדמות ב${one.name} אופסה — מ-0 ✨` : 'ההתקדמות אופסה — הכול מ-0 ✨')
     nav.reset('home')
   }
 
@@ -234,11 +239,15 @@ export default function Settings({ nav }) {
         <div className="text-[14px] mb-1 font-semibold">להתחיל נקי</div>
         <div className="text-muted text-[13px] mb-3">
           מאפס את כל ההתקדמות (התשובות והאחוזים) ל-0. שימושי כש{profile?.name || 'הילד/ה'} מתחיל לעבוד אחרי הבדיקות שלך.
-          החומרים והשאלות יישארו.
+          החומרים והשאלות יישארו. אפשר לאפס מקצוע אחד בלבד — השאר לא ייגעו.
         </div>
+        <select className="field mb-2" value={rsSubj} onChange={(e) => setRsSubj(e.target.value)}>
+          <option value="all">כל המקצועות</option>
+          {subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
         <button className="btn btn-wide" style={{ color: 'var(--bad)', borderColor: 'color-mix(in srgb, var(--bad) 45%, var(--line))' }}
           onClick={resetProgress} disabled={resetting}>
-          {resetting ? 'מאפס…' : 'אפס התקדמות ל-0'}
+          {resetting ? 'מאפס…' : rsSubj === 'all' ? 'אפס התקדמות ל-0' : 'אפס את המקצוע הזה ל-0'}
         </button>
       </div>
     </div>
