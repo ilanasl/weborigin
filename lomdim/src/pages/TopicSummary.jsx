@@ -84,7 +84,9 @@ export default function TopicSummary({ nav, params }) {
     setNotes(mats.filter((m) => m.kind === 'note' && m.summary_md))
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
-    setAggSource(pages.map((m) => [m.summary_md, m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
+    // בלי שורות "⚠️ במחברת כתוב…" מסיכומי הדפים — אלה הערות של ה-AI, לא תוכן המחברת (אחרת הן מתגלגלות ומתרבות)
+    const noWarn = (s) => String(s || '').split('\n').filter((l) => !/⚠️|במחברת (כתוב|נרשם|נרשמה)/.test(l)).join('\n')
+    setAggSource(pages.map((m) => [noWarn(m.summary_md), m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
     setOtherTopics((tps || []).filter((t) => t.id !== topicId))
     setQCount(count || 0)
     setLoading(false)
@@ -264,7 +266,7 @@ export default function TopicSummary({ nav, params }) {
       {/* הסיכום — "דף" בהיר ונוח לקריאה */}
       <div className="paper">
         {summary ? (
-          <Markdown text={summary} examBox />
+          <div style={busy ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
         ) : (
           <div className="text-center py-6">
             <div className="flex justify-center mb-2" style={{ color: '#5E7A00' }}><Icon name="book" size={36} /></div>
@@ -275,6 +277,12 @@ export default function TopicSummary({ nav, params }) {
 
         {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
 
+        {busy && (
+          <div className="flex items-start gap-2.5 mt-4 p-3 rounded-[14px] text-[13.5px] font-semibold" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
+            <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
+            <span>מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.</span>
+          </div>
+        )}
         <div className="paper-actions">
           <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
