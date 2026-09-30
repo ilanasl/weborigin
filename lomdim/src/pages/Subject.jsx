@@ -96,8 +96,29 @@ export default function Subject({ nav, params }) {
     try {
       await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id)
     } catch { /* אם אין שאלות מקושרות — לא נורא */ }
+    await foldEmptyTopic(prev, topicId)
     setSavingMat(null); setSavedMat(m.id)
     setTimeout(() => setSavedMat((cur) => cur === m.id ? null : cur), 2500)
+  }
+
+  // אחרי העברת חומר: אם בנושא הקודם לא נשאר אף קובץ שהועלה — מאחדים אותו לתוך הנושא החדש
+  // (כרטיסיות, היסטוריית תרגול, הערות ושאלות שנשארו) ומוחקים את הנושא הריק. בלי כפתור נוסף.
+  async function foldEmptyTopic(fromId, toId) {
+    if (!fromId || fromId === toId) return
+    try {
+      const { data: left } = await supabase.from('materials').select('id, kind, storage_path, content_hash').eq('topic_id', fromId)
+      if ((left || []).some((x) => x.storage_path || x.content_hash)) return
+      // סיכום מאוחד ישן — נמחק (ייווצר מחדש בנושא המאוחד); הערות שנשמרו — עוברות
+      await supabase.from('materials').delete().eq('topic_id', fromId).eq('kind', 'summary')
+      for (const tbl of ['materials', 'questions', 'flashcards', 'attempts', 'syntax_items']) {
+        try { await supabase.from(tbl).update({ topic_id: toId }).eq('topic_id', fromId) } catch { /* */ }
+      }
+      await supabase.from('topics').delete().eq('id', fromId)
+      // עדכון המסך במקום — בלי טעינה מחדש (כדי לא לקפוץ למעלה)
+      const { data: at } = await supabase.from('attempts').select('correct, difficulty, created_at').eq('topic_id', toId)
+      const m = mastery((at || []).map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })))
+      setTopics((arr) => arr.filter((x) => x.id !== fromId).map((x) => (x.id === toId ? { ...x, m } : x)))
+    } catch { /* אם משהו נכשל — הנושא הישן פשוט נשאר */ }
   }
 
   // דף שכולל גם נושא נוסף: קורא שוב את הדף המקורי, מתמקד רק בחלק של הנושא הזה,
