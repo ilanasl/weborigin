@@ -1004,7 +1004,7 @@ function openEditorV2(tpl,st,onClose){
   const firstText=(els.find(e=>!e.splitOnly)||els[0]).key;
 
   /* ---- selection ---- */
-  let sel={t:"prod"};const lastIn={bg:{t:"bg",id:"panel"},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
+  let sel={t:"prod"};const lastIn={bg:{t:"bg",id:(o.split?"split":"panel")},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
   const colOf=s=>V2_COL[s.t];
   const bgNames={panel:"Panel",fade:"Fade",bottom:"Bottom fade",split:"Split (half / half)"};
   const nameOf=s=>s.t==="bg"?bgNames[s.id]:s.t==="extra"?("Image "+(o.extras.findIndex(e=>e.id===s.id)+1)):s.t==="text"?((elOf(s.key)||{}).label||s.key):V2_NAME[s.t];
@@ -1102,9 +1102,8 @@ function openEditorV2(tpl,st,onClose){
 
   /* ---- panes ---- */
   function paneBg(p){const ids=["panel","fade","bottom","split"].filter(id=>id!=="bottom"||tpl.bottomOverlay).filter(id=>id!=="split"||tpl.splittable);
-    const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.title=bgInUse(id)?"In use now":"Not in use";c.onclick=()=>select({t:"bg",id});chips.append(c);});p.append(chips);
+    const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.title=id==="split"?"Two flat halves":"Normal background";c.onclick=()=>{setMode(id==="split");select({t:"bg",id});};chips.append(c);});p.append(chips);
     const id=sel.id;const toFade=()=>setMode(false),toSplit=()=>setMode(true);
-    if(id!=="split"&&o.split)p.append(note("Split is in use now. Changing anything here switches back to this background."));
     if(id==="panel"){p.append(group("Base colours (gradient)"));
       p.append(rowSeg("Gradient from",[["top","Top"],["bottom","Bottom"],["left","Left"],["right","Right"]],()=>o.panelDir||"top",v=>{toFade();o.panelDir=v;}));
       p.append(rowColor("Start colour",()=>o.panelTop||paleHex(o.panelColor||tpl.bgColor,0.28),v=>{toFade();o.panelTop=v;}));
@@ -1120,7 +1119,7 @@ function openEditorV2(tpl,st,onClose){
       p.append(rowRange("Solid area",{min:0,max:100,get:()=>S().hold||0,set:v=>{toFade();const s=S();s.hold=v;if((s.fade!=null?s.fade:100)<v+5)s.fade=Math.min(100,v+5);},fmt:v=>Math.round(v)+"%"}));
       p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>S().fade!=null?S().fade:100,set:v=>{toFade();const s=S();s.fade=v;if(v<(s.hold||0)+5)s.hold=Math.max(0,v-5);},fmt:v=>Math.round(v)+"%"}));
       p.append(note(`Desktop and Mobile each have their own ${id==="fade"?"fade":"bottom fade"} — switch above the preview.`));}
-    else if(id==="split"){p.append(note(o.split?"● In use. Change Panel, Fade or Bottom fade to switch back to the normal background.":"Not in use. Change any setting below and the banner switches to two flat halves."));
+    else if(id==="split"){p.append(note("Split is on while this chip is selected. Choose Panel, Fade or Bottom fade to go back to the normal background — each keeps its own settings."));
       p.append(group("Split (half / half)"));
       p.append(rowColor("Left colour",()=>o.panelColor||tpl.bgColor,v=>{toSplit();o.panelColor=v;}));
       p.append(rowColor("Right colour",()=>o.panelColorR||tpl.panelColorR,v=>{toSplit();o.panelColorR=v;}));
