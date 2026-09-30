@@ -8,7 +8,14 @@ import { matchScopeTopics } from './gemini'
 export const LEAD_DEFAULT = { 'מבדק': 4, 'מבחן מסכם': 8 }
 
 const DAY = 86400000
-export const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date(new Date().toDateString())) / DAY) : null
+// תאריך "2026-10-08" נקרא כחצות לפי שעון ישראל (ולא UTC — שאחרת יוצא 03:00 ומעגל ליום נוסף)
+export const parseDay = (d) => {
+  if (!d) return null
+  const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d)
+}
+// כמה ימים עד התאריך (0 = היום). אותו חישוב בכל המסכים
+export const daysUntil = (d) => d ? Math.round((parseDay(d) - new Date(new Date().toDateString())) / DAY) : null
 export const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + d); return dt }
 
 // הסוג הקרוב יותר מבין מבדק/מבחן שכבר הוגדר לו תאריך
