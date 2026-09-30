@@ -438,11 +438,13 @@ let HIT_CAPTURE=null; // when an array, renderBanner records draggable image box
 function extraImg(src){const c=EXTRA_IMGS.get(src);if(c)return Promise.resolve(c);return loadImage(src).then(i=>{EXTRA_IMGS.set(src,i);return i;});}
 function preloadExtras(over){return Promise.all(((over&&over.extras)||[]).map(e=>extraImg(e.src).catch(()=>null)));}
 // Add uploaded files as extra image layers, spread across the image area so they don't stack on each other.
+// Default placement of the n-th extra image: spread across the image area, about half the banner high.
+function extraDefaultPos(tpl,im,n){const reg=tpl.productBox||tpl.imageBox||{x:50,w:50};const slots=[0.3,0.7,0.5,0.15,0.85];const pos={};
+  for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=(im&&im.naturalWidth)?(0.5*d.h)*(im.naturalWidth/im.naturalHeight)/d.w*100:30;w=Math.max(8,Math.min(40,w));
+    const x=reg.x+reg.w*slots[n%slots.length];pos[sz]={x:Math.round(Math.max(w/2,Math.min(100-w/2,x))),y:60,w:Math.round(w),rot:0};}
+  return pos;}
 async function addExtraFiles(tpl,over,files){if(!Array.isArray(over.extras))over.extras=[];let added=0,failed=0;
-  const reg=tpl.productBox||tpl.imageBox||{x:50,w:50};const slots=[0.3,0.7,0.5,0.15,0.85];
-  for(const f of files){try{const src=await fileToDataUrl(f);const im=await extraImg(src);const n=over.extras.length;const pos={};
-    for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=(0.5*d.h)*(im.naturalWidth/im.naturalHeight)/d.w*100;w=Math.max(8,Math.min(40,w));
-      const x=reg.x+reg.w*slots[n%slots.length];pos[sz]={x:Math.round(Math.max(w/2,Math.min(100-w/2,x))),y:60,w:Math.round(w),rot:0};}
+  for(const f of files){try{const src=await fileToDataUrl(f);const im=await extraImg(src);const n=over.extras.length;const pos=extraDefaultPos(tpl,im,n);
     over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,glow:true,pos});added++;}catch(_){failed++;}}
   return {added,failed};}
 function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||!ex.length)return;
@@ -991,7 +993,7 @@ function openEditorV2(tpl,st,onClose){
         <div class="v2-legend"></div>
       </div>
     </div>
-    <div class="modal-foot"><button class="ghost e-dl">⬇ Download this size</button><button class="btn e-done">Done</button></div>
+    <div class="modal-foot"><button class="ghost v2-resetall" title="Back to the banner's starting design. Your images, logo and text wording stay.">↺ Reset all to default</button><button class="ghost v2-undo" hidden>↶ Undo reset</button><span style="flex:1"></span><button class="ghost e-dl">⬇ Download this size</button><button class="btn e-done">Done</button></div>
   </div>`;
   document.body.appendChild(back);
   const prev=back.querySelector(".e-canvas canvas"),tabsEl=back.querySelector(".v2-tabs"),body=back.querySelector(".v2-body"),selEl=back.querySelector(".v2-sel");
@@ -1015,6 +1017,27 @@ function openEditorV2(tpl,st,onClose){
   const setMode=split=>{if(!!o.split===split)return;if(split){o._fadeSnap=snap();o.split=true;if(o._splitSnap)load(o._splitSnap);}else{o._splitSnap=snap();o.split=false;if(o._fadeSnap)load(o._fadeSnap);}backfillOver(tpl,o);rebuildPending=true;};
   const settle=()=>{if(rebuildPending){rebuildPending=false;renderAll();}};
   const ov=()=>o.overlay[size],ov2=()=>o.overlay2&&o.overlay2[size];
+  /* ---- reset to the banner's starting values (images, logo and text wording are kept) + one-step undo ---- */
+  const clone=x=>JSON.parse(JSON.stringify(x));let undoState=null;
+  const remember=()=>{undoState=clone(o);};
+  const replaceOver=src=>{Object.keys(o).forEach(k=>delete o[k]);Object.assign(o,clone(src));backfillOver(tpl,o);};
+  const resetExtra=(e,i)=>{e.pos=extraDefaultPos(tpl,EXTRA_IMGS.get(e.src),i);e.under=false;e.glow=true;e.shadow=!!tpl.productShadow;};
+  function resetSel(s){remember();
+    if(s.t==="bg"){setMode(false);
+      if(s.id==="panel"){o.panelColor=D.panelColor;o.panelTop=null;}
+      else if(s.id==="fade"){o.overlay=clone(D.overlay);}
+      else if(s.id==="bottom"){if(D.overlay2)o.overlay2=clone(D.overlay2);}
+      else if(s.id==="split"){o.panelColorR=D.panelColorR;o.splitAt=D.splitAt;delete o._splitSnap;}}
+    else if(s.t==="prod"){o.anchorX=clone(D.anchorX);o.anchorY=clone(D.anchorY);o.zoom=D.zoom;o.productRotate=0;o.prodOff={desktop:{},mobile:{}};o.imgAbove=D.imgAbove;o.shadow=D.shadow;o.glow=D.glow||0;o.glowSize=D.glowSize!=null?D.glowSize:0.5;}
+    else if(s.t==="subj"){o.subjX=D.subjX;o.subjY=D.subjY;o.subjZoom=D.subjZoom;o.subjRotate=0;o.subjOff={desktop:{},mobile:{}};o.subjAbove=D.subjAbove;}
+    else if(s.t==="extra"){const i=o.extras.findIndex(x=>x.id===s.id);if(i>=0)resetExtra(o.extras[i],i);}
+    else if(s.t==="logo"){o.logoX=D.logoX;o.logoY=null;o.logoAlign=D.logoAlign;o.logoScale=1;}
+    else if(s.t==="text"){const k=s.key;["desktop","mobile"].forEach(z=>{["pos","sizes","bold","halign","pads"].forEach(f=>{if(o[f]&&o[f][z])delete o[f][z][k];});o.colors[z][k]=D.colors[z][k];});
+      if((elOf(k)||{}).type==="button"){o.buttonAuto=D.buttonAuto;o.buttonColor=D.buttonColor;}}
+    renderAll();}
+  function resetBackground(){remember();setMode(false);o.panelColor=D.panelColor;o.panelTop=null;o.overlay=clone(D.overlay);if(D.overlay2)o.overlay2=clone(D.overlay2);o.panelColorR=D.panelColorR;o.splitAt=D.splitAt;delete o._splitSnap;delete o._fadeSnap;renderAll();}
+  function resetAll(){remember();const ex=o.extras||[];replaceOver(D);o.extras=ex;ex.forEach(resetExtra);renderAll();}
+  function undo(){if(!undoState)return;const u=undoState;undoState=null;replaceOver(u);renderAll();}
   const bgInUse=id=>o.split?id==="split":(id==="panel"||(id==="fade"&&ov().opacity>0)||(id==="bottom"&&ov2()&&ov2().opacity>0));
 
   /* ---- areas: texts/logo on the left, images on the right (split moves the divider) ---- */
@@ -1194,9 +1217,14 @@ function openEditorV2(tpl,st,onClose){
   function renderPane(){body.innerHTML="";const p=mk("div","v2-pane");p.style.setProperty("--k",colOf(sel));
     const t=mk("div","v2-title");t.append(ico(sel.t),document.createTextNode(sel.t==="bg"?"Background":sel.t==="extra"?"Extra images":sel.t==="text"?"Texts":V2_NAME[sel.t]));p.append(t);
     try{({bg:paneBg,prod:paneProd,subj:paneSubj,extra:paneExtra,logo:paneLogo,text:paneText})[sel.t](p);}catch(e){p.append(note("Could not build these controls: "+((e&&e.message)||e)));}
+    const canReset=!(sel.t==="extra"&&!o.extras.some(e=>e.id===sel.id))&&!(sel.t==="prod"&&!st.uploaded)&&!(sel.t==="subj"&&!st.uploaded2)&&!(sel.t==="logo"&&!st.logo);
+    if(canReset){const r=mk("div","v2-slot");r.style.cssText="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)";
+      r.append(btn("↺ Reset "+nameOf(sel)+" to default",()=>resetSel(sel),"back to this banner's starting values"));
+      if(sel.t==="bg")r.append(btn("↺ Reset whole background",resetBackground,"Panel, Fade, Bottom fade and Split back to their starting values"));
+      p.append(r);}
     body.append(p);}
   function renderSel(){selEl.innerHTML="";selEl.append(ico(sel.t),document.createTextNode(nameOf(sel)+(size==="mobile"?" · Mobile":" · Desktop")));}
-  function renderAll(){rebuildPending=false;renderTabs();renderPane();renderSel();draw();}
+  function renderAll(){rebuildPending=false;renderTabs();renderPane();renderSel();draw();const u=back.querySelector(".v2-undo");if(u)u.hidden=!undoState;}
   {const L=back.querySelector(".v2-legend");Object.keys(V2_NAME).forEach(k=>{if(k==="subj"&&!tpl.secondLayer)return;const s=mk("span");const i=mk("i");i.style.background=V2_COL[k];s.append(i,document.createTextNode(V2_NAME[k]));L.append(s);});}
 
   /* ---- direct manipulation on the preview ---- */
@@ -1231,6 +1259,10 @@ function openEditorV2(tpl,st,onClose){
   back.querySelector(".e-x").addEventListener("click",close);
   back.querySelector(".e-done").addEventListener("click",close);
   back.querySelector(".e-dl").addEventListener("click",()=>downloadOne(tpl,st,[size]));
+  {const ra=back.querySelector(".v2-resetall"),label=ra.textContent;let armed=null;
+    ra.addEventListener("click",()=>{if(armed){clearTimeout(armed);armed=null;ra.textContent=label;resetAll();return;}
+      ra.textContent="Click again to reset everything (images & texts stay)";armed=setTimeout(()=>{armed=null;ra.textContent=label;},4000);});
+    back.querySelector(".v2-undo").addEventListener("click",undo);}
   loadFont(o.font);
   try{renderAll();}catch(e){body.textContent="Editor error: "+((e&&e.message)||e);}
   preloadExtras(o).then(()=>{try{draw();}catch(_){}});
