@@ -278,7 +278,7 @@ export default function Subject({ nav, params }) {
         <div className="text-[14px] font-semibold">מוכנות ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</div>
         <div className="ready-hero-num tnum" dir="ltr">{ready == null ? '—' : `${ready}%`}</div>
         <div className="hero-track !flex-none"><i style={{ width: `${ready || 0}%` }} /></div>
-        {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עדיין אוספים נתונים — כמה תרגולים והמספר יופיע.</div>}
+        {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עוד לא תורגל — כמה תרגולים והמספר יופיע.</div>}
         {ready != null && (
           <div className="flex flex-col gap-2 mt-0.5">
             <span className="text-[13.5px] font-bold">✓ חזק ב-{strong.length} מתוך {rd.total} נושאים · תורגלו {rd.practiced}</span>

@@ -196,7 +196,7 @@ export default function ParentReport({ nav }) {
             </div>
             <div className="flex flex-col gap-2.5 p-3.5">
               {s.ready == null ? (
-                <div className="text-[13px] text-muted">עדיין אוספים נתונים — צריך עוד כמה תרגולים.</div>
+                <div className="text-[13px] text-muted">עוד לא תורגל — צריך עוד כמה תרגולים.</div>
               ) : (
                 <>
                   <div><div className="text-[12.5px] font-bold text-muted mb-1">שולט</div><Chips arr={s.strong} kind="good" /></div>
