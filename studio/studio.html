@@ -304,9 +304,8 @@ const TEMPLATES = [
     // Client's layout: visual on the right, never over the site's own text (desktop text runs to ~70%, mobile to ~60%).
     productBox:{x:71,y:8,w:16,h:84, mobile:{x:69,y:8,w:27,h:84}}, productContain:true, productShadow:true,
     textArea:{a:5,b:68},
-    // Background decorations drawn around the visual; they fade out before the text side (start..full, % of width).
-    decorations:{halo:{on:true,amt:0.6,size:1},rings:{on:true,amt:0.5,size:1},dots:{on:true,amt:0.5,size:1},waves:{on:true,amt:0.5,size:1}},
-    decoSafe:{desktop:[68,74],mobile:[60,67]},
+    // Background decorations (on/off, strength, size; colour from the image or custom).
+    decorations:{waves:{on:true,amt:0.5,size:1}},
     transparentOK:true, defaultTransparent:true, isolatedObject:true, aiAspect:"1:1",
     defaultTopic:"A modern 3D illustration of a glossy translucent glass cloud floating above a compact stack of sleek rounded server blocks, thin glowing connection lines, soft blue and white palette with a touch of cyan, glassmorphism, soft studio lighting, gentle reflections, clean minimal composition, no people",
     overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:40,fade:90},
@@ -456,29 +455,13 @@ function decoColorFrom(img){if(!img)return null;let r=DECO_COL.get(img);if(r)ret
     if(W>0.5)r=hx(R/W,G/W,B/W);else if(n)r=hx(r0/n,g0/n,b0/n);}catch(_){}
   DECO_COL.set(img,r);return r;}
 function rgbaOf(hex,a){const n=parseInt(String(hex||"#4f7df0").replace("#",""),16)||0;return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${Math.max(0,Math.min(1,a))})`;}
-// Halo / rings / dot grid / waves around the visual, on their own layer that fades out before the text side.
+// Background decorations (not tied to the visual): drawn over the background fade, under the images.
 function drawDecorations(ctx,tpl,size,dim,image,over){const dc=over.deco;if(!tpl.decorations||!dc)return;const W=dim.w,H=dim.h;
-  const on=k=>dc[k]&&dc[k].on,amt=k=>(dc[k].amt!=null?dc[k].amt:0.5),sz=k=>(dc[k].size!=null?dc[k].size:1);
-  if(!["halo","rings","dots","waves"].some(on))return;
+  const on=k=>tpl.decorations[k]&&dc[k]&&dc[k].on,amt=k=>(dc[k].amt!=null?dc[k].amt:0.5),sz=k=>(dc[k].size!=null?dc[k].size:1);
   const col=(dc.src==="custom"?dc.color:decoColorFrom(image))||dc.color||"#4f7df0";
-  const pr=prodRectFor(tpl,size,dim,image,over);let cx,cy,R;
-  if(pr.f){const ab=alphaBounds(image),f=pr.f;cx=f.dx+f.dw*(ab.l+ab.r)/2;cy=f.dy+f.dh*(ab.t+ab.b)/2;R=Math.max(f.dw*(ab.r-ab.l),f.dh*(ab.b-ab.t))/2;}
-  else{const b=pr.box;cx=b[0]+b[2]/2;cy=b[1]+b[3]/2;R=Math.min(b[2],b[3])/2;}
-  const RS=RENDER_SCALE||1;const L=document.createElement("canvas");L.width=Math.round(W*RS);L.height=Math.round(H*RS);const c=L.getContext("2d");c.scale(RS,RS);
   // Waves run across the whole banner (like the site's original wave) — light enough to sit under the text.
   if(on("waves")){const a=amt("waves"),k=sz("waves"),amp=H*0.07*k,wl=W*1.15,st=Math.max(2,W/900);
-    [[0.34,0.22,0.6],[0.2,0.3,2.6]].forEach(([lift,al,ph])=>{const base=H*(1-lift*k);ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W+st;x+=st)ctx.lineTo(Math.min(x,W),base+amp*Math.sin(x/wl*Math.PI*2+ph));ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=rgbaOf(col,al*a);ctx.fill();});}
-  if(!["halo","rings","dots"].some(on))return;
-  if(on("halo")){const a=amt("halo"),r=R*1.75*sz("halo");const g=c.createRadialGradient(cx,cy,0,cx,cy,r);g.addColorStop(0,rgbaOf(col,0.5*a));g.addColorStop(0.45,rgbaOf(col,0.24*a));g.addColorStop(1,rgbaOf(col,0));c.fillStyle=g;c.fillRect(cx-r,cy-r,r*2,r*2);}
-  if(on("dots")){const a=amt("dots"),k=sz("dots"),sp=H*0.05*k,dr=Math.max(0.8,H*0.0055*k);c.fillStyle=rgbaOf(col,1);
-    for(let y=sp/2;y<H;y+=sp)for(let x=sp/2;x<W;x+=sp){const d=Math.hypot(x-cx,y-cy)/R;if(d<1||d>3.4)continue;const t=d<1.5?(d-1)/0.5:d>2.4?(3.4-d):1;c.globalAlpha=Math.max(0,Math.min(1,t))*0.55*a;c.beginPath();c.arc(x,y,dr,0,Math.PI*2);c.fill();}
-    c.globalAlpha=1;}
-  if(on("rings")){const a=amt("rings"),k=sz("rings"),lw=Math.max(1,H*0.0035);
-    [[1.2,0.55,-40,false],[1.55,0.4,205,false],[1.95,0.28,140,true]].forEach(([m,al,ang,dash])=>{const r=R*m*k;c.save();c.strokeStyle=rgbaOf(col,al*a);c.lineWidth=lw;if(dash)c.setLineDash([H*0.012,H*0.014]);c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();c.restore();
-      const t=ang*Math.PI/180;c.fillStyle=rgbaOf(col,Math.min(1,al*a*1.8));c.beginPath();c.arc(cx+r*Math.cos(t),cy+r*Math.sin(t),Math.max(1.5,H*0.009),0,Math.PI*2);c.fill();});}
-  const sf=(tpl.decoSafe&&tpl.decoSafe[size])||[tpl.textArea?tpl.textArea.b:50,(tpl.textArea?tpl.textArea.b:50)+8];
-  c.globalCompositeOperation="destination-in";const m=c.createLinearGradient(sf[0]/100*W,0,sf[1]/100*W,0);m.addColorStop(0,"rgba(0,0,0,0)");m.addColorStop(1,"rgba(0,0,0,1)");c.fillStyle=m;c.fillRect(0,0,W,H);
-  ctx.drawImage(L,0,0,W,H);}
+    [[0.34,0.22,0.6],[0.2,0.3,2.6]].forEach(([lift,al,ph])=>{const base=H*(1-lift*k);ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W+st;x+=st)ctx.lineTo(Math.min(x,W),base+amp*Math.sin(x/wl*Math.PI*2+ph));ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=rgbaOf(col,al*a);ctx.fill();});}}
 function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+pad):pad;const e=isRight?(100-pad):(splitAt-pad);return s+(xPct/100)*(e-s);}
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
 function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
@@ -1178,14 +1161,14 @@ function openEditorV2(tpl,st,onClose){
   const alignRow=(active,pick)=>rowSeg("Align",[["left","Left"],["center","Center"],["right","Right"]],active,pick);
 
   /* ---- panes ---- */
-  const DECO_NAMES={halo:"Halo",rings:"Rings",dots:"Dot grid",waves:"Waves"};let decoSel="halo";
+  const DECO_NAMES={waves:"Waves"};let decoSel=Object.keys(tpl.decorations||{})[0];
   function paneDeco(p){const dc=o.deco;p.append(group("Decorations"));
-    p.append(note("Waves run across the whole banner. Halo, rings and dots sit around the visual. Tick to turn each one on or off."));
-    p.append(checks(Object.keys(DECO_NAMES).map(k=>[DECO_NAMES[k],()=>dc[k].on,v=>{dc[k].on=v;rebuildPending=true;}])));
+    p.append(note("Background shapes across the whole banner. Tick to turn each one on or off."));
+    p.append(checks(Object.keys(tpl.decorations).map(k=>[DECO_NAMES[k],()=>dc[k].on,v=>{dc[k].on=v;rebuildPending=true;}])));
     p.append(rowSeg("Colour",[["image","From image"],["custom","Custom"]],()=>dc.src||"image",v=>{if(v==="custom"&&dc.src!=="custom")dc.color=decoColorFrom(st.img)||dc.color;dc.src=v;}));
     if(dc.src==="custom")p.append(rowColor("Custom colour",()=>dc.color,v=>{dc.color=v;}));
-    const onK=Object.keys(DECO_NAMES).filter(k=>dc[k].on);if(!onK.length)return;if(!dc[decoSel].on)decoSel=onK[0];
-    p.append(rowSeg("Adjust",onK.map(k=>[k,DECO_NAMES[k]]),()=>decoSel,v=>{decoSel=v;}));
+    const onK=Object.keys(tpl.decorations).filter(k=>dc[k].on);if(!onK.length)return;if(!dc[decoSel].on)decoSel=onK[0];
+    if(onK.length>1)p.append(rowSeg("Adjust",onK.map(k=>[k,DECO_NAMES[k]]),()=>decoSel,v=>{decoSel=v;}));
     const d=dc[decoSel],def=tpl.decorations[decoSel];
     p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>d.amt!=null?d.amt:0.5,set:v=>{d.amt=v;},fmt:v=>Math.round(v*100)+"%",def:def.amt}));
     p.append(rowRange("Size",{min:0.5,max:2,step:0.05,get:()=>d.size!=null?d.size:1,set:v=>{d.size=v;},fmt:v=>Math.round(v*100)+"%",def:def.size}));}
