@@ -112,6 +112,16 @@ function buildParts(payload) {
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
+  if (task === 'rebalance') {
+    const { questions = [], learner } = payload
+    parts.push({ text:
+      `לפניך שאלות אמריקאיות שבהן התשובה הנכונה (answer = אינדקס) ארוכה או מפורטת בהרבה מהאפשרויות האחרות — וזה מסגיר אותה. ` +
+      `תקן/י כל שאלה כך שארבע האפשרויות יהיו באורך דומה (הפרש של כמה מילים לכל היותר): קצר/י את התשובה הנכונה לניסוח תמציתי (פרטים והסברים — לשדה explain), ` +
+      `ובמידת הצורך הרחב/י מסיחים עם תוכן אמיתי ומבלבל (לא מילוי סרק). אל תשנה/י את משמעות התשובה הנכונה, את מיקומה (answer) או את השאלה עצמה. ` +
+      `החזר/י JSON בלבד באותו סדר: {"questions":[{"q":"","choices":["","","",""],"answer":0,"explain":""}]}. ` +
+      HEB_RULE + ' ' + PLAUSIBLE_RULE + learnerRule(learner) + `\n\nהשאלות:\n${JSON.stringify(questions)}` })
+    return { parts, wantJson: true }
+  }
   if (task === 'explain') {
     const { subjectName, context, question, learner } = payload
     parts.push({ text:
@@ -302,20 +312,55 @@ async function call(payload) {
   throw lastErr
 }
 
+
+// ── איזון אורך: תשובה נכונה ארוכה בהרבה מהשאר מסגירה את עצמה ──
+const clen = (s) => String(s || '').trim().length
+export function isUnbalanced(q) {
+  if (!Array.isArray(q?.choices) || q.choices.length < 2 || typeof q.answer !== 'number') return false
+  const c = clen(q.choices[q.answer])
+  const others = q.choices.filter((_, i) => i !== q.answer).map(clen)
+  const maxOther = Math.max(...others)
+  return c > maxOther * 1.25 && c - maxOther >= 12
+}
+// שולח שוב (קריאה אחת) רק את השאלות הלא מאוזנות, ומחליף אותן אם התיקון תקין
+async function balanceLengths(questions, learner) {
+  const list = questions || []
+  const bad = list.map((q, i) => (isUnbalanced(q) ? i : -1)).filter((i) => i >= 0)
+  if (!bad.length) return list
+  try {
+    const out = deepClean(await call({ task: 'rebalance', learner, questions: bad.map((i) => ({ q: list[i].q, choices: list[i].choices, answer: list[i].answer, explain: list[i].explain || '' })) }))
+    const fixed = Array.isArray(out.questions) ? out.questions : []
+    const res = list.slice()
+    bad.forEach((i, k) => {
+      const f = fixed[k]
+      if (f && Array.isArray(f.choices) && f.choices.length === list[i].choices.length && f.answer === list[i].answer) {
+        res[i] = { ...list[i], choices: f.choices, explain: f.explain || list[i].explain }
+      }
+    })
+    return res
+  } catch { return list }
+}
+
 export const analyzeMaterial = async (p) => {
   const out = deepClean(await call({ task: 'analyze_material', ...p }))
   // תמיכה בשני הפורמטים: topics[] חדש, או topic יחיד ישן
   const raw = Array.isArray(out.topics) && out.topics.length
     ? out.topics
     : (out.topic ? [{ topic: out.topic, summary_md: out.summary_md, questions: out.questions, flashcards: out.flashcards }] : [])
-  const topics = raw
-    .filter((t) => t && t.topic)
-    .map((t) => ({ ...t, questions: shuffleQuestions(t.questions || []), flashcards: t.flashcards || [] }))
+  const valid = raw.filter((t) => t && t.topic)
+  // איזון אורך — קריאה אחת לכל השאלות הבעייתיות מכל הנושאים
+  const flat = valid.flatMap((t, ti) => (t.questions || []).map((q) => ({ ...q, _t: ti })))
+  const balanced = await balanceLengths(flat, p.learner)
+  const topics = valid.map((t, ti) => ({
+    ...t,
+    questions: shuffleQuestions(balanced.filter((q) => q._t === ti).map(({ _t, ...q }) => q)),
+    flashcards: t.flashcards || [],
+  }))
   return { topics, source_text: out.source_text || '' }
 }
 export const generateQuestions = async (p) => {
   const out = deepClean(await call({ task: 'generate_questions', ...p }))
-  return { ...out, questions: shuffleQuestions(out.questions) }
+  return { ...out, questions: shuffleQuestions(await balanceLengths(out.questions, p.learner)) }
 }
 export const explain = async (p) => deepClean(await call({ task: 'explain', ...p }))
 export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
