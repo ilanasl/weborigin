@@ -22,6 +22,7 @@ import Store from './pages/Store'
 import Soon from './pages/Soon'
 import Settings from './pages/Settings'
 import Parent from './pages/Parent'
+import { confirmLeave } from './lib/leaveGuard'
 
 function ConfigNeeded() {
   return (
@@ -111,19 +112,19 @@ function Shell() {
   // מיקום הגלילה של כל מסך נשמר כשיוצאים ממנו, ו"חזרה" מחזירה בדיוק לאותו מקום
   const scrollMem = useRef({})
   const pendingY = useRef(0)
-  const go = useCallback((name, params = {}) => setStack((s) => {
+  const go = useCallback((name, params = {}) => confirmLeave() && setStack((s) => {
     const top = s[s.length - 1]
     if (top) scrollMem.current[top.id] = window.scrollY
     pendingY.current = 0
     return [...s, { name, params, id: ++seq }]
   }), [])
-  const back = useCallback(() => setStack((s) => {
+  const back = useCallback(() => confirmLeave() && setStack((s) => {
     if (s.length <= 1) return s
     const prev = s[s.length - 2]
     pendingY.current = scrollMem.current[prev.id] || 0
     return s.slice(0, -1)
   }), [])
-  const reset = useCallback((name = 'home', params = {}) => { pendingY.current = 0; setStack([{ name, params, id: ++seq }]) }, [])
+  const reset = useCallback((name = 'home', params = {}) => { if (!confirmLeave()) return; pendingY.current = 0; setStack([{ name, params, id: ++seq }]) }, [])
 
   const topId = stack[stack.length - 1]?.id
   useEffect(() => {
@@ -164,7 +165,7 @@ function Shell() {
         <div className="flex-1" />
         {showNav && <>
         <button onClick={() => go('settings')} title="הגדרות" aria-label="הגדרות" className="hbtn !px-0 w-10"><Icon name="settings" size={19} /></button>
-        <button onClick={signOut} className="hbtn" aria-label="יציאה"><Icon name="logout" size={18} />יציאה</button>
+        <button onClick={() => confirmLeave() && signOut()} className="hbtn" aria-label="יציאה"><Icon name="logout" size={18} />יציאה</button>
         </>}
       </header>
       <Page key={route.id} nav={nav} params={route.params} />
