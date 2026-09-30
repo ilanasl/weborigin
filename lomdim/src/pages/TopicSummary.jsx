@@ -81,7 +81,8 @@ export default function TopicSummary({ nav, params }) {
     // סיכום מאוחד (kind='summary') מוצג ראשון; אחרת הסיכום העדכני מהדפים שהועלו
     const consolidated = mats.find((m) => m.kind === 'summary' && m.summary_md)
     const pages = mats.filter((m) => m.kind !== 'summary' && m.kind !== 'note')
-    setSummary(consolidated?.summary_md || pages.find((m) => m.summary_md)?.summary_md || null)
+    // סיכום מאוחד שנשמר לפני התיקון — מנקים בתצוגה את שורות "במחברת כתוב…" (בלי להריץ שוב ובלי קרדיטים)
+    setSummary((consolidated && stripNotebookWarnings(consolidated.summary_md)) || pages.find((m) => m.summary_md)?.summary_md || null)
     setNotes(mats.filter((m) => m.kind === 'note' && m.summary_md))
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
