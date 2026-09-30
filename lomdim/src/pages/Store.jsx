@@ -13,7 +13,6 @@ export default function Store({ nav }) {
   const [reds, setReds] = useState([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
-  const [manage, setManage] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -27,39 +26,10 @@ export default function Store({ nav }) {
   }
   useEffect(() => { load() }, [])
 
-  async function addReward() {
-    const title = prompt('שם הפרס (למשל: ערב משחקים, בחירת סרט):')
-    if (!title?.trim()) return
-    const costStr = prompt('כמה מטבעות הוא עולה?')
-    const cost = parseInt(costStr, 10)
-    if (!cost || cost <= 0) return
-    setBusy(true)
-    await supabase.from('rewards').insert({ title: title.trim(), cost })
-    await load(); setBusy(false)
-  }
-
-  async function removeReward(id) {
-    if (!confirm('להסיר את הפרס מהחנות?')) return
-    await supabase.from('rewards').update({ active: false }).eq('id', id)
-    load()
-  }
-
   async function request(rw) {
     if (sum.available < rw.cost) return
     setBusy(true)
     await supabase.from('redemptions').insert({ reward_id: rw.id, title: rw.title, cost: rw.cost, status: 'pending' })
-    await load(); setBusy(false)
-  }
-
-  async function decide(r, approve) {
-    setBusy(true)
-    if (approve) {
-      // ירידת המטבעות רק עכשיו — שורת פדיון שלילית ביומן
-      await supabase.from('coin_events').insert({ amount: -r.cost, reason: 'redeem', label: `פדיון: ${r.title}` })
-      await supabase.from('redemptions').update({ status: 'approved', decided_at: new Date().toISOString() }).eq('id', r.id)
-    } else {
-      await supabase.from('redemptions').update({ status: 'rejected', decided_at: new Date().toISOString() }).eq('id', r.id)
-    }
     await load(); setBusy(false)
   }
 
@@ -72,9 +42,6 @@ export default function Store({ nav }) {
     <div className="pt-1 flex flex-col gap-4">
       <div className="flex items-center gap-2.5">
         <h1 className="flex-1 font-black text-[28px] leading-none">חנות הפרסים</h1>
-        <button type="button" className="hbtn !text-[13px]" onClick={() => setManage((v) => !v)}>
-          {manage ? 'סיום ניהול' : <><Icon name="pencil" size={15} />ניהול הורה</>}
-        </button>
       </div>
 
       {/* יתרה */}
@@ -93,8 +60,6 @@ export default function Store({ nav }) {
             <span className="text-[12px] font-semibold text-muted">ממתין לאישור הורה</span>
             <span className="font-bold text-[15px]">{r.title} · <span className="tnum">{r.cost}</span></span>
           </div>
-          <button type="button" className="store-ok" disabled={busy} onClick={() => decide(r, true)}>אשר</button>
-          <button type="button" className="up-x !w-auto !px-3 !text-[13.5px] font-semibold" disabled={busy} onClick={() => decide(r, false)}>דחה</button>
         </div>
       ))}
 
@@ -102,22 +67,19 @@ export default function Store({ nav }) {
       <div>
         <div className="home-h2 mb-2.5"><h2>פרסים</h2><span>{rewards.length} פרסים</span></div>
         {rewards.length === 0 ? (
-          <div className="milky-row text-muted text-sm">עדיין אין פרסים. הוסיפו פרס דרך «ניהול הורה».</div>
+          <div className="milky-row text-muted text-sm">עדיין אין פרסים. ההורה מוסיף אותם באזור ההורה.</div>
         ) : (
           <div className="grid grid-cols-2 gap-2.5">
             {rewards.map((rw, i) => {
               const can = sum.available >= rw.cost
               const fill = PRIZE_FILLS[i % PRIZE_FILLS.length]
               return (
-                <div key={rw.id} className="prize" style={can && !manage ? { background: fill, color: 'var(--on-fill)', borderColor: 'transparent', boxShadow: 'none' } : undefined}>
+                <div key={rw.id} className="prize" style={can ? { background: fill, color: 'var(--on-fill)', borderColor: 'transparent', boxShadow: 'none' } : undefined}>
                   <div className="flex flex-col gap-1">
                     <div className="font-disp font-extrabold text-[17px] leading-tight">{rw.title}</div>
                     <div className="font-disp font-bold text-[14px] tnum flex items-center gap-1.5"><Icon name="coin" size={16} />{rw.cost}</div>
                   </div>
-                  {manage ? (
-                    <button type="button" className="prize-btn" style={{ background: 'transparent', color: 'var(--bad)', border: '1.5px solid color-mix(in srgb, var(--bad) 45%, transparent)' }}
-                      onClick={() => removeReward(rw.id)}>הסר</button>
-                  ) : can ? (
+                  {can ? (
                     <button type="button" className="prize-btn" style={{ color: fill }} disabled={busy} onClick={() => request(rw)}>אני רוצה</button>
                   ) : (
                     <div className="flex flex-col gap-1.5">
@@ -131,9 +93,6 @@ export default function Store({ nav }) {
               )
             })}
           </div>
-        )}
-        {manage && (
-          <button type="button" className="ts-practice mt-3" disabled={busy} onClick={addReward}><Icon name="plus" size={18} stroke={2.6} />הוסף פרס</button>
         )}
       </div>
 

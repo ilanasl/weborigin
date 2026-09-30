@@ -21,6 +21,7 @@ import PastExams from './pages/PastExams'
 import Store from './pages/Store'
 import Soon from './pages/Soon'
 import Settings from './pages/Settings'
+import Parent from './pages/Parent'
 
 function ConfigNeeded() {
   return (
@@ -101,7 +102,7 @@ const PAGES = {
   practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax,
   parentReport: ParentReport, store: Store, soon: Soon,
-  settings: Settings,
+  settings: Settings, parent: Parent,
 }
 
 function Shell() {
