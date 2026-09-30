@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { mathText } from '../lib/mathText'
 import Markdown from './Markdown'
 
 const LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו']
@@ -42,7 +43,7 @@ export function QuestionBlock({ topic, sub, text }) {
       )}
       <div>
         {sub && <div className="q-sub">{sub}</div>}
-        <div className="q-text">{text}</div>
+        <div className="q-text">{mathText(text)}</div>
       </div>
     </div>
   )
@@ -57,7 +58,7 @@ export function Options({ choices, answer, picked, onPick }) {
         return (
           <button key={i} type="button" disabled={answered} onClick={() => onPick(i)} className={`q-opt ${state}`}>
             <span className="q-letter">{LETTERS[i] || i + 1}</span>
-            <span className="flex-1">{c}</span>
+            <span className="flex-1">{mathText(c)}</span>
             {state === 'ok' && <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}
             {state === 'bad' && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>}
           </button>

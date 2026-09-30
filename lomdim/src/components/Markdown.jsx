@@ -1,3 +1,5 @@
+import { mathText } from '../lib/mathText'
+
 // ── רכיב Markdown קטן ומדויק ──
 // הופך את הסיכום של Gemini (כותרות, נקודות, **הדגשות**, טבלאות) לטקסט מעוצב.
 
@@ -20,7 +22,8 @@ const isTableSep = (line) => /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) && lin
 
 // examBox: הפרק "מה לכתוב במבחן" (מהסיכום בספרות) מוצג בתיבה מודגשת
 export default function Markdown({ text, className = '', examBox = false }) {
-  const lines = String(text || '').replace(/\r/g, '').split('\n')
+  // mathText — גם לסיכומים ישנים שנשמרו עם \cdot / 4^2
+  const lines = mathText(String(text || '')).replace(/\r/g, '').split('\n')
   const blocks = []
   let list = null
   const flush = () => { if (list) { blocks.push(list); list = null } }
@@ -43,6 +46,8 @@ export default function Markdown({ text, className = '', examBox = false }) {
     }
 
     if (!line.trim()) { flush(); continue }
+    // קו מפריד (---) — קו דק במקום שלושה מקפים
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); blocks.push({ type: 'hr' }); continue }
 
     const h = line.match(/^(#{1,4})\s+(.*)$/)
     if (h) { flush(); blocks.push({ type: 'h', level: h[1].length, text: h[2] }); continue }
@@ -62,6 +67,7 @@ export default function Markdown({ text, className = '', examBox = false }) {
   flush()
 
   const render = (b, i) => {
+        if (b.type === 'hr') return <hr key={i} className="my-4 border-0 h-px" style={{ background: 'currentColor', opacity: 0.15 }} />
         if (b.type === 'h') {
           const size = b.level === 1 ? 'text-[16px]' : b.level === 2 ? 'text-[15px]' : 'text-[14px]'
           return <div key={i} className={`font-disp font-bold ${size} mt-4 first:mt-0 mb-1`}><Inline text={b.text} /></div>
