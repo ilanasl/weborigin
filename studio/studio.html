@@ -301,18 +301,24 @@ const TEMPLATES = [
     bgModes:{side:{bg:"#e7eefe",color:"#ffffff",src:"custom",from:"left",hold:40,fade:90,tintTop:true},
              top:{bg:"#ffffff",color:"#e7eefe",src:"custom",hold:0,fade:60,tintTop:false},
              bottom:{bg:"#ffffff",color:"#e7eefe",src:"custom",hold:0,fade:60,tintTop:false}},
-    // Client's layout: visual centred at ~82% (desktop) / ~86% (mobile), never over the text on the left.
-    productBox:{x:74,y:8,w:16,h:84, mobile:{x:72,y:8,w:27,h:84}}, productContain:true, productShadow:true,
-    textArea:{a:5,b:60},
+    // Client's layout: visual on the right, never over the site's own text (desktop text runs to ~70%, mobile to ~60%).
+    productBox:{x:71,y:8,w:16,h:84, mobile:{x:69,y:8,w:27,h:84}}, productContain:true, productShadow:true,
+    textArea:{a:5,b:68},
+    // Background decorations drawn around the visual; they fade out before the text side (start..full, % of width).
+    decorations:{halo:{on:true,amt:0.6,size:1},rings:{on:true,amt:0.5,size:1},dots:{on:true,amt:0.5,size:1},waves:{on:true,amt:0.5,size:1}},
+    decoSafe:{desktop:[68,74],mobile:[60,67]},
     transparentOK:true, defaultTransparent:true, isolatedObject:true, aiAspect:"1:1",
     defaultTopic:"A modern 3D illustration of a glossy translucent glass cloud floating above a compact stack of sleek rounded server blocks, thin glowing connection lines, soft blue and white palette with a touch of cyan, glassmorphism, soft studio lighting, gentle reflections, clean minimal composition, no people",
     overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:40,fade:90},
              mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:40,fade:90}},
     elements:[
-      {key:"headline",label:"Headline",val:"Best Web Hosting Services 2026",size:64,weight:800,color:"#0b1f3a",align:"left",x:12,y:30,anchor:"top-left",maxW:55,lh:1.1,
-       mobile:{size:30,x:5,y:22,maxW:62}},
-      {key:"subtitle",label:"Subtitle",val:"Compare the top hosting providers and find the right plan for your website.",size:30,weight:400,color:"#33445c",align:"left",x:12,y:52,anchor:"top-left",maxW:40,lh:1.3,
-       mobile:{size:16,x:5,y:58,maxW:62}}
+      // Same places as the site's own heading (so the preview shows what the visual must not cover).
+      {key:"headline",label:"Headline",val:"Best Domain Registration Companies of 2026",size:72,weight:700,color:"#000000",align:"left",x:14,y:22,anchor:"top-left",maxW:56,lh:1.1,
+       mobile:{val:"Best Domain Hosting Companies of 2026",size:32,x:3,y:22,maxW:58}},
+      {key:"subtitle",label:"Subtitle",val:"Explore our expert reviews to compare the top domain hosting companies. Discover our exclusive offers and get your website up and running today",size:34,weight:400,color:"#111111",align:"left",x:14,y:44,anchor:"top-left",maxW:57,lh:1.4,
+       mobile:{val:"Explore our expert reviews",size:22,x:3,y:57,maxW:58}},
+      {key:"updated",label:"Last updated",val:"✓ Last Updated: September 2026",size:28,weight:400,color:"#111111",align:"left",x:14,y:80,anchor:"top-left",maxW:50,
+       mobile:{size:20,x:3,y:82,maxW:58}}
     ]
   },
   {
@@ -434,6 +440,43 @@ function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/i
 // Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
 // Product box for a size (a template can give the mobile layout its own box).
 function prodBoxFor(tpl,size){const b=tpl.productBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
+// Where the product actually lands (box fit + drag offset) — shared by the renderer and the decorations.
+function prodRectFor(tpl,size,dim,image,over){const b=prodBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+  if(!image)return {box:[bx,by,bw,bh],f:null};
+  const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
+  const f=fitBox(image,bx,by,bw,bh,(over.zoom||1),(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
+  const po=(over.prodOff&&over.prodOff[size])||{};f.dx+=(po.x||0)/100*dim.w;f.dy+=(po.y||0)/100*dim.h;return {box:[bx,by,bw,bh],f};}
+// Decoration colour taken from the visual: the average of its colourful, visible pixels.
+const DECO_COL=new WeakMap();
+function decoColorFrom(img){if(!img)return null;let r=DECO_COL.get(img);if(r)return r;r=null;
+  try{const c=document.createElement("canvas");c.width=48;c.height=48;const x=c.getContext("2d");x.drawImage(img,0,0,48,48);const d=x.getImageData(0,0,48,48).data;let R=0,G=0,B=0,W=0,r0=0,g0=0,b0=0,n=0;
+    for(let i=0;i<d.length;i+=4){if(d[i+3]<128)continue;const cr=d[i],cg=d[i+1],cb=d[i+2];r0+=cr;g0+=cg;b0+=cb;n++;const mx=Math.max(cr,cg,cb),mn=Math.min(cr,cg,cb);const sat=mx?(mx-mn)/mx:0;
+      if(sat>0.22&&mx>50&&mx<250){R+=cr*sat;G+=cg*sat;B+=cb*sat;W+=sat;}}
+    const hx=(a,b,c2)=>"#"+[a,b,c2].map(v=>Math.round(v).toString(16).padStart(2,"0")).join("");
+    if(W>0.5)r=hx(R/W,G/W,B/W);else if(n)r=hx(r0/n,g0/n,b0/n);}catch(_){}
+  DECO_COL.set(img,r);return r;}
+function rgbaOf(hex,a){const n=parseInt(String(hex||"#4f7df0").replace("#",""),16)||0;return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${Math.max(0,Math.min(1,a))})`;}
+// Halo / rings / dot grid / waves around the visual, on their own layer that fades out before the text side.
+function drawDecorations(ctx,tpl,size,dim,image,over){const dc=over.deco;if(!tpl.decorations||!dc)return;const W=dim.w,H=dim.h;
+  const on=k=>dc[k]&&dc[k].on,amt=k=>(dc[k].amt!=null?dc[k].amt:0.5),sz=k=>(dc[k].size!=null?dc[k].size:1);
+  if(!["halo","rings","dots","waves"].some(on))return;
+  const col=(dc.src==="custom"?dc.color:decoColorFrom(image))||dc.color||"#4f7df0";
+  const pr=prodRectFor(tpl,size,dim,image,over);let cx,cy,R;
+  if(pr.f){const ab=alphaBounds(image),f=pr.f;cx=f.dx+f.dw*(ab.l+ab.r)/2;cy=f.dy+f.dh*(ab.t+ab.b)/2;R=Math.max(f.dw*(ab.r-ab.l),f.dh*(ab.b-ab.t))/2;}
+  else{const b=pr.box;cx=b[0]+b[2]/2;cy=b[1]+b[3]/2;R=Math.min(b[2],b[3])/2;}
+  const RS=RENDER_SCALE||1;const L=document.createElement("canvas");L.width=Math.round(W*RS);L.height=Math.round(H*RS);const c=L.getContext("2d");c.scale(RS,RS);
+  if(on("waves")){const a=amt("waves"),k=sz("waves"),amp=H*0.04*k,wl=H*2.4;
+    [[0.15,0.2,0],[0.085,0.34,1.9]].forEach(([lift,al,ph])=>{const base=H*(1-lift*k);c.beginPath();c.moveTo(0,H);for(let x=0;x<=W;x+=4)c.lineTo(x,base+amp*Math.sin((x-cx)/wl*Math.PI*2+ph));c.lineTo(W,H);c.closePath();c.fillStyle=rgbaOf(col,al*a);c.fill();});}
+  if(on("halo")){const a=amt("halo"),r=R*1.75*sz("halo");const g=c.createRadialGradient(cx,cy,0,cx,cy,r);g.addColorStop(0,rgbaOf(col,0.5*a));g.addColorStop(0.45,rgbaOf(col,0.24*a));g.addColorStop(1,rgbaOf(col,0));c.fillStyle=g;c.fillRect(cx-r,cy-r,r*2,r*2);}
+  if(on("dots")){const a=amt("dots"),k=sz("dots"),sp=H*0.05*k,dr=Math.max(0.8,H*0.0055*k);c.fillStyle=rgbaOf(col,1);
+    for(let y=sp/2;y<H;y+=sp)for(let x=sp/2;x<W;x+=sp){const d=Math.hypot(x-cx,y-cy)/R;if(d<1||d>3.4)continue;const t=d<1.5?(d-1)/0.5:d>2.4?(3.4-d):1;c.globalAlpha=Math.max(0,Math.min(1,t))*0.55*a;c.beginPath();c.arc(x,y,dr,0,Math.PI*2);c.fill();}
+    c.globalAlpha=1;}
+  if(on("rings")){const a=amt("rings"),k=sz("rings"),lw=Math.max(1,H*0.0035);
+    [[1.2,0.55,-40,false],[1.55,0.4,205,false],[1.95,0.28,140,true]].forEach(([m,al,ang,dash])=>{const r=R*m*k;c.save();c.strokeStyle=rgbaOf(col,al*a);c.lineWidth=lw;if(dash)c.setLineDash([H*0.012,H*0.014]);c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();c.restore();
+      const t=ang*Math.PI/180;c.fillStyle=rgbaOf(col,Math.min(1,al*a*1.8));c.beginPath();c.arc(cx+r*Math.cos(t),cy+r*Math.sin(t),Math.max(1.5,H*0.009),0,Math.PI*2);c.fill();});}
+  const sf=(tpl.decoSafe&&tpl.decoSafe[size])||[tpl.textArea?tpl.textArea.b:50,(tpl.textArea?tpl.textArea.b:50)+8];
+  c.globalCompositeOperation="destination-in";const m=c.createLinearGradient(sf[0]/100*W,0,sf[1]/100*W,0);m.addColorStop(0,"rgba(0,0,0,0)");m.addColorStop(1,"rgba(0,0,0,1)");c.fillStyle=m;c.fillRect(0,0,W,H);
+  ctx.drawImage(L,0,0,W,H);}
 function splitHalfX(xPct,isRight,splitAt){const pad=6;const s=isRight?(splitAt+pad):pad;const e=isRight?(100-pad):(splitAt-pad);return s+(xPct/100)*(e-s);}
 // Draw an image at a fit-box, optionally tilted by `deg` degrees around its centre.
 function drawRotated(ctx,img,f,deg){if(!deg){ctx.drawImage(img,f.dx,f.dy,f.dw,f.dh);return;}ctx.save();ctx.translate(f.dx+f.dw/2,f.dy+f.dh/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-f.dw/2,-f.dh/2,f.dw,f.dh);ctx.restore();}
@@ -562,9 +605,8 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       drawRotated(ctx,img2,sf,(over.subjRotate||0));if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"subj",x:sf.dx,y:sf.dy,w:sf.dw,h:sf.dh});}};
   const drawMain=()=>{
   if(tpl.productBox){ // uploaded product: fit inside its box (no crop) with a soft shadow
-    const b=prodBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image){const f=fitBox(image,bx,by,bw,bh,zoom,(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
-      {const po=(over.prodOff&&over.prodOff[size])||{};f.dx+=(po.x||0)/100*dim.w;f.dy+=(po.y||0)/100*dim.h;}
+    const pr=prodRectFor(tpl,size,dim,image,over),[bx,by,bw,bh]=pr.box;
+    if(image){const f=pr.f;
       if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"prod",x:f.dx,y:f.dy,w:f.dw,h:f.dh});
       drawGlowOnly(ctx,image,f,(over.productRotate||0),over.glow,over.glowSize);
       if(tpl.productShadow)groundShadowFor(ctx,image,f,(over.shadow!=null?over.shadow:0.22));
@@ -574,7 +616,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
   if(!subjAbove)drawSubject();
-  if(!imgAbove)drawMain();
+  if(!imgAbove){drawDecorations(ctx,tpl,size,dim,image,over);drawMain();}
   drawExtras(ctx,over,size,dim.w,dim.h,true);
   const splitOn=(over&&over.split&&tpl.splittable);
   let ovl=tpl.overlay[size]||tpl.overlay.desktop;
@@ -587,6 +629,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(b2.autoLogo&&logoImg){ col2=paleTint(avgColor(logoImg)||getAccent(logoImg),0.55); }
       else if(b2.auto&&image){ col2=paleTint(avgColor(image)||getAccent(image),0.55); }
       drawOverlay(ctx,{coverage:(b2.coverage||"bottom"),gradient:true,color:col2,opacity:b2.opacity,hold:(b2.hold||0),fade:(b2.fade!=null?b2.fade:100)},dim.w,dim.h);} }
+  if(imgAbove)drawDecorations(ctx,tpl,size,dim,image,over);
   if(subjAbove)drawSubject();
   if(imgAbove)drawMain();
   drawExtras(ctx,over,size,dim.w,dim.h,false);
@@ -623,12 +666,13 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
 const FONTS=["Open Sans","Montserrat","Poppins","Inter","Roboto","Lato","Oswald","Playfair Display","Anton","Bebas Neue"];
 const loadedFonts=new Set(["Inter","Open Sans","Montserrat","Poppins"]);
 function loadFont(f){if(loadedFonts.has(f))return;loadedFonts.add(f);const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f.replace(/\s+/g,"+")+":wght@400;500;600;700;800;900&display=swap";document.head.appendChild(l);}
+function initDeco(tpl){return Object.assign({src:"image",color:"#4f7df0"},JSON.parse(JSON.stringify(tpl.decorations)));}
 function initOverrides(tpl){
   const overlay={};for(const size of ["desktop","mobile"]){const o=tpl.overlay[size]||tpl.overlay.desktop;overlay[size]={color:o.color,opacity:o.opacity,hold:o.hold||0,fade:o.fade,auto:false,autoLogo:false};}
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{})};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
 }
 
 /* ---------------- State ---------------- */
@@ -971,6 +1015,7 @@ function backfillOver(tpl,o){
   if(!o.bold)o.bold={desktop:{},mobile:{}};
   if(tpl.bgModes){if(!o.bgModes||typeof o.bgModes!=="object"){o.bgModes=JSON.parse(JSON.stringify(tpl.bgModes));o._bgFresh=true;}
     ["side","top","bottom"].forEach(k=>{if(!o.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":"side";}
+  if(tpl.decorations){if(!o.deco||typeof o.deco!=="object")o.deco=initDeco(tpl);Object.keys(tpl.decorations).forEach(k=>{if(!o.deco[k])o.deco[k]=JSON.parse(JSON.stringify(tpl.decorations[k]));});}
 }
 /* ---------------- Editor v2 — Popup (Product): one tab per object, click-to-select, area-aware align ---------------- */
 const V2_COL={bg:"#6b7a92",prod:"#2f6bff",subj:"#9a5cf0",extra:"#10a39a",logo:"#e2811f",text:"#1f9d5a"};
@@ -1130,7 +1175,19 @@ function openEditorV2(tpl,st,onClose){
   const alignRow=(active,pick)=>rowSeg("Align",[["left","Left"],["center","Center"],["right","Right"]],active,pick);
 
   /* ---- panes ---- */
-  function paneBg(p){const ids=["side","top","bottom"].concat(tpl.splittable?["split"]:[]);
+  const DECO_NAMES={halo:"Halo",rings:"Rings",dots:"Dot grid",waves:"Waves"};let decoSel="halo";
+  function paneDeco(p){const dc=o.deco;p.append(group("Decorations"));
+    p.append(note("Drawn around the visual and faded out before the text side. Tick to turn each one on or off."));
+    p.append(checks(Object.keys(DECO_NAMES).map(k=>[DECO_NAMES[k],()=>dc[k].on,v=>{dc[k].on=v;rebuildPending=true;}])));
+    p.append(rowSeg("Colour",[["image","From image"],["custom","Custom"]],()=>dc.src||"image",v=>{if(v==="custom"&&dc.src!=="custom")dc.color=decoColorFrom(st.img)||dc.color;dc.src=v;}));
+    if(dc.src==="custom")p.append(rowColor("Custom colour",()=>dc.color,v=>{dc.color=v;}));
+    const onK=Object.keys(DECO_NAMES).filter(k=>dc[k].on);if(!onK.length)return;if(!dc[decoSel].on)decoSel=onK[0];
+    p.append(rowSeg("Adjust",onK.map(k=>[k,DECO_NAMES[k]]),()=>decoSel,v=>{decoSel=v;}));
+    const d=dc[decoSel],def=tpl.decorations[decoSel];
+    p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>d.amt!=null?d.amt:0.5,set:v=>{d.amt=v;},fmt:v=>Math.round(v*100)+"%",def:def.amt}));
+    p.append(rowRange("Size",{min:0.5,max:2,step:0.05,get:()=>d.size!=null?d.size:1,set:v=>{d.size=v;},fmt:v=>Math.round(v*100)+"%",def:def.size}));}
+  function paneBg(p){paneBgModes(p);if(tpl.decorations&&o.deco)paneDeco(p);}
+  function paneBgModes(p){const ids=["side","top","bottom"].concat(tpl.splittable?["split"]:[]);
     const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.onclick=()=>chooseBg(id);chips.append(c);});p.append(chips);
     const id=sel.id;
     if(id==="split"){p.append(note("Two flat halves. Pick one of the fades above to go back to it."));p.append(group("Split (half / half)"));
