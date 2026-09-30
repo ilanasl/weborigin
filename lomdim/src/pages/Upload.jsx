@@ -33,6 +33,7 @@ export default function Upload({ nav, params }) {
   const [topicsList, setTopicsList] = useState([])
   const [chosen, setChosen] = useState([])     // [{ fileIdx, name, summary_md, questions, flashcards }]
   const [err, setErr] = useState('')
+  const [status, setStatus] = useState([])   // מצב כל קובץ בזמן הניתוח: wait | run | done | fail | skip
 
   async function onPick(list) {
     setResults(null); setChosen([]); setErr('')
@@ -56,7 +57,9 @@ export default function Upload({ nav, params }) {
           .select('id, created_at').eq('subject_id', subjectId).eq('content_hash', h).maybeSingle()
         if (data) dupe = new Date(data.created_at).toLocaleDateString('he-IL')
       }
-      entries.push({ file: f, hash: h, kind: kindOf(f), dupe })
+      // תצוגה מקדימה — כדי לזהות לפי התוכן איזה דף זה (שם הקובץ לא אומר כלום)
+      const url = f.type.startsWith('image/') ? URL.createObjectURL(f) : null
+      entries.push({ file: f, hash: h, kind: kindOf(f), dupe, url })
     }
     // מצטבר: אפשר לצלם כמה דפים בזה אחר זה ולהוסיף גם קבצים (בלי כפילות של אותו קובץ)
     setFiles((prev) => [...prev, ...entries.filter((e) => !e.hash || !prev.some((p) => p.hash === e.hash))])
@@ -72,6 +75,9 @@ export default function Upload({ nav, params }) {
   async function analyze() {
     if (!files.length) return
     setBusy(true); setErr('')
+    const st = files.map((f) => (f.dupe ? 'skip' : 'wait'))
+    setStatus(st.slice())
+    const mark = (fi, s) => { st[fi] = s; setStatus(st.slice()) }
     try {
       const { data: tp } = await supabase.from('topics').select('name').eq('subject_id', subjectId)
       const knownTopics = (tp || []).map((t) => t.name)
@@ -82,6 +88,7 @@ export default function Upload({ nav, params }) {
         const { file } = files[fi]
         // קובץ שכבר הועלה למקצוע — מדלגים אוטומטית (לא מנתחים ולא שומרים שוב)
         if (files[fi].dupe) { res[fi] = { source_text: null, topics: [], error: null, skipped: true }; continue }
+        mark(fi, 'run')
         try {
           let out
           if (isText(file)) {
@@ -92,6 +99,7 @@ export default function Upload({ nav, params }) {
             })
           }
           res[fi] = { source_text: out.source_text || null, topics: out.topics || [], error: null }
+          mark(fi, 'done')
           for (const t of (out.topics || [])) {
             flat.push({
               fileIdx: fi, name: t.topic || '', summary_md: t.summary_md || '',
@@ -100,6 +108,7 @@ export default function Upload({ nav, params }) {
           }
         } catch (e) {
           res[fi] = { source_text: null, topics: [], error: String(e) }
+          mark(fi, 'fail')
         }
       }
       setResults(res)
@@ -214,16 +223,16 @@ export default function Upload({ nav, params }) {
               <div className="flex flex-col gap-2">
                 {files.map((fe, i) => (
                   <div key={i} className="milky-row !py-2 !px-2.5" style={fe.dupe ? { opacity: 0.55 } : undefined}>
-                    <span className="up-thumb"><Icon name={fe.kind === 'image' ? 'image' : 'file'} /></span>
+                    <span className="up-thumb">{fe.url ? <img src={fe.url} alt="" /> : <Icon name={fe.kind === 'image' ? 'image' : 'file'} />}</span>
                     <span className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <span className="font-semibold text-[14px] truncate" dir="ltr" style={{ textAlign: 'right' }}>{fe.file.name}</span>
-                      <span className="text-[12px] font-semibold" style={{ color: fe.dupe ? 'var(--accent)' : 'var(--muted)' }}>
-                        {fe.dupe ? `כבר הועלה (${fe.dupe}) — נדלג` : 'מוכן לניתוח'}
-                      </span>
+                      <FileStatus dupe={fe.dupe} s={busy ? status[i] : null} />
                     </span>
-                    <button type="button" onClick={() => removeFile(i)} aria-label="הסר קובץ" className="up-x">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-                    </button>
+                    {!busy && (
+                      <button type="button" onClick={() => removeFile(i)} aria-label="הסר קובץ" className="up-x">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -247,6 +256,21 @@ export default function Upload({ nav, params }) {
             </label>
           </div>
 
+          {busy && (() => {
+            const total = status.filter((s) => s !== 'skip').length
+            const fin = status.filter((s) => s === 'done' || s === 'fail').length
+            return (
+              <div className="mt-4 flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-[13.5px] font-semibold">
+                  <span className="up-spin" />
+                  {total > 1 ? `מנתח קובץ ${Math.min(fin + 1, total)} מתוך ${total}…` : 'מנתח את החומר…'}
+                </div>
+                <div className="up-bar"><i style={{ width: `${Math.max(6, (fin / Math.max(total, 1)) * 100)}%` }} /></div>
+                <div className="text-[12px] text-muted">כל דף לוקח בערך חצי דקה. אפשר להשאיר את המסך פתוח ולחכות.</div>
+              </div>
+            )
+          })()}
+
           <button type="button" className="ts-practice mt-4 !h-[56px] !rounded-[28px] !text-[17px]" onClick={analyze} disabled={!analyzable || busy}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>
             {busy ? 'מנתח…' : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `נתח ${analyzable} קבצים` : 'נתח חומר'}
@@ -264,6 +288,7 @@ export default function Upload({ nav, params }) {
               <div key={fi} className="flex flex-col gap-2">
                 {files.length > 1 && (
                   <div className="flex items-center gap-2 text-[13px] font-semibold text-muted">
+                    {fe.url && !r?.error && <span className="up-thumb !w-8 !h-8 !rounded-[9px]"><img src={fe.url} alt="" /></span>}
                     <span className="truncate" dir="ltr">{fe.file.name}</span>
                     {rows.length > 1 && <span className="tp-badge flex-none" style={{ background: 'var(--primary)' }}>זוהו {rows.length} נושאים</span>}
                   </div>
@@ -271,7 +296,10 @@ export default function Upload({ nav, params }) {
                 {r?.skipped ? (
                   <div className="milky-row text-muted text-[13px]">כבר הועלה למקצוע — דילגנו.</div>
                 ) : r?.error ? (
-                  <div className="milky-row text-[13px]" style={{ color: 'var(--bad)' }}>ניתוח נכשל לקובץ זה — נסו לצלם ברור יותר.</div>
+                  <div className="milky-row !flex-col !items-stretch !gap-2">
+                    <div className="text-[13px] font-semibold" style={{ color: 'var(--bad)' }}>ניתוח נכשל לדף הזה — נסו לצלם אותו שוב, ברור יותר.</div>
+                    {fe.url && <img src={fe.url} alt="הדף שלא נותח" className="up-preview" />}
+                  </div>
                 ) : rows.length === 0 ? (
                   <div className="milky-row text-muted text-[13px]">לא זוהה תוכן.</div>
                 ) : rows.map(({ c, ci }, k) => (
@@ -315,4 +343,14 @@ export default function Upload({ nav, params }) {
       )}
     </div>
   )
+}
+
+// מצב הקובץ ברשימה: לפני הניתוח / תוך כדי / אחרי
+function FileStatus({ dupe, s }) {
+  if (dupe) return <span className="text-[12px] font-semibold" style={{ color: 'var(--accent)' }}>{`כבר הועלה (${dupe}) — נדלג`}</span>
+  if (s === 'run') return <span className="text-[12px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--primary)' }}><span className="up-spin !w-3 !h-3" />מנתח…</span>
+  if (s === 'done') return <span className="text-[12px] font-semibold" style={{ color: 'var(--good)' }}>✓ נותח</span>
+  if (s === 'fail') return <span className="text-[12px] font-semibold" style={{ color: 'var(--bad)' }}>הניתוח נכשל</span>
+  if (s === 'wait') return <span className="text-[12px] font-semibold text-muted">ממתין בתור</span>
+  return <span className="text-[12px] font-semibold text-muted">מוכן לניתוח</span>
 }
