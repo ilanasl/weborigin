@@ -92,7 +92,8 @@ export default function Home({ nav }) {
   const cardMeta = (s) => {
     const ex = s.exams[0]
     if (ex && ex.days <= 14) return ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`
-    return `${s.nTopics} נושאים · ${s.nMaterials} חומרים`
+    // מספר החומרים (צילומים) לא אומר הרבה — מציגים רק כמה נושאים יש
+    return s.nTopics ? `${s.nTopics} ${s.nTopics === 1 ? 'נושא' : 'נושאים'}` : 'עוד אין חומר'
   }
 
   return (
