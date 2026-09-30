@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { analyzeMaterial, fileHash } from '../lib/gemini'
@@ -22,6 +23,18 @@ const isWord = (f) => /\.(docx?|rtf)$/i.test(f.name) ||
   f.type.includes('word') || f.type.includes('officedocument.wordprocessing')
 const kindOf = (f) => isText(f) ? 'text' : f.type === 'application/pdf' ? 'pdf' : 'image'
 
+// בזמן ניתוח: המסך לא נכבה (אחרת הטלפון עלול לעצור את הניתוח), ויציאה שואלת קודם
+const LEAVE_MSG = 'הניתוח עדיין רץ — יציאה מהמסך תבטל אותו והחומר לא יישמר. לצאת בכל זאת?'
+let wakeLock = null
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen')
+      wakeLock.addEventListener?.('release', () => { wakeLock = null })
+    } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null }
+  } catch { wakeLock = null }
+}
+
 export default function Upload({ nav, params }) {
   const { subjectId, subjectName } = params
   const { profile } = useAuth()
@@ -33,6 +46,18 @@ export default function Upload({ nav, params }) {
   const [topicsList, setTopicsList] = useState([])
   const [chosen, setChosen] = useState([])     // [{ fileIdx, name, summary_md, questions, flashcards }]
   const [err, setErr] = useState('')
+  // ניקוי אם עוזבים את המסך (אחרי אישור) + שמירה מסגירת הלשונית ומנעילת מסך בזמן ניתוח
+  const left = useRef(false)   // יצאו מהמסך באמצע — לא ממשיכים לנתח (ולא מבזבזים קריאות)
+  useEffect(() => () => { left.current = true; setLeaveGuard(null); keepAwake(false) }, [])
+  useEffect(() => {
+    if (!busy || results) return
+    const onUnload = (e) => { e.preventDefault(); e.returnValue = '' }
+    // נעילת "מסך דולק" משתחררת כשעוברים לאפליקציה אחרת — מבקשים שוב כשחוזרים
+    const onVis = () => { if (document.visibilityState === 'visible') keepAwake(true) }
+    window.addEventListener('beforeunload', onUnload)
+    document.addEventListener('visibilitychange', onVis)
+    return () => { window.removeEventListener('beforeunload', onUnload); document.removeEventListener('visibilitychange', onVis) }
+  }, [busy, results])
   const [status, setStatus] = useState([])   // מצב כל קובץ בזמן הניתוח: wait | run | done | fail | skip
 
   async function onPick(list) {
@@ -75,6 +100,7 @@ export default function Upload({ nav, params }) {
   async function analyze() {
     if (!files.length) return
     setBusy(true); setErr('')
+    setLeaveGuard(LEAVE_MSG); keepAwake(true)
     const st = files.map((f) => (f.dupe ? 'skip' : 'wait'))
     setStatus(st.slice())
     const mark = (fi, s) => { st[fi] = s; setStatus(st.slice()) }
@@ -87,6 +113,7 @@ export default function Upload({ nav, params }) {
       for (let fi = 0; fi < files.length; fi++) {
         const { file } = files[fi]
         // קובץ שכבר הועלה למקצוע — מדלגים אוטומטית (לא מנתחים ולא שומרים שוב)
+        if (left.current) return
         if (files[fi].dupe) { res[fi] = { source_text: null, topics: [], error: null, skipped: true }; continue }
         mark(fi, 'run')
         try {
@@ -119,7 +146,7 @@ export default function Upload({ nav, params }) {
       if (flat.length === 0) setErr('לא זוהה תוכן באף קובץ. נסו לצלם ברור יותר / בתאורה טובה.')
     } catch (e) {
       setErr('הניתוח נכשל. ודאו חיבור לאינטרנט. ' + String(e))
-    } finally { setBusy(false) }
+    } finally { setBusy(false); setLeaveGuard(null); keepAwake(false) }
   }
 
   async function ensureTopic(name, origin) {
