@@ -23,6 +23,9 @@ import Soon from './pages/Soon'
 import Settings from './pages/Settings'
 import Parent from './pages/Parent'
 import { confirmLeave } from './lib/leaveGuard'
+import { startUpdateWatch, updateReady, reloadInto, restoredStack } from './lib/appUpdate'
+
+startUpdateWatch()
 
 function ConfigNeeded() {
   return (
@@ -108,23 +111,40 @@ const PAGES = {
 
 function Shell() {
   const { user, loading, signOut } = useAuth()
-  const [stack, setStack] = useState([{ name: 'home', params: {}, id: 0 }])
+  // אחרי טעינת גרסה חדשה — חוזרים לאותה מחסנית מסכים
+  const [stack, setStack] = useState(() => (restoredStack() || [{ name: 'home', params: {} }]).map((r) => ({ ...r, id: ++seq })))
+  const stackRef = useRef(stack)
+  stackRef.current = stack
+  // מעבר מסך: אם יש גרסה חדשה — טוענים אותה ישר למסך היעד; אחרת מעבר רגיל
+  const apply = useCallback((next) => {
+    stackRef.current = next   // מיידי — כדי ש-back ואחריו go באותה לחיצה יעבדו נכון
+    if (updateReady()) { reloadInto(next); return }
+    setStack(next)
+  }, [])
   // מיקום הגלילה של כל מסך נשמר כשיוצאים ממנו, ו"חזרה" מחזירה בדיוק לאותו מקום
   const scrollMem = useRef({})
   const pendingY = useRef(0)
-  const go = useCallback((name, params = {}) => confirmLeave() && setStack((s) => {
+  const go = useCallback((name, params = {}) => {
+    if (!confirmLeave()) return
+    const s = stackRef.current
     const top = s[s.length - 1]
     if (top) scrollMem.current[top.id] = window.scrollY
     pendingY.current = 0
-    return [...s, { name, params, id: ++seq }]
-  }), [])
-  const back = useCallback(() => confirmLeave() && setStack((s) => {
-    if (s.length <= 1) return s
+    apply([...s, { name, params, id: ++seq }])
+  }, [apply])
+  const back = useCallback(() => {
+    if (!confirmLeave()) return
+    const s = stackRef.current
+    if (s.length <= 1) return
     const prev = s[s.length - 2]
     pendingY.current = scrollMem.current[prev.id] || 0
-    return s.slice(0, -1)
-  }), [])
-  const reset = useCallback((name = 'home', params = {}) => { if (!confirmLeave()) return; pendingY.current = 0; setStack([{ name, params, id: ++seq }]) }, [])
+    apply(s.slice(0, -1))
+  }, [apply])
+  const reset = useCallback((name = 'home', params = {}) => {
+    if (!confirmLeave()) return
+    pendingY.current = 0
+    apply([{ name, params, id: ++seq }])
+  }, [apply])
 
   const topId = stack[stack.length - 1]?.id
   useEffect(() => {
