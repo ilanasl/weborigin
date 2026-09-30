@@ -22,6 +22,7 @@ import Store from './pages/Store'
 import Soon from './pages/Soon'
 import Settings from './pages/Settings'
 import Parent from './pages/Parent'
+import Summaries from './pages/Summaries'
 import { confirmLeave } from './lib/leaveGuard'
 import { parseDay } from './lib/plan'
 import { startUpdateWatch, updateReady, reloadInto, restoredStack } from './lib/appUpdate'
@@ -107,7 +108,7 @@ const PAGES = {
   practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax,
   parentReport: ParentReport, store: Store, soon: Soon,
-  settings: Settings, parent: Parent,
+  settings: Settings, parent: Parent, summaries: Summaries,
 }
 
 function Shell() {
