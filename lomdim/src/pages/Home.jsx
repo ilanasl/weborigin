@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
+import { expirePastExams } from '../lib/plan'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
@@ -33,8 +34,10 @@ export default function Home({ nav }) {
 
   async function load() {
     setLoading(true)
-    const [{ data: subs }, { data: att }, { data: tp }, { data: mt }, bal] = await Promise.all([
-      supabase.from('subjects').select('*').order('created_at'),
+    // מבחן/מבדק שעבר — מתאפס (תאריך + מיקוד) לפני שמחשבים מוכנות ונושאים
+    const { data: subs0 } = await supabase.from('subjects').select('*').order('created_at')
+    const subs = await expirePastExams(subs0 || [])
+    const [{ data: att }, { data: tp }, { data: mt }, bal] = await Promise.all([
       supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
       supabase.from('topics').select('id, subject_id, in_exam'),
       supabase.from('materials').select('id, subject_id, storage_path, content_hash'),

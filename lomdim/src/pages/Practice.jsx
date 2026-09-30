@@ -38,13 +38,17 @@ export default function Practice({ nav, params }) {
 
   useEffect(() => {
     (async () => {
+      const { data: tp } = await supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId)
+      setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       let q = supabase.from('questions').select('*').eq('subject_id', subjectId)
       if (topicId) q = q.eq('topic_id', topicId)
-      const [{ data }, { data: tp }] = await Promise.all([
-        q.limit(40),
-        supabase.from('topics').select('id, name').eq('subject_id', subjectId),
-      ])
-      setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
+      // סימולציית מבדק: רק מהנושאים שבמיקוד (אם הוגדר); בלי מיקוד — מכל החומר
+      else if (examMode) {
+        const scopeIds = (tp || []).filter((t) => t.in_exam).map((t) => t.id)
+        if (scopeIds.length) q = q.in('topic_id', scopeIds)
+      }
+      const { data } = await q
+      // דגימה אקראית מכל השאלות (לא רק מה-40 הראשונות)
       setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10).map(shuffleChoices))
       setLoading(false)
     })()
