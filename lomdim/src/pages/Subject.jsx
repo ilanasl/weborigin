@@ -331,6 +331,7 @@ export default function Subject({ nav, params }) {
       {(() => {
         // שני טורים, אריחים זהים. מספר אי-זוגי → "תסביר לי" עובר לסוף ברוחב מלא, כך שאף פעם אין חור.
         const tools = [
+          topics.length > 0 && { k: 'sm', label: 'סיכומים', sub: 'חוברת כל הנושאים', icon: 'note', go: () => nav.go('summaries', { subjectId: id, subjectName: name }) },
           fcCount > 0 && { k: 'fc', label: 'כרטיסיות', sub: 'מושגים לשינון', icon: 'cards', go: () => nav.go('flashcards', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
