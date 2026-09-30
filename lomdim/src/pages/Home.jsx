@@ -147,7 +147,7 @@ export default function Home({ nav }) {
           </span>
           <span className="flex-1 min-w-0 flex flex-col gap-0.5 text-start">
             <span className="font-bold text-[15px] truncate">{upcoming.exams[0].kind} ב{upcoming.name}</span>
-            <span className="text-[13px] text-muted">{upcoming.examDays === 0 ? 'היום! בהצלחה 🍀' : upcoming.ready == null ? 'אוספים נתונים על המוכנות' : `מוכנות ${upcoming.ready}%`}</span>
+            <span className="text-[13px] text-muted">{upcoming.examDays === 0 ? 'היום! בהצלחה 🍀' : upcoming.ready == null ? 'מוכנות: עוד לא תורגל' : `מוכנות ${upcoming.ready}%`}</span>
           </span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
         </button>
@@ -171,7 +171,7 @@ export default function Home({ nav }) {
                 <div className="subj-meta">{cardMeta(s)}</div>
               </div>
               {s.ready == null ? (
-                <div className="subj-meta italic">אוספים נתונים…</div>
+                <div className="subj-meta">עוד לא תורגל</div>
               ) : (
                 <div className="subj-bar">
                   <div className="hero-track"><i style={{ width: `${s.ready}%` }} /></div>
