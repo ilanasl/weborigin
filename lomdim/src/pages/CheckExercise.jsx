@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
@@ -89,7 +90,7 @@ export default function CheckExercise({ params }) {
       }
       setAdded(true)
     } catch (e) {
-      setErr('הוספה לחיזוק נכשלה. נסו שוב. ' + String(e))
+      setErr(aiErrorText('הוספה לחיזוק נכשלה.', e))
     } finally { setAdding(false) }
   }
 
