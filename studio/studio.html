@@ -516,7 +516,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   const bgFill=edgeColor||tpl.bgColor;
   if(tpl.panelBg){ // coloured panel with a subtle vertical gradient (light top -> base bottom)
     const pc=(over&&over.panelColor)||tpl.bgColor||"#ffffff";
-    const paint=(x0,x1,col)=>{const pg=ctx.createLinearGradient(0,0,0,dim.h);pg.addColorStop(0,(over&&over.panelTop)||paleTint(col,0.28));pg.addColorStop(1,col);ctx.fillStyle=pg;ctx.fillRect(x0,0,x1-x0,dim.h);};
+    const paint=(x0,x1,col)=>{const pd=(over&&over.panelDir)||"top";const gv=pd==="left"?[0,0,dim.w,0]:pd==="right"?[dim.w,0,0,0]:pd==="bottom"?[0,dim.h,0,0]:[0,0,0,dim.h];const pg=ctx.createLinearGradient(gv[0],gv[1],gv[2],gv[3]);pg.addColorStop(0,(over&&over.panelTop)||paleTint(col,0.28));pg.addColorStop(1,col);ctx.fillStyle=pg;ctx.fillRect(x0,0,x1-x0,dim.h);};
     if(tpl.splittable&&over&&over.split){ // two-tone split panel: FLAT left colour + FLAT right colour (no gradient)
       const sx=Math.round((over.splitAt!=null?over.splitAt:50)/100*dim.w);
       ctx.fillStyle=pc;ctx.fillRect(0,0,sx,dim.h);
@@ -938,7 +938,7 @@ const V2_ICON={
  logo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16a8 8 0 0 1-16 0Z"/><path d="m14 4-2 8"/></svg>',
  text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg>'
 };
-const V2_MODE_FIELDS=["panelColor","panelColorR","panelTop","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoY","logoAlign","halign","prodOff","subjOff","glow","glowSize","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+const V2_MODE_FIELDS=["panelColor","panelColorR","panelTop","panelDir","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoY","logoAlign","halign","prodOff","subjOff","glow","glowSize","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
 function ensureV2Css(){if(document.getElementById("v2css"))return;const st=document.createElement("style");st.id="v2css";st.textContent=`
 .v2.modal.editor{width:min(1180px,100%)}
 .v2 .editor-controls{flex:0 0 470px;gap:10px}
@@ -1024,7 +1024,7 @@ function openEditorV2(tpl,st,onClose){
   const resetExtra=(e,i)=>{e.pos=extraDefaultPos(tpl,EXTRA_IMGS.get(e.src),i);e.under=false;e.glow=true;e.shadow=!!tpl.productShadow;};
   function resetSel(s){remember();
     if(s.t==="bg"){setMode(false);
-      if(s.id==="panel"){o.panelColor=D.panelColor;o.panelTop=null;}
+      if(s.id==="panel"){o.panelColor=D.panelColor;o.panelTop=null;delete o.panelDir;}
       else if(s.id==="fade"){o.overlay=clone(D.overlay);}
       else if(s.id==="bottom"){if(D.overlay2)o.overlay2=clone(D.overlay2);}
       else if(s.id==="split"){o.panelColorR=D.panelColorR;o.splitAt=D.splitAt;delete o._splitSnap;}}
@@ -1035,7 +1035,7 @@ function openEditorV2(tpl,st,onClose){
     else if(s.t==="text"){const k=s.key;["desktop","mobile"].forEach(z=>{["pos","sizes","bold","halign","pads"].forEach(f=>{if(o[f]&&o[f][z])delete o[f][z][k];});o.colors[z][k]=D.colors[z][k];});
       if((elOf(k)||{}).type==="button"){o.buttonAuto=D.buttonAuto;o.buttonColor=D.buttonColor;}}
     renderAll();}
-  function resetBackground(){remember();setMode(false);o.panelColor=D.panelColor;o.panelTop=null;o.overlay=clone(D.overlay);if(D.overlay2)o.overlay2=clone(D.overlay2);o.panelColorR=D.panelColorR;o.splitAt=D.splitAt;delete o._splitSnap;delete o._fadeSnap;renderAll();}
+  function resetBackground(){remember();setMode(false);o.panelColor=D.panelColor;o.panelTop=null;delete o.panelDir;o.overlay=clone(D.overlay);if(D.overlay2)o.overlay2=clone(D.overlay2);o.panelColorR=D.panelColorR;o.splitAt=D.splitAt;delete o._splitSnap;delete o._fadeSnap;renderAll();}
   function resetAll(){remember();const ex=o.extras||[];replaceOver(D);o.extras=ex;ex.forEach(resetExtra);renderAll();}
   function undo(){if(!undoState)return;const u=undoState;undoState=null;replaceOver(u);renderAll();}
   const bgInUse=id=>o.split?id==="split":(id==="panel"||(id==="fade"&&ov().opacity>0)||(id==="bottom"&&ov2()&&ov2().opacity>0));
@@ -1072,7 +1072,7 @@ function openEditorV2(tpl,st,onClose){
         label+=` — from the ${cov}`+(s.opacity>0?"":" (off)");}
       else if(id==="bottom"&&!unused&&ov2()){const s=ov2(),e=(s.fade!=null?s.fade:100)/100,h0=Math.min(s.hold||0,s.fade!=null?s.fade:100)/100;box=[0,H*(1-e),W,H*e];g=[["h",H*(1-h0),"Solid"],["h",H*(1-e),"Fade end"]];if(!(s.opacity>0))label+=" (off)";}
       else if(id==="split"){const sx=W*divider()/100;g=[["v",sx,"Split "+Math.round(o.splitAt||50)+"%"]];label=o.split?"Split — left / right halves (in use)":"Split — not in use · change a setting to use it";}
-      else if(id==="panel"){label="Panel — base colours";}
+      else if(id==="panel"){label="Panel — gradient from the "+(o.panelDir||"top");}
       if(unused)label+=" — not in use (Split is on)";
       if(id==="split"){const sx=W*(o.splitAt||50)/100;frame(x,W,H,[lw,lw,sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);frame(x,W,H,[sx+lw,lw,W-sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);}
       else frame(x,W,H,[box[0]+lw,box[1]+lw,Math.max(4,box[2]-2*lw),Math.max(4,box[3]-2*lw)],col,lw,[lw*4,lw*3]);
@@ -1105,10 +1105,12 @@ function openEditorV2(tpl,st,onClose){
     const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.title=bgInUse(id)?"In use now":"Not in use";c.onclick=()=>select({t:"bg",id});chips.append(c);});p.append(chips);
     const id=sel.id;const toFade=()=>setMode(false),toSplit=()=>setMode(true);
     if(id!=="split"&&o.split)p.append(note("Split is in use now. Changing anything here switches back to this background."));
-    if(id==="panel"){p.append(group("Base colours (top → bottom)"));
-      p.append(rowColor("Top colour",()=>o.panelTop||paleHex(o.panelColor||tpl.bgColor,0.28),v=>{toFade();o.panelTop=v;}));
-      p.append(rowColor("Base colour",()=>o.panelColor||tpl.bgColor,v=>{toFade();o.panelColor=v;}));
-      const b=mk("div","v2-slot");b.append(btn("Auto top colour",()=>{toFade();o.panelTop=null;draw();rebuildPending=true;settle();},"top colour = a light tint of the base colour"));p.append(b);}
+    if(id==="panel"){p.append(group("Base colours (gradient)"));
+      p.append(rowSeg("Gradient from",[["top","Top"],["bottom","Bottom"],["left","Left"],["right","Right"]],()=>o.panelDir||"top",v=>{toFade();o.panelDir=v;}));
+      p.append(rowColor("Start colour",()=>o.panelTop||paleHex(o.panelColor||tpl.bgColor,0.28),v=>{toFade();o.panelTop=v;}));
+      p.append(rowColor("End colour",()=>o.panelColor||tpl.bgColor,v=>{toFade();o.panelColor=v;}));
+      p.append(note(`The start colour sits at the ${o.panelDir||"top"} and blends into the end colour on the other side.`));
+      const b=mk("div","v2-slot");b.append(btn("Auto start colour",()=>{toFade();o.panelTop=null;draw();rebuildPending=true;settle();},"start colour = a light tint of the end colour"));p.append(b);}
     else if(id==="fade"||id==="bottom"){const S=id==="fade"?ov:ov2;if(!S()){p.append(note("This banner has no bottom fade."));return;}
       p.append(group(id==="fade"?"Fade":"Bottom fade"));
       p.append(rowSeg("Colour",[["custom","Custom"],["image","From image"],...(tpl.logoTint?[["logo","From logo"]]:[])],()=>S().autoLogo?"logo":S().auto?"image":"custom",v=>{toFade();S().auto=v==="image";S().autoLogo=v==="logo";}));
