@@ -135,10 +135,10 @@ export default function TopicSummary({ nav, params }) {
     if (!mergeTarget) return
     if (!window.confirm('להעביר את כל התוכן של הנושא הזה לנושא שנבחר ולמחוק את הנושא הזה?')) return
     setBusy(true)
-    for (const tbl of ['questions', 'flashcards', 'materials', 'attempts']) {
-      await supabase.from(tbl).update({ topic_id: mergeTarget }).eq('topic_id', topicId).catch(() => {})
+    // (לבונה השאילתות של Supabase אין .catch — לכן try/catch)
+    for (const tbl of ['questions', 'flashcards', 'materials', 'attempts', 'syntax_items']) {
+      try { await supabase.from(tbl).update({ topic_id: mergeTarget }).eq('topic_id', topicId) } catch { /* */ }
     }
-    await supabase.from('syntax_items').update({ topic_id: mergeTarget }).eq('topic_id', topicId).catch(() => {})
     await supabase.from('topics').delete().eq('id', topicId)
     nav.reset('subject', { id: subjectId })
   }
