@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
@@ -8,14 +9,6 @@ import { useAuth } from '../context/AuthContext'
 
 const MAX_MB = 12 // מעל זה קריאת Gemini אחת נכשלת/יקרה — עדיף לפצל
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result).split(',')[1])
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
 const readText = (file) => file.text()
 
 const isText = (f) => f.type === 'text/plain' || /\.txt$/i.test(f.name)
@@ -122,7 +115,7 @@ export default function Upload({ nav, params }) {
             out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, learner: profile, noSummary: onlyPractice })
           } else {
             out = await analyzeMaterial({
-              imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, knownTopics, learner: profile, noSummary: onlyPractice,
+              ...(await toAIInput(file)), subjectName, knownTopics, learner: profile, noSummary: onlyPractice,
             })
           }
           res[fi] = { source_text: out.source_text || null, topics: out.topics || [], error: null }
@@ -329,7 +322,8 @@ export default function Upload({ nav, params }) {
                   <div className="milky-row text-muted text-[13px]">כבר הועלה למקצוע — דילגנו.</div>
                 ) : r?.error ? (
                   <div className="milky-row !flex-col !items-stretch !gap-2">
-                    <div className="text-[13px] font-semibold" style={{ color: 'var(--bad)' }}>ניתוח נכשל לדף הזה — נסו לצלם אותו שוב, ברור יותר.</div>
+                    <div className="text-[13px] font-semibold" style={{ color: 'var(--bad)' }}>ניתוח נכשל לדף הזה — {failReason(r.error)}</div>
+                    <div className="text-[11px] text-muted" dir="ltr" style={{ textAlign: 'right' }}>{String(r.error).slice(0, 120)}</div>
                     {fe.url && <img src={fe.url} alt="הדף שלא נותח" className="up-preview" />}
                   </div>
                 ) : rows.length === 0 ? (
@@ -375,6 +369,18 @@ export default function Upload({ nav, params }) {
       )}
     </div>
   )
+}
+
+// סיבת כישלון בשפה פשוטה — כדי לדעת מה לעשות (לצלם שוב / לנסות שוב / לבדוק חיבור)
+function failReason(err) {
+  const e = String(err || '')
+  if (/timeout|504|deadline|timed out/i.test(e)) return 'לקח יותר מדי זמן. נסו שוב, או העלו את הדף הזה לבד.'
+  if (/413|too large|payload/i.test(e)) return 'הקובץ גדול מדי. נסו לצלם מחדש.'
+  if (/429|quota|rate|overload|503|unavailable/i.test(e)) return 'השירות עמוס כרגע. נסו שוב בעוד דקה.'
+  if (/network|failed to fetch|load failed/i.test(e)) return 'בעיית חיבור לאינטרנט. נסו שוב.'
+  if (/parse|json/i.test(e)) return 'התשובה מה-AI הגיעה חתוכה. נסו שוב.'
+  if (/safety|blocked|recitation/i.test(e)) return 'ה-AI סירב לעבד את הדף. נסו לצלם רק את החלק עם החומר.'
+  return 'נסו שוב, ואם זה חוזר — צלמו את הדף מחדש.'
 }
 
 // מצב הקובץ ברשימה: לפני הניתוח / תוך כדי / אחרי

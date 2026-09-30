@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { scanScope, matchScopeTopics } from '../lib/gemini'
@@ -12,14 +13,6 @@ const Chev = () => (
 
 const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת']
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result).split(',')[1])
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
 
 export default function Planner({ nav, params }) {
   const { subjectId, subjectName } = params
@@ -74,7 +67,7 @@ export default function Planner({ nav, params }) {
     if (!f) { setScopeFile(null); return }
     setScopeFile(f); setScanning(true)
     try {
-      const text = await scanScope({ imageBase64: await fileToBase64(f), mimeType: f.type, subjectName })
+      const text = await scanScope({ ...(await toAIInput(f)), subjectName })
       if (text) setSlot({ scope: (scope ? scope.trim() + '\n' : '') + text.trim() })
     } catch (e) {
       setScanErr('קריאת הצילום נכשלה. אפשר לכתוב את המיקוד ידנית. ' + String(e?.message || e).slice(0, 160))
