@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { topicSummary, fetchSourceText } from '../lib/gemini'
@@ -109,7 +110,7 @@ export default function TopicSummary({ nav, params }) {
       })
       await load(); setShowSource(true)
     } catch (e) {
-      setErr('הבאת הטקסט נכשלה. אפשר לנסות שוב, או להביא מהמקורות למטה. ' + String(e))
+      setErr(aiErrorText('הבאת הטקסט נכשלה.', e))
     } finally { setFetching(false) }
   }
 
@@ -124,7 +125,7 @@ export default function TopicSummary({ nav, params }) {
       })
       await load()
     } catch (e) {
-      setErr('יצירת הסיכום נכשלה. נסו שוב עוד רגע. ' + String(e))
+      setErr(aiErrorText('יצירת הסיכום נכשלה.', e))
     } finally { setBusy(false) }
   }
 

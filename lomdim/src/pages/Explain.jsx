@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { aiErrorText } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { explain, prepNote } from '../lib/gemini'
@@ -83,7 +84,7 @@ export default function Explain({ nav, params }) {
       const next = [...afterMe, { who: 'ai', text: answer || 'לא הצלחתי לענות, נסו לנסח אחרת.' }]
       setMsgs(next); persist(next)
     } catch (e) {
-      setMsgs((m) => [...m, { who: 'ai', text: 'שגיאה: ' + String(e?.message || e).slice(0, 300) }])
+      setMsgs((m) => [...m, { who: 'ai', text: aiErrorText('לא הצלחתי לענות.', e?.message || e) }])
     } finally { setBusy(false) }
   }
 

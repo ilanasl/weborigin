@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { aiErrorText } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { generateSentenceTags } from '../lib/gemini'
@@ -47,7 +48,7 @@ export default function Syntax({ nav, params }) {
       if (initial) { setItems(added); setIdx(0); setPicks({}); setSel([]); setChecked(false) }
       else setItems((prev) => [...prev, ...added])
     } catch (e) {
-      setErr('יצירת המשפטים נכשלה. נסו שוב עוד רגע. ' + String(e?.message || e))
+      setErr(aiErrorText('יצירת המשפטים נכשלה.', e?.message || e))
     } finally { setGenerating(false); setLoading(false) }
   }
 

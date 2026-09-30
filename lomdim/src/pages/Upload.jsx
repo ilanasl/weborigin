@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
@@ -138,7 +139,7 @@ export default function Upload({ nav, params }) {
       setChosen(flat)
       if (flat.length === 0) setErr('לא זוהה תוכן באף קובץ. נסו לצלם ברור יותר / בתאורה טובה.')
     } catch (e) {
-      setErr('הניתוח נכשל. ודאו חיבור לאינטרנט. ' + String(e))
+      setErr(aiErrorText('הניתוח נכשל.', e))
     } finally { setBusy(false); setLeaveGuard(null); keepAwake(false) }
   }
 
@@ -373,15 +374,7 @@ export default function Upload({ nav, params }) {
 
 // סיבת כישלון בשפה פשוטה — כדי לדעת מה לעשות (לצלם שוב / לנסות שוב / לבדוק חיבור)
 function failReason(err) {
-  const e = String(err || '')
-  if (/timeout|504|deadline|timed out/i.test(e)) return 'לקח יותר מדי זמן. נסו שוב, או העלו את הדף הזה לבד.'
-  if (/413|too large|payload/i.test(e)) return 'הקובץ גדול מדי. נסו לצלם מחדש.'
-  if (/credit|billing|prepa|insufficient|exhausted|quota/i.test(e)) return 'נגמרו הקרדיטים בחשבון Google Gemini — צריך להטעין/לבדוק חיוב ב-Google AI Studio, ואז לנסות שוב.'
-  if (/429|rate|overload|503|unavailable/i.test(e)) return 'השירות עמוס כרגע. נסו שוב בעוד דקה.'
-  if (/network|failed to fetch|load failed/i.test(e)) return 'בעיית חיבור לאינטרנט. נסו שוב.'
-  if (/parse|json/i.test(e)) return 'התשובה מה-AI הגיעה חתוכה. נסו שוב.'
-  if (/safety|blocked|recitation/i.test(e)) return 'ה-AI סירב לעבד את הדף. נסו לצלם רק את החלק עם החומר.'
-  return 'נסו שוב, ואם זה חוזר — צלמו את הדף מחדש.'
+  return aiErrorReason(err) || 'נסו שוב, ואם זה חוזר — צלמו את הדף מחדש.'
 }
 
 // מצב הקובץ ברשימה: לפני הניתוח / תוך כדי / אחרי
