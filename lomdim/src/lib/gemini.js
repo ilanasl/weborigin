@@ -120,26 +120,20 @@ function buildParts(payload) {
       (sourceText ? `לפי החומר:\n${sourceText}` : '') })
     return { parts, wantJson: true }
   }
-  if (task === 'rebalance') {
-    const { questions = [], learner } = payload
+  if (task === 'review_questions') {
+    const { items = [], subjectName, learner, source } = payload  // [{id, q, choices, answer, explain}]
     parts.push({ text:
-      `לפניך שאלות אמריקאיות שבהן התשובה הנכונה (answer = אינדקס) ארוכה או מפורטת בהרבה מהאפשרויות האחרות — וזה מסגיר אותה. ` +
-      `תקן/י כל שאלה כך שארבע האפשרויות יהיו באורך דומה (הפרש של כמה מילים לכל היותר): קצר/י את התשובה הנכונה לניסוח תמציתי (פרטים והסברים — לשדה explain), ` +
-      `ובמידת הצורך הרחב/י מסיחים עם תוכן אמיתי ומבלבל (לא מילוי סרק). אל תשנה/י את משמעות התשובה הנכונה, את מיקומה (answer) או את השאלה עצמה. ` +
-      `החזר/י JSON בלבד באותו סדר: {"questions":[{"q":"","choices":["","","",""],"answer":0,"explain":""}]}. ` +
-      HEB_RULE + ' ' + PLAUSIBLE_RULE + learnerRule(learner) + `\n\nהשאלות:\n${JSON.stringify(questions)}` })
-    return { parts, wantJson: true }
-  }
-  if (task === 'fix_questions') {
-    const { items = [], subjectName, learner } = payload  // [{id, q, choices, answer, explain}]
-    parts.push({ text:
-      `לפניך שאלות אמריקאיות קיימות במקצוע "${subjectName}" (answer = אינדקס התשובה הנכונה). בדוק/י כל שאלה ותקן/י רק אם יש בה אחת מהבעיות הבאות: ` +
-      `(1) התשובה הנכונה ארוכה או מפורטת בבירור מהאחרות — קצר/י אותה לניסוח תמציתי והעבר/י פרטים ל-explain; ` +
-      `(2) מסיח מופרך, מצחיק, מחוץ לנושא או כזה שכל אחד פוסל מיד — החלף/י במסיח סביר ומבלבל; ` +
-      `(3) ערבוב מקצועות (למשל מונחי דקדוק או בניינים בשאלה בספרות) — החלף/י באפשרות מתוך המקצוע עצמו. ` +
-      `אסור לשנות את השאלה (q), את משמעות התשובה הנכונה או את מיקומה (answer). שאלה תקינה — החזר/י עם "fixed":false ובלי שינוי. ` +
-      `החזר/י JSON בלבד, עם אותם id: {"items":[{"id":"","fixed":true,"choices":["","","",""],"explain":""}]}. ` +
+      `לפניך שאלות אמריקאיות במקצוע "${subjectName}" (answer = אינדקס התשובה הנכונה, 0 = הראשונה). בצע/י בקרת איכות לכל שאלה בנפרד:\n` +
+      `(1) נכונות — הכי חשוב: פתור/י את השאלה בעצמך צעד-אחר-צעד. ודא/י שהאפשרות המסומנת נכונה${source ? ' לפי החומר המצורף' : ''} ולפי הידע המקובל ברמת הכיתה, ושאין אפשרות נוספת שגם היא נכונה. ` +
+      `אם הסימון שגוי — תקן/י את answer. אם השאלה לא חד-משמעית — נסח/י מחדש את השאלה או את האפשרויות כך שתהיה תשובה נכונה אחת בלבד. ` +
+      `רק אם השאלה בנויה על מידע שגוי ואי אפשר לתקן אותה בביטחון — "status":"drop" (השתמש/י בזה במשורה).\n` +
+      `(2) התשובה הנכונה ארוכה או מפורטת בבירור מהאחרות — קצר/י אותה והעבר/י פרטים ל-explain.\n` +
+      `(3) מסיח מופרך, מחוץ לנושא או כזה שכל אחד פוסל מיד — החלף/י במסיח סביר ומבלבל.\n` +
+      `(4) מונחים ממקצוע אחר (למשל בניינים או דקדוק בשאלה בספרות) — החלף/י בתוכן מהמקצוע עצמו.\n` +
+      `ההסבר (explain) חייב להתאים לתשובה הנכונה. שאלה תקינה — "status":"ok" בלי שדות נוספים. שאלה שתוקנה — "status":"fixed" עם השאלה המלאה המתוקנת. ` +
+      `החזר/י JSON בלבד, עם אותם id: {"items":[{"id":"","status":"ok|fixed|drop","q":"","choices":["","","",""],"answer":0,"explain":""}]}. ` +
       HEB_RULE + ' ' + LENGTH_RULE + ' ' + PLAUSIBLE_RULE + ' ' + nikudRule(subjectName) + subjectRule(subjectName) + learnerRule(learner) +
+      (source ? `\n\nהחומר שממנו נוצרו השאלות:\n"""${String(source).slice(0, 10000)}"""` : '') +
       `\n\nהשאלות:\n${JSON.stringify(items)}` })
     return { parts, wantJson: true }
   }
@@ -343,23 +337,39 @@ export function isUnbalanced(q) {
   const maxOther = Math.max(...others)
   return c > maxOther * 1.25 && c - maxOther >= 12
 }
-// שולח שוב (קריאה אחת) רק את השאלות הלא מאוזנות, ומחליף אותן אם התיקון תקין
-async function balanceLengths(questions, learner) {
-  const list = questions || []
-  const bad = list.map((q, i) => (isUnbalanced(q) ? i : -1)).filter((i) => i >= 0)
-  if (!bad.length) return list
-  try {
-    const out = deepClean(await call({ task: 'rebalance', learner, questions: bad.map((i) => ({ q: list[i].q, choices: list[i].choices, answer: list[i].answer, explain: list[i].explain || '' })) }))
-    const fixed = Array.isArray(out.questions) ? out.questions : []
-    const res = list.slice()
-    bad.forEach((i, k) => {
-      const f = fixed[k]
-      if (f && Array.isArray(f.choices) && f.choices.length === list[i].choices.length && f.answer === list[i].answer) {
-        res[i] = { ...list[i], choices: f.choices, explain: f.explain || list[i].explain }
-      }
-    })
-    return res
-  } catch { return list }
+// בקרת איכות לתשובה אחת של הבודק: מחזיר {kind:'ok'|'fixed'|'drop', q?} — ומוודא שהתיקון תקין לפני שמשתמשים בו
+export function readReview(orig, it) {
+  if (!it || it.status === 'ok' || !it.status) return { kind: 'ok' }
+  if (it.status === 'drop') return { kind: 'drop' }
+  const n = orig.choices.length
+  const choices = Array.isArray(it.choices) && it.choices.length === n && it.choices.every((c) => typeof c === 'string' && c.trim()) ? it.choices : null
+  const answer = Number.isInteger(it.answer) && it.answer >= 0 && it.answer < n ? it.answer : null
+  if (!choices || answer == null) return { kind: 'ok' }
+  const q = typeof it.q === 'string' && it.q.trim() ? it.q : orig.q
+  const explain = typeof it.explain === 'string' && it.explain.trim() ? it.explain : orig.explain
+  const same = q === orig.q && answer === orig.answer && choices.every((c, k) => c === orig.choices[k]) && explain === orig.explain
+  return same ? { kind: 'ok' } : { kind: 'fixed', q: { ...orig, q, choices, answer, explain } }
+}
+export const reviewBatch = async (p) => deepClean(await call({ task: 'review_questions', ...p }))
+
+// בקרת איכות אוטומטית לשאלות חדשות (נכונות, אורך, מסיחים, ערבוב מקצועות) — לפני שהן נשמרות
+async function reviewQuestions(questions, { subjectName, learner, source }) {
+  const list = (questions || []).filter((q) => Array.isArray(q?.choices) && q.choices.length >= 2 && typeof q.answer === 'number')
+  if (!list.length) return questions || []
+  const CH = 12
+  const chunks = []
+  for (let i = 0; i < list.length; i += CH) chunks.push(list.slice(i, i + CH))
+  const done = await Promise.all(chunks.map(async (chunk) => {
+    try {
+      const { items } = await reviewBatch({ subjectName, learner, source, items: chunk.map((q, i) => ({ id: String(i), q: q.q, choices: q.choices, answer: q.answer, explain: q.explain || '' })) })
+      const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
+      const res = chunk.map((q, i) => ({ q, r: readReview(q, byId[String(i)]) }))
+      // בודק שמוחק יותר מחצי — חשוד; לא מוחקים כלום במנה הזו
+      const tooMany = res.filter((x) => x.r.kind === 'drop').length > chunk.length / 2
+      return res.filter((x) => tooMany || x.r.kind !== 'drop').map((x) => (x.r.kind === 'fixed' ? x.r.q : x.q))
+    } catch { return chunk }
+  }))
+  return done.flat()
 }
 
 export const analyzeMaterial = async (p) => {
@@ -369,19 +379,21 @@ export const analyzeMaterial = async (p) => {
     ? out.topics
     : (out.topic ? [{ topic: out.topic, summary_md: out.summary_md, questions: out.questions, flashcards: out.flashcards }] : [])
   const valid = raw.filter((t) => t && t.topic)
-  // איזון אורך — קריאה אחת לכל השאלות הבעייתיות מכל הנושאים
-  const flat = valid.flatMap((t, ti) => (t.questions || []).map((q) => ({ ...q, _t: ti })))
-  const balanced = await balanceLengths(flat, p.learner)
+  // בקרת איכות — כל נושא מול הסיכום שלו והטקסט המקורי (במקביל)
+  const extra = [out.source_text, p.text].filter(Boolean).join('\n\n')
+  const reviewed = await Promise.all(valid.map((t) => reviewQuestions(t.questions, {
+    subjectName: p.subjectName, learner: p.learner, source: [t.summary_md, extra].filter(Boolean).join('\n\n'),
+  })))
   const topics = valid.map((t, ti) => ({
     ...t,
-    questions: shuffleQuestions(balanced.filter((q) => q._t === ti).map(({ _t, ...q }) => q)),
+    questions: shuffleQuestions(reviewed[ti]),
     flashcards: t.flashcards || [],
   }))
   return { topics, source_text: out.source_text || '' }
 }
 export const generateQuestions = async (p) => {
   const out = deepClean(await call({ task: 'generate_questions', ...p }))
-  return { ...out, questions: shuffleQuestions(await balanceLengths(out.questions, p.learner)) }
+  return { ...out, questions: shuffleQuestions(await reviewQuestions(out.questions, { subjectName: p.subjectName, learner: p.learner, source: p.sourceText })) }
 }
 export const explain = async (p) => deepClean(await call({ task: 'explain', ...p }))
 export const checkExercise = async (p) => deepClean(await call({ task: 'check_exercise', ...p }))
@@ -397,8 +409,6 @@ export const prepNote = async (p) => deepClean(await call({ task: 'prep_note', .
 export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
 // הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת
 export const renikudQuestions = async (items) => deepClean(await call({ task: 'renikud', items }))
-// תיקון שאלות קיימות: תשובה נכונה ארוכה, מסיחים מופרכים, ערבוב מקצועות — מחזיר רק שינויים באפשרויות/הסבר
-export const fixQuestions = async (p) => deepClean(await call({ task: 'fix_questions', ...p }))
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
