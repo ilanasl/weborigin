@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
@@ -7,14 +8,6 @@ import { pickTopicId } from '../lib/checkTopic'
 import Icon from '../components/Icon'
 import { VARIATIONS, varKind } from '../lib/mastery'
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result).split(',')[1])
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
 
 export default function CheckExercise({ params }) {
   const { subjectId, subjectName } = params
@@ -104,7 +97,7 @@ export default function CheckExercise({ params }) {
     if (!file) return
     setBusy(true); setErr(''); setRes(null); setAdded(false)
     try {
-      const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
+      const out = await checkExercise({ ...(await toAIInput(file)), subjectName, learner: profile })
       setRes(out)
       saveCheck(out, file) // שמירה להיסטוריה
       const hasMistake = out.correct === false || (Array.isArray(out.steps) && out.steps.some((s) => s.ok === false))

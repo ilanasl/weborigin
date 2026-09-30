@@ -1,16 +1,9 @@
 import { useEffect, useState } from 'react'
+import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(String(r.result).split(',')[1])
-    r.onerror = reject
-    r.readAsDataURL(file)
-  })
-}
 
 export default function PastExams({ params }) {
   const { subjectId, subjectName } = params
@@ -35,7 +28,7 @@ export default function PastExams({ params }) {
 
   async function analyzeToReinforce() {
     // ניתוח צילום המבחן → מוצא טעויות → מייצר תרגולים → לחיזוק
-    const out = await checkExercise({ imageBase64: await fileToBase64(file), mimeType: file.type, subjectName, learner: profile })
+    const out = await checkExercise({ ...(await toAIInput(file)), subjectName, learner: profile })
     const hasMistake = out.correct === false || (Array.isArray(out.steps) && out.steps.some((s) => s.ok === false)) || out.feedback
     if (!hasMistake) return false
     let topicId = null

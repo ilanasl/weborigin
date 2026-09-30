@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toAIInput } from '../lib/image'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
@@ -12,12 +13,6 @@ import { foldLegacyCheckTopic, LEGACY_CHECK_TOPIC } from '../lib/checkTopic'
 const daysUntil = (d) => d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
 const fileKey = (m) => m.storage_path || (m.content_hash || '').split(':')[0] || m.id
-const blobToBase64 = (blob) => new Promise((resolve, reject) => {
-  const r = new FileReader()
-  r.onload = () => resolve(String(r.result).split(',')[1])
-  r.onerror = reject
-  r.readAsDataURL(blob)
-})
 
 export default function Subject({ nav, params }) {
   const { id } = params
@@ -147,7 +142,7 @@ export default function Subject({ nav, params }) {
       if (m.storage_path) {
         const { data: blob, error } = await supabase.storage.from('materials').download(m.storage_path)
         if (error || !blob) throw new Error('download')
-        input = { imageBase64: await blobToBase64(blob), mimeType: blob.type || (m.kind === 'pdf' ? 'application/pdf' : 'image/jpeg') }
+        input = await toAIInput(blob, m.kind === 'pdf' ? 'application/pdf' : 'image/jpeg')
       } else {
         input = { text: m.source_text || m.summary_md || m.title || '' }
       }
