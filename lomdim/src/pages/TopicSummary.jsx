@@ -18,6 +18,8 @@ export default function TopicSummary({ nav, params }) {
   const [otherTopics, setOtherTopics] = useState([])
   const [showManage, setShowManage] = useState(false)
   const [renameVal, setRenameVal] = useState(topicName || '')
+  const [name, setName] = useState(topicName || '')   // שם הנושא (אפשר לשנות במקום)
+  const [editName, setEditName] = useState(false)
   const [mergeTarget, setMergeTarget] = useState('')
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -36,7 +38,7 @@ export default function TopicSummary({ nav, params }) {
   const isLiterary = isBible || /ספרות|שיר|פזמון|יצירה|בלדה|סיפור|פרוזה/.test(subjectName || '')
   const srcKind = isBible ? 'פסוקים' : isLiterary ? 'שיר' : 'טקסט מקור'
   // קישורים למקורות אמינים — ממולאים מראש עם שם השיר/המקור
-  const q = encodeURIComponent((ref.trim() || topicName || '').trim())
+  const q = encodeURIComponent((ref.trim() || name || '').trim())
   // חיפוש גוגל ממוקד לאתר — הכי אמין להגיע לעמוד הנכון (בלי לנחש נתיבי חיפוש פנימיים)
   const g = (extra) => `https://www.google.com/search?q=${q}${extra ? '%20' + extra : ''}`
   const SOURCES = isBible
@@ -98,7 +100,7 @@ export default function TopicSummary({ nav, params }) {
   async function fetchSource() {
     setFetching(true); setErr('')
     try {
-      const { source_text, sources } = await fetchSourceText({ subjectName, reference: ref.trim() || topicName })
+      const { source_text, sources } = await fetchSourceText({ subjectName, reference: ref.trim() || name })
       setFetchedSources(sources || [])
       await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, kind: 'text', title: 'טקסט מקור (מהרשת)', source_text,
@@ -113,7 +115,7 @@ export default function TopicSummary({ nav, params }) {
     setBusy(true); setErr('')
     try {
       // מאחד את כל החומרים שהועלו לנושא לסיכום אחד (אם אין — סיכום כללי)
-      const { summary_md } = await topicSummary({ subjectName, topicName, learner: profile, sourceMaterials: aggSource, enrich })
+      const { summary_md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, enrich })
       await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
       await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
@@ -126,9 +128,13 @@ export default function TopicSummary({ nav, params }) {
 
   async function renameTopic() {
     const nm = renameVal.trim()
-    if (!nm || nm === topicName) { setShowManage(false); return }
-    await supabase.from('topics').update({ name: nm }).eq('id', topicId)
-    nav.reset('subject', { id: subjectId })
+    if (!nm || nm === name) { setEditName(false); setRenameVal(name); return }
+    try {
+      const { error } = await supabase.from('topics').update({ name: nm }).eq('id', topicId)
+      if (error) throw error
+      setName(nm)
+    } catch { setRenameVal(name) }
+    setEditName(false)
   }
 
   async function mergeInto() {
@@ -148,12 +154,26 @@ export default function TopicSummary({ nav, params }) {
   return (
     <div className="pt-1">
       <span className="end-tag inline-block mb-3">{subjectName}</span>
-      <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">{topicName}</h1>
+      {editName ? (
+        <div className="flex items-center gap-2">
+          <input className="field flex-1 min-w-0 !text-[18px] font-bold" value={renameVal} autoFocus
+            onChange={(e) => setRenameVal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') renameTopic(); if (e.key === 'Escape') { setEditName(false); setRenameVal(name) } }} />
+          <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="שמור שם" onClick={renameTopic}><Icon name="check" size={19} /></button>
+          <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="ביטול" onClick={() => { setEditName(false); setRenameVal(name) }}><Icon name="x" size={18} /></button>
+        </div>
+      ) : (
+        <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">
+          {name}
+          <button type="button" className="inline-grid place-items-center align-middle ms-2 w-8 h-8 rounded-full text-muted" style={{ background: 'rgba(255,255,255,.08)' }}
+            aria-label="שינוי שם הנושא" onClick={() => { setRenameVal(name); setEditName(true) }}><Icon name="pencil" size={15} /></button>
+        </h1>
+      )}
       <div className="text-[13.5px] text-muted mt-1.5 mb-4">
         {summary ? 'סיכום' : 'אין עדיין סיכום'} · {qCount} שאלות{notes.length ? ` · ${notes.length} סיכומים שהוספתי` : ''}
       </div>
       <button type="button" className="ts-practice" disabled={qCount === 0}
-        onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName, mode: 'practice' })}>
+        onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
         <span>תרגל את הנושא</span>
         {qCount > 0 && <span className="ts-count tnum">{qCount}</span>}
@@ -198,7 +218,7 @@ export default function TopicSummary({ nav, params }) {
             כתבו את שם {isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — והמערכת תחפש ותביא אותו מהרשת ממקור אמין, עם קישור למקור.
           </div>
           <input className="field mb-2" value={ref} onChange={(e) => setRef(e.target.value)}
-            placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — ${topicName}`} />
+            placeholder={`שם ${isBible ? 'הפרק/הפסוקים' : isLiterary ? 'השיר' : 'הטקסט'} — ${name}`} />
           {!pasteMode && (
             <button className="btn btn-primary btn-wide" onClick={fetchSource} disabled={fetching}>
               {fetching ? 'מחפש ומביא מהרשת…' : <><Icon name="download" size={18} />הבא טקסט מלא מהרשת</>}
