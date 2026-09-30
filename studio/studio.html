@@ -267,16 +267,16 @@ const TEMPLATES = [
     id:"popup-product", name:"Popup (Product)", font:"Poppins",
     sizes:{desktop:{w:700,h:500}, mobile:{w:700,h:500}},
     bgPos:{desktop:"center", mobile:"center"},
-    bgColor:"#e9eef7", panelBg:true,
-    splittable:true, panelColorR:"#e7dfd0", splitAt:50,
+    bgColor:"#5588f1", panelBg:true,
+    splittable:true, panelColorL:"#e9eef7", panelColorR:"#e7dfd0", splitAt:50,
     productBox:{x:52,y:8,w:46,h:86}, productContain:true, productShadow:true,
     secondLayer:true, subjectBox:{x:46,y:2,w:54,h:98},
     logo:{x:5,y:9,widthPct:40,anchor:"top-left", mobile:{x:5,y:9,widthPct:40,anchor:"top-left"}},
     logoTint:true, transparentOK:true,
     defaultTopic:"two medication vials, clean product photo, plain background",
     composition:"A tall isolated product or subject with a clean plain background, suitable to place on the right side of a landscape banner. Photorealistic, soft even studio light. No text.",
-    overlay:{desktop:{color:"#e9eef7",opacity:0,gradient:true,coverage:"left",hold:40,fade:72},
-             mobile:{color:"#e9eef7",opacity:0,gradient:true,coverage:"left",hold:40,fade:72}},
+    overlay:{desktop:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:15,fade:100},
+             mobile:{color:"#ffffff",opacity:1,gradient:true,coverage:"left",hold:15,fade:100}},
     bottomOverlay:{color:"#e9eef7",opacity:0,gradient:true,coverage:"bottom",hold:22,fade:60},
     elements:[
       {key:"eyebrow",label:"Eyebrow",val:"Fall Discounts Applied!",size:26,weight:600,color:"#1a2b45",align:"left",x:5,y:26,anchor:"top-left",maxW:44,lh:1.15},
@@ -1012,7 +1012,7 @@ function openEditorV2(tpl,st,onClose){
   let rebuildPending=false;
   const snap=()=>{const s={};V2_MODE_FIELDS.forEach(k=>{if(o[k]!==undefined&&o[k]!==null)s[k]=JSON.parse(JSON.stringify(o[k]));});return s;};
   const load=s=>{if(!s)return;V2_MODE_FIELDS.forEach(k=>{if(s[k]!==undefined)o[k]=JSON.parse(JSON.stringify(s[k]));});};
-  const setMode=split=>{if(!!o.split===split)return;if(split){o._fadeSnap=snap();o.split=true;if(o._splitSnap)load(o._splitSnap);}else{o._splitSnap=snap();o.split=false;if(o._fadeSnap)load(o._fadeSnap);}backfillOver(tpl,o);rebuildPending=true;};
+  const setMode=split=>{if(!!o.split===split)return;if(split){o._fadeSnap=snap();o.split=true;if(o._splitSnap)load(o._splitSnap);else if(tpl.panelColorL)o.panelColor=tpl.panelColorL;}else{o._splitSnap=snap();o.split=false;if(o._fadeSnap)load(o._fadeSnap);}backfillOver(tpl,o);rebuildPending=true;};
   const settle=()=>{if(rebuildPending){rebuildPending=false;renderAll();}};
   const ov=()=>o.overlay[size],ov2=()=>o.overlay2&&o.overlay2[size];
   const bgInUse=id=>o.split?id==="split":(id==="panel"||(id==="fade"&&ov().opacity>0)||(id==="bottom"&&ov2()&&ov2().opacity>0));
