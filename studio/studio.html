@@ -465,8 +465,10 @@ function drawDecorations(ctx,tpl,size,dim,image,over){const dc=over.deco;if(!tpl
   if(pr.f){const ab=alphaBounds(image),f=pr.f;cx=f.dx+f.dw*(ab.l+ab.r)/2;cy=f.dy+f.dh*(ab.t+ab.b)/2;R=Math.max(f.dw*(ab.r-ab.l),f.dh*(ab.b-ab.t))/2;}
   else{const b=pr.box;cx=b[0]+b[2]/2;cy=b[1]+b[3]/2;R=Math.min(b[2],b[3])/2;}
   const RS=RENDER_SCALE||1;const L=document.createElement("canvas");L.width=Math.round(W*RS);L.height=Math.round(H*RS);const c=L.getContext("2d");c.scale(RS,RS);
-  if(on("waves")){const a=amt("waves"),k=sz("waves"),amp=H*0.04*k,wl=H*2.4;
-    [[0.15,0.2,0],[0.085,0.34,1.9]].forEach(([lift,al,ph])=>{const base=H*(1-lift*k);c.beginPath();c.moveTo(0,H);for(let x=0;x<=W;x+=4)c.lineTo(x,base+amp*Math.sin((x-cx)/wl*Math.PI*2+ph));c.lineTo(W,H);c.closePath();c.fillStyle=rgbaOf(col,al*a);c.fill();});}
+  // Waves run across the whole banner (like the site's original wave) — light enough to sit under the text.
+  if(on("waves")){const a=amt("waves"),k=sz("waves"),amp=H*0.07*k,wl=W*1.15,st=Math.max(2,W/900);
+    [[0.34,0.22,0.6],[0.2,0.3,2.6]].forEach(([lift,al,ph])=>{const base=H*(1-lift*k);ctx.beginPath();ctx.moveTo(0,H);for(let x=0;x<=W+st;x+=st)ctx.lineTo(Math.min(x,W),base+amp*Math.sin(x/wl*Math.PI*2+ph));ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle=rgbaOf(col,al*a);ctx.fill();});}
+  if(!["halo","rings","dots"].some(on))return;
   if(on("halo")){const a=amt("halo"),r=R*1.75*sz("halo");const g=c.createRadialGradient(cx,cy,0,cx,cy,r);g.addColorStop(0,rgbaOf(col,0.5*a));g.addColorStop(0.45,rgbaOf(col,0.24*a));g.addColorStop(1,rgbaOf(col,0));c.fillStyle=g;c.fillRect(cx-r,cy-r,r*2,r*2);}
   if(on("dots")){const a=amt("dots"),k=sz("dots"),sp=H*0.05*k,dr=Math.max(0.8,H*0.0055*k);c.fillStyle=rgbaOf(col,1);
     for(let y=sp/2;y<H;y+=sp)for(let x=sp/2;x<W;x+=sp){const d=Math.hypot(x-cx,y-cy)/R;if(d<1||d>3.4)continue;const t=d<1.5?(d-1)/0.5:d>2.4?(3.4-d):1;c.globalAlpha=Math.max(0,Math.min(1,t))*0.55*a;c.beginPath();c.arc(x,y,dr,0,Math.PI*2);c.fill();}
@@ -1065,6 +1067,7 @@ function ensureV2Css(){if(document.getElementById("v2css"))return;const st=docum
 .v2-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:var(--muted)}
 .v2-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .v2 .e-canvas canvas{touch-action:none}
+.v2 .editor-preview{min-width:0}
 `;document.head.appendChild(st);}
 
 function openEditorV2(tpl,st,onClose){
@@ -1077,7 +1080,7 @@ function openEditorV2(tpl,st,onClose){
       <div class="editor-controls"><div class="v2-tabs"></div><div class="v2-body"></div></div>
       <div class="editor-preview">
         <div class="v2-sel"></div>
-        <div class="e-seg seg2"><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>
+        <div class="e-inline" style="gap:10px;flex-wrap:wrap;justify-content:center"><div class="e-seg seg2"><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>${(tpl.sizes.desktop.w/tpl.sizes.desktop.h>3)?'<div class="e-seg v2-zoom"><button data-z="1" class="on">Fit</button><button data-z="2">Zoom 2×</button><button data-z="3">Zoom 3×</button></div>':''}</div>
         <div class="muted" style="font-size:12.5px">Click anything in the banner to edit it · drag to move · mouse wheel to resize · arrow keys nudge</div>
         <div class="e-canvas"><canvas></canvas></div>
         <div class="v2-legend"></div>
@@ -1131,16 +1134,16 @@ function openEditorV2(tpl,st,onClose){
   const pctFmt=v=>(v<-0.5||v>100.5)?"outside":Math.round(v)+"%";
 
   /* ---- preview + markers ---- */
-  let lastHits=[];
+  let lastHits=[],zoomF=1;
   const draw=()=>{HIT_CAPTURE=[];let c;try{c=renderBanner(tpl,size,st.img,st.text.texts,(tpl.textOptional?st.text.enabled:true),st.logoImg,st.accent,o,st.tint,st.img2);}finally{lastHits=HIT_CAPTURE||[];HIT_CAPTURE=null;}
     prev.width=c.width;prev.height=c.height;const x=prev.getContext("2d");x.drawImage(c,0,0);try{drawMarks(x,c.width,c.height);}catch(_){}};
   const hitOf=s=>lastHits.find(h=>s.t==="prod"?h.kind==="prod":s.t==="subj"?h.kind==="subj":s.t==="extra"?(h.kind==="extra"&&h.id===s.id):s.t==="logo"?h.kind==="logo":s.t==="text"?(h.kind==="text"&&h.key===s.key):false);
-  function tagAt(x,W,H,px,py,text,col,small){const fs=Math.max(11,Math.round(W/(small?64:56)));x.save();x.font=`700 ${fs}px Inter, system-ui, sans-serif`;const tw=x.measureText(text).width+fs,th=fs*1.6;
+  function tagAt(x,W,H,px,py,text,col,small){const fs=Math.max(11,Math.round(W/(small?64:56)/zoomF));x.save();x.font=`700 ${fs}px Inter, system-ui, sans-serif`;const tw=x.measureText(text).width+fs,th=fs*1.6;
     px=clamp(px,2,W-tw-2);py=clamp(py,2,H-th-2);x.beginPath();if(x.roundRect)x.roundRect(px,py,tw,th,fs*.4);else x.rect(px,py,tw,th);x.fillStyle=col;x.fill();x.fillStyle="#fff";x.textBaseline="middle";x.textAlign="left";x.fillText(text,px+fs/2,py+th/2+.5);x.restore();return th;}
   function frame(x,W,H,r,col,lw,dash,alpha){x.save();x.globalAlpha=alpha||1;x.strokeStyle=col;x.lineWidth=lw;x.setLineDash(dash);x.strokeRect(r[0],r[1],r[2],r[3]);x.restore();}
   function guide(x,W,H,kind,v,label,col,lw){x.save();x.strokeStyle=col;x.lineWidth=lw*.8;x.setLineDash([lw*2,lw*2]);x.beginPath();if(kind==="v"){x.moveTo(v,0);x.lineTo(v,H);}else{x.moveTo(0,v);x.lineTo(W,v);}x.stroke();x.restore();
-    const fs=Math.max(11,Math.round(W/64));if(kind==="v")tagAt(x,W,H,v+4,H-fs*2.4,label,col,true);else tagAt(x,W,H,W-fs*9,v+4,label,col,true);}
-  function drawMarks(x,W,H){const col=colOf(sel),lw=Math.max(2,W/320);
+    const fs=Math.max(11,Math.round(W/64/zoomF));if(kind==="v")tagAt(x,W,H,v+4,H-fs*2.4,label,col,true);else tagAt(x,W,H,W-fs*9,v+4,label,col,true);}
+  function drawMarks(x,W,H){const col=colOf(sel),lw=Math.max(2,W/320/zoomF);
     if(sel.t==="bg"){const id=sel.id,unused=o.split&&id!=="split";let box=[0,0,W,H],label=bgNames[id],g=[];
       if((id==="side"||id==="top"||id==="bottom")&&!unused){const s=ov(),cov=s.coverage||(tpl.overlay[size]||tpl.overlay.desktop).coverage||"left",e=(s.fade!=null?s.fade:100)/100,h0=Math.min(s.hold||0,s.fade!=null?s.fade:100)/100;
         if(cov==="left"){box=[0,0,W*e,H];g=[["v",W*h0,"Solid"],["v",W*e,"Fade end"]];}else if(cov==="right"){box=[W*(1-e),0,W*e,H];g=[["v",W*(1-h0),"Solid"],["v",W*(1-e),"Fade end"]];}
@@ -1151,8 +1154,8 @@ function openEditorV2(tpl,st,onClose){
       if(id==="split"){const sx=W*(o.splitAt||50)/100;frame(x,W,H,[lw,lw,sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);frame(x,W,H,[sx+lw,lw,W-sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);}
       else frame(x,W,H,[box[0]+lw,box[1]+lw,Math.max(4,box[2]-2*lw),Math.max(4,box[3]-2*lw)],col,lw,[lw*4,lw*3]);
       g.forEach(([k,v,t])=>guide(x,W,H,k,v,t,col,lw));tagAt(x,W,H,box[0]+8,box[1]+8,label,col);return;}
-    const ar=areaOf(sel);if(ar){const x0=ar[0]/100*W,x1=ar[1]/100*W;frame(x,W,H,[x0+1,1,x1-x0-2,H-2],col,lw*.7,[lw*1.5,lw*2.5],.6);const fs=Math.max(11,Math.round(W/64));tagAt(x,W,H,x0+6,H-fs*2.4,`${ar[2]} — Align & slider work here · drag to go anywhere`,col,true);}
-    const h=hitOf(sel);if(h){frame(x,W,H,[h.x-4,h.y-4,h.w+8,h.h+8],col,lw,[lw*3.5,lw*2.5]);const fs=Math.max(11,Math.round(W/56));tagAt(x,W,H,h.x-4,h.y-4-fs*1.7,nameOf(sel),col);}}
+    const ar=areaOf(sel);if(ar){const x0=ar[0]/100*W,x1=ar[1]/100*W;frame(x,W,H,[x0+1,1,x1-x0-2,H-2],col,lw*.7,[lw*1.5,lw*2.5],.6);const fs=Math.max(11,Math.round(W/64/zoomF));tagAt(x,W,H,x0+6,H-fs*2.4,`${ar[2]} — Align & slider work here · drag to go anywhere`,col,true);}
+    const h=hitOf(sel);if(h){frame(x,W,H,[h.x-4,h.y-4,h.w+8,h.h+8],col,lw,[lw*3.5,lw*2.5]);const fs=Math.max(11,Math.round(W/56/zoomF));tagAt(x,W,H,h.x-4,h.y-4-fs*1.7,nameOf(sel),col);}}
 
   /* ---- control builders ---- */
   const group=t=>mk("div","v2-g",t), note=t=>mk("div","v2-note",t);
@@ -1177,7 +1180,7 @@ function openEditorV2(tpl,st,onClose){
   /* ---- panes ---- */
   const DECO_NAMES={halo:"Halo",rings:"Rings",dots:"Dot grid",waves:"Waves"};let decoSel="halo";
   function paneDeco(p){const dc=o.deco;p.append(group("Decorations"));
-    p.append(note("Drawn around the visual and faded out before the text side. Tick to turn each one on or off."));
+    p.append(note("Waves run across the whole banner. Halo, rings and dots sit around the visual. Tick to turn each one on or off."));
     p.append(checks(Object.keys(DECO_NAMES).map(k=>[DECO_NAMES[k],()=>dc[k].on,v=>{dc[k].on=v;rebuildPending=true;}])));
     p.append(rowSeg("Colour",[["image","From image"],["custom","Custom"]],()=>dc.src||"image",v=>{if(v==="custom"&&dc.src!=="custom")dc.color=decoColorFrom(st.img)||dc.color;dc.src=v;}));
     if(dc.src==="custom")p.append(rowColor("Custom colour",()=>dc.color,v=>{dc.color=v;}));
@@ -1332,7 +1335,13 @@ function openEditorV2(tpl,st,onClose){
     const k={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[ev.key];if(!k)return;ev.preventDefault();if(t&&t.type==="range")t.blur();const stp=ev.shiftKey?5:0.5;moveSel(sel,k[0]*stp,k[1]*stp);draw();paneSoon();};
   document.addEventListener("keydown",onKey);
 
-  back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));renderAll();}));
+  back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));renderAll();applyZoom();}));
+  // Zoom (wide banners): enlarge the preview inside a scroll box and bring the visual into view.
+  const box=back.querySelector(".e-canvas");
+  const applyZoom=()=>{draw();if(zoomF<=1){box.style.width="";prev.style.width="";prev.style.maxWidth="";prev.style.maxHeight="";return;}
+    box.style.width="100%";const cw=box.clientWidth;prev.style.maxWidth="none";prev.style.maxHeight="none";prev.style.width=Math.round(cw*zoomF)+"px";
+    const h=lastHits.find(x=>x.kind==="prod");const fx=h?(h.x+h.w/2)/prev.width:0.8;requestAnimationFrame(()=>{box.scrollLeft=Math.max(0,fx*cw*zoomF-cw/2);});};
+  back.querySelectorAll(".v2-zoom button").forEach(b=>b.addEventListener("click",()=>{zoomF=+b.dataset.z;back.querySelectorAll(".v2-zoom button").forEach(x=>x.classList.toggle("on",x===b));applyZoom();}));
   const close=()=>{document.removeEventListener("keydown",onKey);back.remove();onClose();};
   back.addEventListener("click",e=>{if(e.target===back)close();});
   back.querySelector(".e-x").addEventListener("click",close);
