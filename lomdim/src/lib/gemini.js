@@ -130,6 +130,19 @@ function buildParts(payload) {
       HEB_RULE + ' ' + PLAUSIBLE_RULE + learnerRule(learner) + `\n\nהשאלות:\n${JSON.stringify(questions)}` })
     return { parts, wantJson: true }
   }
+  if (task === 'fix_questions') {
+    const { items = [], subjectName, learner } = payload  // [{id, q, choices, answer, explain}]
+    parts.push({ text:
+      `לפניך שאלות אמריקאיות קיימות במקצוע "${subjectName}" (answer = אינדקס התשובה הנכונה). בדוק/י כל שאלה ותקן/י רק אם יש בה אחת מהבעיות הבאות: ` +
+      `(1) התשובה הנכונה ארוכה או מפורטת בבירור מהאחרות — קצר/י אותה לניסוח תמציתי והעבר/י פרטים ל-explain; ` +
+      `(2) מסיח מופרך, מצחיק, מחוץ לנושא או כזה שכל אחד פוסל מיד — החלף/י במסיח סביר ומבלבל; ` +
+      `(3) ערבוב מקצועות (למשל מונחי דקדוק או בניינים בשאלה בספרות) — החלף/י באפשרות מתוך המקצוע עצמו. ` +
+      `אסור לשנות את השאלה (q), את משמעות התשובה הנכונה או את מיקומה (answer). שאלה תקינה — החזר/י עם "fixed":false ובלי שינוי. ` +
+      `החזר/י JSON בלבד, עם אותם id: {"items":[{"id":"","fixed":true,"choices":["","","",""],"explain":""}]}. ` +
+      HEB_RULE + ' ' + LENGTH_RULE + ' ' + PLAUSIBLE_RULE + ' ' + nikudRule(subjectName) + subjectRule(subjectName) + learnerRule(learner) +
+      `\n\nהשאלות:\n${JSON.stringify(items)}` })
+    return { parts, wantJson: true }
+  }
   if (task === 'explain') {
     const { subjectName, context, question, learner } = payload
     parts.push({ text:
@@ -384,6 +397,8 @@ export const prepNote = async (p) => deepClean(await call({ task: 'prep_note', .
 export const generateSentenceTags = async (p) => deepClean(await call({ task: 'tag_sentence', ...p }))
 // הוספת ניקוד לשאלות קיימות (בניינים/צורות פועל) — מקבל מנה ומחזיר אותה מנוקדת
 export const renikudQuestions = async (items) => deepClean(await call({ task: 'renikud', items }))
+// תיקון שאלות קיימות: תשובה נכונה ארוכה, מסיחים מופרכים, ערבוב מקצועות — מחזיר רק שינויים באפשרויות/הסבר
+export const fixQuestions = async (p) => deepClean(await call({ task: 'fix_questions', ...p }))
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
