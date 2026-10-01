@@ -22,6 +22,15 @@ function shuffleChoices(q) {
 const now = () => new Date().toISOString()
 const ROUND = 15 // כמה פריטים בסבב חיזוק אחד
 
+// מחיקת שאלות וריאציה שסיימו את תפקידן — בלי למחוק את התשובות שנרשמו (נשארות ביעד היומי ובהתקדמות)
+async function dropVariationQuestions(ids) {
+  if (!ids?.length) return
+  try {
+    await supabase.from('attempts').update({ question_id: null }).in('question_id', ids)
+    await supabase.from('questions').delete().in('id', ids)
+  } catch { /* לא חוסם את החיזוק */ }
+}
+
 export default function Reinforce({ nav, params }) {
   const { subjectId, subjectName } = params
   const [queue, setQueue] = useState([])
@@ -76,9 +85,13 @@ export default function Reinforce({ nav, params }) {
     const need = isVarKind(item.kind) ? VAR_GRAD : GRAD
     if (success && s >= need) {
       await supabase.from('review_items').delete().eq('id', item.reviewId)
-      // השאלה המקורית נטמעה → הטעות תוקנה, הוריאציות שלה כבר לא נחוצות
-      if (item.type === 'q' && item.kind === 'question') {
+      // שאלות "וריאציה" קיימות רק לחיזוק: וריאציה שנטמעה — נמחקת; השאלה המקורית נטמעה — כל הוריאציות שלה נמחקות
+      if (item.type === 'q' && isVarKind(item.kind)) {
+        await dropVariationQuestions([item.q.id])
+      } else if (item.type === 'q' && item.kind === 'question') {
+        const { data: vs } = await supabase.from('review_items').select('ref_id').eq('kind', varKind(item.q.id))
         await supabase.from('review_items').delete().eq('kind', varKind(item.q.id))
+        await dropVariationQuestions((vs || []).map((v) => v.ref_id))
       }
       setGraduated((g) => g + 1)
     } else {

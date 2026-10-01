@@ -40,6 +40,7 @@ export default function Practice({ nav, params }) {
   const [reward, setReward] = useState(null)   // { earned, events } — מטבעות שנצברו בסבב
   const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [topicNames, setTopicNames] = useState({})
+  const [emptyScope, setEmptyScope] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -52,7 +53,15 @@ export default function Practice({ nav, params }) {
         const scopeIds = (tp || []).filter((t) => t.in_exam).map((t) => t.id)
         if (scopeIds.length) q = q.in('topic_id', scopeIds)
       }
-      const { data } = await q
+      const [{ data: all }, { data: vr }] = await Promise.all([
+        q,
+        supabase.from('review_items').select('ref_id').eq('subject_id', subjectId).like('kind', 'var:%'),
+      ])
+      // שאלות "וריאציה" (נוצרו אחרי טעות) — רק ב"לחיזוק", לא בתרגול ובסימולציה
+      const varIds = new Set((vr || []).map((r) => r.ref_id))
+      const data = (all || []).filter((x) => !varIds.has(x.id))
+      // סימולציה עם מיקוד שאין בו עדיין שאלות — הודעה מדויקת (לא "אין שאלות במקצוע")
+      if (examMode && !topicId && (tp || []).some((t) => t.in_exam) && data.length === 0) setEmptyScope(true)
       // דגימה אקראית מכל השאלות (לא רק מה-40 הראשונות)
       // params.count — סבב קצר שמשלים את היעד היומי (מהכרטיס בבית)
       const total = examMode ? 15 : (params.count > 0 ? params.count : 10)
@@ -74,6 +83,14 @@ export default function Practice({ nav, params }) {
   }, [subjectId, topicId])
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
+  if (!queue.length && emptyScope) return (
+    <div className="text-center text-muted pt-10 flex flex-col items-center gap-3">
+      <span>אין עדיין שאלות על החומר שבמיקוד.<br />{g('העלה', 'העלי')} את החומר שנכנס למבחן, והשאלות ייווצרו ממנו.</span>
+      <button type="button" className="ts-practice !w-auto px-6" onClick={() => nav.go('upload', { subjectId, subjectName })}>
+        {g('העלה חומר', 'העלי חומר')}
+      </button>
+    </div>
+  )
   if (!queue.length) return (
     <div className="text-center text-muted pt-10">
       אין עדיין שאלות במקצוע הזה.<br />העלו חומר כדי שהמערכת תייצר שאלות.
