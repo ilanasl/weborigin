@@ -101,30 +101,80 @@ export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
   return { days, startsInDays: startOffset > 1 ? startOffset : null }
 }
 
+// היום של היום בתוכנית הלמידה של מקצוע (או null): { s, kind, examDays, today }
+export async function planToday(subjectId) {
+  const [{ data: s }, { data: tp }, { data: at }] = await Promise.all([
+    supabase.from('subjects').select('*').eq('id', subjectId).single(),
+    supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId),
+    supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
+  ])
+  if (!s) return null
+  const kind = nearestKind(s)
+  const examDays = daysUntil(kind === 'מבדק' ? s.quiz_date : s.exam_date)
+  const byTopic = {}
+  for (const a of at || []) {
+    if (!a.topic_id) continue
+    ;(byTopic[a.topic_id] ||= []).push({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })
+  }
+  const topics = (tp || []).map((t) => ({ ...t, att: byTopic[t.id] || [] }))
+  const allTs = (at || []).map((a) => new Date(a.created_at).getTime())
+  const { days } = buildStudyPlan({ examDays, leadDays: LEAD_DEFAULT[kind], topics, allTs })
+  const today = days.find((d) => d.off === 0 && !d.exam) || null
+  return { s, kind, examDays, today }
+}
+
 // אחרי סבב: האם היום של היום בתוכנית הושלם עכשיו (ועוד לא חגגנו אותו)? מחזיר פרטים לחגיגה או null.
 export async function checkPlanDayDone(subjectId) {
   try {
-    const [{ data: s }, { data: tp }, { data: at }] = await Promise.all([
-      supabase.from('subjects').select('*').eq('id', subjectId).single(),
-      supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId),
-      supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
-    ])
-    if (!s) return null
-    const kind = nearestKind(s)
-    const examDays = daysUntil(kind === 'מבדק' ? s.quiz_date : s.exam_date)
-    const byTopic = {}
-    for (const a of at || []) {
-      if (!a.topic_id) continue
-      ;(byTopic[a.topic_id] ||= []).push({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })
-    }
-    const topics = (tp || []).map((t) => ({ ...t, att: byTopic[t.id] || [] }))
-    const allTs = (at || []).map((a) => new Date(a.created_at).getTime())
-    const { days } = buildStudyPlan({ examDays, leadDays: LEAD_DEFAULT[kind], topics, allTs })
-    const today = days.find((d) => d.off === 0 && !d.exam)
+    const p = await planToday(subjectId)
+    const today = p?.today
     if (!today?.done) return null
     // חוגגים כל יום פעם אחת בלבד
     const key = `lomdim-planday:${subjectId}:${today.dt.toDateString()}`
     try { if (localStorage.getItem(key)) return null; localStorage.setItem(key, '1') } catch { /* בלי אחסון — חוגגים */ }
-    return { kind, examDays, subjectName: s.name, review: !!today.review }
+    return { kind: p.kind, examDays: p.examDays, subjectName: p.s.name, review: !!today.review }
   } catch { return null }
+}
+
+// ── משימת היום (הכרטיס "שאלות היום" בבית): לאן הוא מוביל ──
+// 1) יש היום יום בתוכנית למבחן → הנושא של היום (הראשון שעוד לא הושלם); ביום חזרה — תרגול של המקצוע.
+// 2) אין → המקצוע שתורגל הכי מעט בשבוע האחרון, ובו הנושא החלש ביותר (נושא שלא תורגל נחשב חלש).
+export async function dailyTarget() {
+  const { data: subs } = await supabase.from('subjects').select('id, name, exam_date, quiz_date').order('created_at')
+  const upcoming = (subs || [])
+    .map((s) => ({ s, d: Math.min(...[s.quiz_date, s.exam_date].map(daysUntil).filter((x) => x != null && x >= 0)) }))
+    .filter((x) => Number.isFinite(x.d)).sort((a, b) => a.d - b.d)
+  for (const { s } of upcoming) {
+    const p = await planToday(s.id)
+    const day = p?.today
+    if (!day) continue
+    if (day.review) return { subjectId: s.id, subjectName: s.name }
+    const t = day.topics.find((x) => !x.done) || day.topics[0]
+    if (t) return { subjectId: s.id, subjectName: s.name, topicId: t.id, topicName: t.name }
+  }
+  // בלי תוכנית להיום — מקצוע שתורגל הכי מעט + נושא חלש
+  const [{ data: qs }, { data: tp }, { data: at }] = await Promise.all([
+    supabase.from('questions').select('topic_id, subject_id'),
+    supabase.from('topics').select('id, name, subject_id'),
+    supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
+  ])
+  const withQ = new Set((qs || []).map((q) => q.topic_id).filter(Boolean))
+  const topics = (tp || []).filter((t) => withQ.has(t.id))
+  if (!topics.length) return subs?.[0] ? { subjectId: subs[0].id, subjectName: subs[0].name } : null
+  const weekAgo = Date.now() - 7 * DAY
+  const recent = {}
+  for (const a of at || []) if (new Date(a.created_at).getTime() >= weekAgo) recent[a.subject_id] = (recent[a.subject_id] || 0) + 1
+  const subjIds = [...new Set(topics.map((t) => t.subject_id))]
+  subjIds.sort((a, b) => (recent[a] || 0) - (recent[b] || 0))
+  const sid = subjIds[0]
+  const byTopic = {}
+  for (const a of at || []) {
+    if (!a.topic_id) continue
+    ;(byTopic[a.topic_id] ||= []).push({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })
+  }
+  const weakest = topics.filter((t) => t.subject_id === sid)
+    .map((t) => ({ t, pct: mastery(byTopic[t.id] || []).pct ?? 0 }))
+    .sort((a, b) => a.pct - b.pct)[0].t
+  const subj = (subs || []).find((s) => s.id === sid)
+  return { subjectId: sid, subjectName: subj?.name || '', topicId: weakest.id, topicName: weakest.name }
 }

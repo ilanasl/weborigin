@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
-import { expirePastExams, daysUntil } from '../lib/plan'
+import { expirePastExams, daysUntil, dailyTarget } from '../lib/plan'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
@@ -30,6 +30,7 @@ export default function Home({ nav }) {
   const [coins, setCoins] = useState(null)
   const [today, setToday] = useState({ n: 0, streak: 0 })
   const [loading, setLoading] = useState(true)
+  const [todayBusy, setTodayBusy] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -90,7 +91,16 @@ export default function Home({ nav }) {
   const name = profile?.name ? ` ${profile.name}` : ''
   const ready = profile?.gender === 'בת' ? 'מוכנה' : profile?.gender === 'בן' ? 'מוכן' : 'מוכנים'
   const done = today.n >= DAILY_GOAL
-  const startToday = () => focus && nav.go('practice', { subjectId: focus.id, subjectName: focus.name, mode: 'practice' })
+  // משימת היום: הנושא של היום בתוכנית למבחן; אחרי זה — המקצוע שתורגל הכי מעט והנושא החלש בו
+  const startToday = async () => {
+    if (todayBusy) return
+    setTodayBusy(true)
+    try {
+      const tg = await dailyTarget()
+      const dest = tg || (focus ? { subjectId: focus.id, subjectName: focus.name } : null)
+      if (dest) nav.go('practice', { ...dest, mode: 'practice' })
+    } finally { setTodayBusy(false) }
+  }
   const cardMeta = (s) => {
     const ex = s.exams[0]
     if (ex && ex.days <= 14) return ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`
@@ -118,13 +128,17 @@ export default function Home({ nav }) {
       )}
 
       <div className="hero-grid">
-        <div className="hero hero-a">
+        {/* כל הכרטיס לחיץ (כל עוד היעד לא הושלם) */}
+        <div className={`hero hero-a${done ? '' : ' cursor-pointer'}`} role={done ? undefined : 'button'} tabIndex={done ? undefined : 0}
+          aria-label={done ? undefined : 'להמשיך את משימת היום'} onClick={done ? undefined : startToday}
+          onKeyDown={done ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') startToday() }}
+          style={todayBusy ? { opacity: 0.75 } : undefined}>
           {done ? (
             <span className="arrow-btn" style={{ color: '#5E7A00' }} role="img" aria-label="משימת היום הושלמה">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
             </span>
           ) : (
-            <button type="button" className="arrow-btn" style={{ color: '#5E7A00' }} onClick={startToday} aria-label="להמשיך את משימת היום"><ArrowIcon /></button>
+            <span className="arrow-btn" style={{ color: '#5E7A00' }} aria-hidden="true"><ArrowIcon /></span>
           )}
           <div className="hero-num tnum">{Math.min(today.n, DAILY_GOAL)}<span>/{DAILY_GOAL}</span></div>
           <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
