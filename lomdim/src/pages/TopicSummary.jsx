@@ -284,10 +284,15 @@ export default function TopicSummary({ nav, params }) {
             <span>מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.</span>
           </div>
         )}
+        <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
+          onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
+          <Icon name="target" size={19} />
+          <span>תרגל את הנושא</span>
+        </button>
         <div className="paper-actions">
           <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
-            {busy ? 'מכין…' : aggSource ? 'אחד סיכום מהחומרים' : summary ? 'סכם מחדש' : 'צור סיכום'}
+            {busy ? 'מכין…' : aggSource ? 'בנה סיכום אחד מכל הדפים' : summary ? 'סכם מחדש' : 'צור סיכום'}
           </button>
           {aggSource && (
             <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer" style={{ color: '#3E3E45' }}>
@@ -296,7 +301,7 @@ export default function TopicSummary({ nav, params }) {
             </label>
           )}
         </div>
-        {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>"אחד סיכום" קורא את כל מה שהעלית לנושא ובונה סיכום אחד מעודכן.</div>}
+        {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>קורא את כל הדפים שהעלית לנושא ומחבר אותם לסיכום אחד מסודר, בלי חזרות. שימושי אחרי שמעלים דף חדש.</div>}
       </div>
 
       {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
