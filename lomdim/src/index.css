@@ -266,6 +266,8 @@ button{font-family:inherit; cursor:pointer}
 .q-sheet{ position:fixed; z-index:40; left:0; right:0; bottom:0; margin:0 auto; max-width:760px; max-height:62vh; overflow:auto;
   background:#F4F1EA; color:#141416; border-radius:26px 26px 0 0; padding:8px 18px calc(12px + env(safe-area-inset-bottom,0));
   display:flex; flex-direction:column; gap:8px; box-shadow:0 -12px 40px rgba(0,0,0,.45); animation:sheetUp .22s ease-out }
+/* כניסה — כפתור הצגת סיסמה בתוך השדה (בצד שמאל) */
+.login-eye{ position:absolute; left:6px; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:20px; display:grid; place-items:center; color:var(--muted); background:transparent; border:none }
 /* חלונית אישור */
 .cdlg-wrap{ position:fixed; inset:0; z-index:60; background:rgba(0,0,0,.55); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:20px; animation:cdlgFade .15s ease }
 .cdlg{ width:100%; max-width:360px; background:var(--surface); border:1px solid var(--milky-line); border-radius:26px; padding:22px 18px 16px;

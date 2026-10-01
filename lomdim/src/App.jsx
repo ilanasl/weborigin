@@ -3,7 +3,7 @@ import Icon from './components/Icon'
 import ConfirmDialog from './components/ConfirmDialog'
 import { isConfigured, supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import Login from './pages/Login'
+import Login, { NewPassword } from './pages/Login'
 import Home from './pages/Home'
 import Subject from './pages/Subject'
 import Upload from './pages/Upload'
@@ -113,7 +113,7 @@ const PAGES = {
 }
 
 function Shell() {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading, signOut, recovery } = useAuth()
   // אחרי טעינת גרסה חדשה — חוזרים לאותה מחסנית מסכים
   const [stack, setStack] = useState(() => (restoredStack() || [{ name: 'home', params: {} }]).map((r) => ({ ...r, id: ++seq })))
   const stackRef = useRef(stack)
@@ -167,6 +167,7 @@ function Shell() {
 
   if (loading) return <div className="app-shell pt-16 text-muted">טוען…</div>
   if (!user) return <Login />
+  if (recovery) return <NewPassword />
 
   const route = stack[stack.length - 1]
   const Page = PAGES[route.name] || Home
