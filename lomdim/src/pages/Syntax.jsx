@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import { aiErrorText } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
@@ -19,6 +20,7 @@ const COLOR = {
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 
 export default function Syntax({ nav, params }) {
+  const g = useG()
   const { subjectId, subjectName, topicId, topicName, mode = 'syntax' } = params
   const { profile } = useAuth()
   const roles = ROLES[mode] || ROLES.syntax
@@ -205,7 +207,7 @@ export default function Syntax({ nav, params }) {
           </div>
           <button type="button" className="q-next" onClick={check} disabled={!allTagged}
             style={allTagged ? undefined : { background: 'rgba(20,20,22,.1)', color: 'rgba(20,20,22,.5)' }}>
-            {allTagged ? '✓ בדוק' : `סמנו את כל המילים · ${taggedN} מתוך ${tokens.length}`}
+            {allTagged ? g('✓ בדוק', '✓ בדקי') : `סמנו את כל המילים · ${taggedN} מתוך ${tokens.length}`}
           </button>
         </BottomSheet>
       ) : (

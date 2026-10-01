@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
@@ -11,6 +12,7 @@ import { VARIATIONS, varKind } from '../lib/mastery'
 
 
 export default function CheckExercise({ params }) {
+  const g = useG()
   const { subjectId, subjectName } = params
   const { profile } = useAuth()
   const [file, setFile] = useState(null)
@@ -118,7 +120,7 @@ export default function CheckExercise({ params }) {
       <div className="grid grid-cols-2 gap-2.5">
         <label className="up-big up-big-lime">
           <Icon name="camera" size={28} />
-          <span className="font-disp font-extrabold text-[18px]">צלם</span>
+          <span className="font-disp font-extrabold text-[18px]">{g('צלם', 'צלמי')}</span>
           <input type="file" accept="image/*" capture="environment" className="hidden"
             onChange={(e) => { setFile(e.target.files?.[0] || null); setRes(null); setErr(''); e.target.value = '' }} />
         </label>
@@ -139,7 +141,7 @@ export default function CheckExercise({ params }) {
       )}
 
       <button type="button" className="ts-practice mt-3" onClick={run} disabled={!file || busy}>
-        <Icon name="sparkle" size={19} />{busy ? 'בודק…' : 'בדוק את הפתרון'}
+        <Icon name="sparkle" size={19} />{busy ? 'בודק…' : g('בדוק את הפתרון', 'בדקי את הפתרון')}
       </button>
       {err && <div className="text-[13.5px] mt-1 font-semibold" style={{ color: 'var(--bad)' }}>{err}</div>}
 

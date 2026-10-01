@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
@@ -30,6 +31,7 @@ async function keepAwake(on) {
 }
 
 export default function Upload({ nav, params }) {
+  const g = useG()
   const { subjectId, subjectName } = params
   const { profile } = useAuth()
   const [files, setFiles] = useState([])       // [{ file, hash, kind, dupe }]
@@ -225,13 +227,13 @@ export default function Upload({ nav, params }) {
           <div className="grid grid-cols-2 gap-2.5">
             <label className="up-big up-big-lime">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.2" /></svg>
-              <span className="font-disp font-extrabold text-[18px]">צלם</span>
+              <span className="font-disp font-extrabold text-[18px]">{g('צלם', 'צלמי')}</span>
               <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPick(e.target.files); e.target.value = '' }} />
             </label>
             <label className="up-big">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h4l2 2.5h6a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><path d="M12 10v6M9 13h6" /></svg>
               <span className="flex flex-col items-start gap-px">
-                <span className="font-disp font-extrabold text-[18px]">בחר קבצים</span>
+                <span className="font-disp font-extrabold text-[18px]">{g('בחר קבצים', 'בחרי קבצים')}</span>
                 <span className="text-[12px] text-muted">תמונות, PDF</span>
               </span>
               <input type="file" multiple accept="image/*,application/pdf,text/plain,.txt" className="hidden" onChange={(e) => { onPick(e.target.files); e.target.value = '' }} />
@@ -299,7 +301,7 @@ export default function Upload({ nav, params }) {
 
           <button type="button" className="ts-practice mt-4 !h-[56px] !rounded-[28px] !text-[17px]" onClick={analyze} disabled={!analyzable || busy}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>
-            {busy ? 'מנתח…' : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `נתח ${analyzable} קבצים` : 'נתח חומר'}
+            {busy ? 'מנתח…' : !analyzable && files.length ? 'כל הקבצים כבר הועלו' : analyzable > 1 ? `${g('נתח', 'נתחי')} ${analyzable} קבצים` : g('נתח חומר', 'נתחי חומר')}
           </button>
         </>
       )}
@@ -336,7 +338,7 @@ export default function Upload({ nav, params }) {
                     </label>
                     <input className="field" value={c.name}
                       onChange={(e) => setName(ci, e.target.value)}
-                      placeholder="שם הנושא — או בחר/י מהקיימים למטה" />
+                      placeholder={g('שם הנושא — או בחר מהקיימים למטה', 'שם הנושא — או בחרי מהקיימים למטה')} />
                     {topicsList.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         <span className="text-[11.5px] text-muted">קיימים:</span>

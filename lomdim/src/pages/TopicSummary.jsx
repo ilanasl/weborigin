@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
@@ -7,6 +8,7 @@ import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 
 export default function TopicSummary({ nav, params }) {
+  const gx = useG()
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
   const [summary, setSummary] = useState(null)
@@ -178,7 +180,7 @@ export default function TopicSummary({ nav, params }) {
       <button type="button" className="ts-practice" disabled={qCount === 0}
         onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
-        <span>תרגל את הנושא</span>
+        <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
         {qCount > 0 && <span className="ts-count tnum">{qCount}</span>}
       </button>
 
@@ -287,7 +289,7 @@ export default function TopicSummary({ nav, params }) {
         <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
           onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
           <Icon name="target" size={19} />
-          <span>תרגל את הנושא</span>
+          <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
         </button>
         <div className="paper-actions">
           <button type="button" className="paper-btn" onClick={generate} disabled={busy}>

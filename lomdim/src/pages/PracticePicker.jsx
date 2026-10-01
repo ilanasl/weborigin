@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import { supabase } from '../lib/supabase'
 import Icon from '../components/Icon'
 import { mastery, level, LEVEL_LABEL } from '../lib/mastery'
@@ -6,6 +7,7 @@ import { mastery, level, LEVEL_LABEL } from '../lib/mastery'
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 
 export default function PracticePicker({ nav, params }) {
+  const g = useG()
   const { subjectId, subjectName, mode } = params
   const [topics, setTopics] = useState([])
   const [loading, setLoading] = useState(true)
@@ -66,7 +68,7 @@ export default function PracticePicker({ nav, params }) {
         </button>
       </div>
 
-      <div className="home-h2 mt-6 mb-2.5"><h2>או בחר נושא לבד</h2></div>
+      <div className="home-h2 mt-6 mb-2.5"><h2>{g('או בחר נושא לבד', 'או בחרי נושא לבד')}</h2></div>
       <div className="flex flex-col gap-2">
         {withQ.length === 0 ? (
           <div className="milky-row text-muted text-sm">עדיין אין שאלות — העלו חומר כדי שהמערכת תייצר שאלות.</div>
