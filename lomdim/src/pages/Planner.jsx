@@ -248,6 +248,16 @@ export default function Planner({ nav, params }) {
           ))}
         </>
       )}
+
+      {/* מבחנים שעברו — עבר לכאן ממסך המקצוע (קשור להכנה למבחן) */}
+      <button type="button" className="milky-row mt-6" onClick={() => nav.go('pastExams', { subjectId, subjectName })}>
+        <Icon name="archive" />
+        <span className="flex-1 min-w-0 flex flex-col gap-0.5 text-start">
+          <span className="font-bold text-[15px]">מבחנים שעברו</span>
+          <span className="text-[12.5px] text-muted">ציונים, צילומי מבחנים מתוקנים וטעויות לחיזוק</span>
+        </span>
+        <Icon name="chevron" size={18} />
+      </button>
     </div>
   )
 }

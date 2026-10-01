@@ -3,12 +3,13 @@ import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
 import { settleSession } from '../lib/coins'
-import { VARIATIONS, varKind } from '../lib/mastery'
+import { VARIATIONS, varKind, GRAD } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 import SessionEnd from '../components/SessionEnd'
 import { checkPlanDayDone } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
+import { buildItem, isChatCard } from '../lib/flashcardQuiz'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 // ערבוב מיקום התשובה בכל שאלה בזמן התצוגה — מבטיח פיזור גם לשאלות ישנות שנשמרו עם התשובה במיקום 1
@@ -19,6 +20,8 @@ function shuffleChoices(q) {
   const choices = order.map((i) => q.choices[i])
   return { ...q, choices, answer: choices.indexOf(correct) }
 }
+
+const FC_PER_ROUND = 3   // כמה שאלות הגדרה מכרטיסיות בסבב תרגול רגיל
 
 export default function Practice({ nav, params }) {
   const { subjectId, subjectName, topicId, topicName } = params
@@ -49,7 +52,19 @@ export default function Practice({ nav, params }) {
       }
       const { data } = await q
       // דגימה אקראית מכל השאלות (לא רק מה-40 הראשונות)
-      setQueue(shuffle(data || []).slice(0, examMode ? 15 : 10).map(shuffleChoices))
+      const total = examMode ? 15 : 10
+      let fcItems = []
+      // תרגול רגיל: 2–3 שאלות הגדרה מהכרטיסיות (מושג ↔ הגדרה), במקום מסך כרטיסיות נפרד
+      if (!examMode) {
+        const { data: cards } = await supabase.from('flashcards').select('*').eq('subject_id', subjectId)
+        const all = (cards || []).filter((c) => !isChatCard(c))
+        const own = topicId ? all.filter((c) => c.topic_id === topicId) : all
+        const want = Math.max(FC_PER_ROUND, total - (data || []).length)   // מעט שאלות רגילות → משלימים מכרטיסיות
+        fcItems = shuffle(own).slice(0, want).map((c) => buildItem(c, all)).filter((it) => it.valid)
+          .map((it) => ({ ...it, fc: true, explain: `התשובה הנכונה: **${it.choices[it.answer]}**`, difficulty: 'קל' }))
+      }
+      const qs = shuffle(data || []).slice(0, total - fcItems.length).map(shuffleChoices)
+      setQueue(shuffle([...qs, ...fcItems]))
       setLoading(false)
     })()
   }, [subjectId, topicId])
@@ -84,6 +99,20 @@ export default function Practice({ nav, params }) {
     const ok = i === q.answer
     if (ok) setCorrect((c) => c + 1)
     setResults((r) => { const n = [...r]; n[idx] = ok; return n })
+    if (q.fc) {
+      // שאלת הגדרה מכרטיסייה — נרשמת כמו בכרטיסיות (בלי question_id), וטעות נכנסת ל"לחיזוק"
+      await supabase.from('attempts').insert({ subject_id: subjectId, topic_id: q.topic_id, correct: ok, difficulty: 'קל' })
+      const { data: ex } = await supabase.from('review_items').select('id, streak').eq('kind', 'flashcard').eq('ref_id', q.id).maybeSingle()
+      if (!ok) {
+        if (ex) await supabase.from('review_items').update({ streak: 0, updated_at: new Date().toISOString() }).eq('id', ex.id)
+        else await supabase.from('review_items').insert({ subject_id: subjectId, kind: 'flashcard', ref_id: q.id, streak: 0 })
+      } else if (ex) {
+        const s = (ex.streak || 0) + 1
+        if (s >= GRAD) await supabase.from('review_items').delete().eq('id', ex.id)
+        else await supabase.from('review_items').update({ streak: s, updated_at: new Date().toISOString() }).eq('id', ex.id)
+      }
+      return
+    }
     await supabase.from('attempts').insert({
       question_id: q.id, topic_id: q.topic_id, subject_id: subjectId,
       correct: ok, difficulty: q.difficulty,
@@ -132,7 +161,7 @@ export default function Practice({ nav, params }) {
     <div className="pt-1">
       <SegProgress total={queue.length} idx={idx} results={results} />
 
-      <QuestionBlock topic={topicLabel} sub={`${examMode ? 'סימולציה · ' : ''}${q.difficulty || ''}`} text={q.q} />
+      <QuestionBlock topic={topicLabel} sub={q.fc ? q.prompt : `${examMode ? 'סימולציה · ' : ''}${q.difficulty || ''}`} text={q.q} />
 
       <Options choices={q.choices} answer={q.answer} picked={picked} onPick={answer} />
 
