@@ -269,6 +269,7 @@ export default function Subject({ nav, params }) {
   // תרגיל ניתוח משפט רלוונטי ללשון/עברית/דקדוק
   const isLang = /עברית|לשון|דקדוק|תחביר/.test(name || '')
 
+  const isEmpty = topics.length === 0 && materials.length === 0
   const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
 
   return (
@@ -280,12 +281,34 @@ export default function Subject({ nav, params }) {
             {topics.length} נושאים{hasExam ? ` · ${examKind} ${examDays === 0 ? 'היום' : `בעוד ${examDays} ימים`}` : ''}
           </div>
         </div>
+{!isEmpty && (
         <button type="button" className="up-pill" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={subject.color} strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           העלה חומר
         </button>
+        )}
       </div>
 
+      {/* מקצוע ריק — פעולה אחת ברורה במקום כל המסך */}
+      {isEmpty ? (
+        <div className="rounded-[28px] p-6 flex flex-col items-center text-center gap-3" style={{ background: subject.bg, color: 'var(--on-fill)' }}>
+          <span className="w-16 h-16 rounded-full grid place-items-center" style={{ background: 'rgba(255,255,255,.55)' }}>
+            <Icon name="camera" size={30} />
+          </span>
+          <div className="font-disp font-extrabold text-[22px] leading-tight">מתחילים כאן</div>
+          <div className="text-[14.5px] leading-relaxed" style={{ color: 'rgba(19,19,22,.75)' }}>
+            מצלמים דף מהמחברת או מעלים PDF — והמערכת מכינה ממנו סיכום ושאלות לתרגול.
+          </div>
+          <button type="button" className="ready-btn w-full mt-1" style={{ background: 'var(--on-fill)', color: subject.bg, flex: 'none' }}
+            onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+            <Icon name="upload" size={20} />העלה חומר ראשון
+          </button>
+          <button type="button" className="text-[13.5px] font-semibold underline underline-offset-4" style={{ color: 'rgba(19,19,22,.7)' }}
+            onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}>
+            יש מבחן קרוב? אפשר כבר להגדיר תאריך
+          </button>
+        </div>
+      ) : (<>
       {/* כרטיס מוכנות — בצבע המקצוע */}
       <div className="ready-hero" style={{ background: subject.bg }}>
         {/* בלי מבחן קרוב — זה לא "מוכנות", אלא כמה החומר שולט */}
@@ -518,6 +541,7 @@ export default function Subject({ nav, params }) {
           <Icon name="upload" size={18} />העלה חומר חדש
         </button>
       </div>
+      </>)}
     </div>
   )
 }
