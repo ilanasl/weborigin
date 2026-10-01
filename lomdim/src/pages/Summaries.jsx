@@ -64,7 +64,11 @@ export default function Summaries({ nav, params }) {
             <section key={t.id} id={`sm-${t.id}`} className="mb-6" style={{ scrollMarginTop: 90 }}>
               <div className="flex items-baseline gap-2 mb-2.5">
                 <span className="font-disp font-extrabold text-[15px] text-muted tnum">{i + 1}.</span>
-                <h2 className="font-disp font-extrabold text-[20px] leading-tight flex-1">{t.name}</h2>
+                {/* כותרת הנושא — מובילה למסך הסיכום הרגיל של הנושא */}
+                <button type="button" onClick={() => openTopic(t)} className="flex-1 text-start flex items-center gap-1.5">
+                  <h2 className="font-disp font-extrabold text-[20px] leading-tight">{t.name}</h2>
+                  <Icon name="chevron" size={18} />
+                </button>
               </div>
               <div className="paper">
                 {t.summary ? <Markdown text={t.summary} examBox /> : (
@@ -75,9 +79,11 @@ export default function Summaries({ nav, params }) {
                     onClick={() => nav.go('practice', { subjectId, subjectName, topicId: t.id, topicName: t.name, mode: 'practice' })}>
                     <Icon name="target" size={17} />לתרגול הנושא
                   </button>
-                  <button type="button" className="paper-btn" onClick={() => openTopic(t)}>
-                    <Icon name="book" size={17} />{t.summary ? 'למסך הנושא' : 'ליצירת סיכום'}
-                  </button>
+                  {!t.summary && (
+                    <button type="button" className="paper-btn" onClick={() => openTopic(t)}>
+                      <Icon name="book" size={17} />ליצירת סיכום
+                    </button>
+                  )}
                 </div>
               </div>
             </section>
