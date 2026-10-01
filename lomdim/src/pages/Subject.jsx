@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
@@ -10,6 +11,7 @@ import { foldLegacyCheckTopic, LEGACY_CHECK_TOPIC } from '../lib/checkTopic'
 
 
 export default function Subject({ nav, params }) {
+  const g = useG()
   const { id } = params
   const [subject, setSubject] = useState(null)
   const [topics, setTopics] = useState([])
@@ -105,7 +107,7 @@ export default function Subject({ nav, params }) {
 {!isEmpty && (
         <button type="button" className="up-pill" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={subject.color} strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          העלה חומר
+          {g('העלה חומר', 'העלי חומר')}
         </button>
         )}
       </div>
@@ -122,7 +124,7 @@ export default function Subject({ nav, params }) {
           </div>
           <button type="button" className="ready-btn w-full mt-1" style={{ background: 'var(--on-fill)', color: subject.bg, flex: 'none' }}
             onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
-            <Icon name="upload" size={20} />העלה חומר ראשון
+            <Icon name="upload" size={20} />{g('העלה חומר ראשון', 'העלי חומר ראשון')}
           </button>
           <button type="button" className="text-[13.5px] font-semibold underline underline-offset-4" style={{ color: 'rgba(19,19,22,.7)' }}
             onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}>

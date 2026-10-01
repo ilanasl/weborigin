@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { generateVariations } from '../lib/gemini'
@@ -24,6 +25,7 @@ function shuffleChoices(q) {
 const FC_PER_ROUND = 3   // כמה שאלות הגדרה מכרטיסיות בסבב תרגול רגיל
 
 export default function Practice({ nav, params }) {
+  const g = useG()
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
   const examMode = params.mode === 'exam'
@@ -172,7 +174,7 @@ export default function Practice({ nav, params }) {
       )}
 
       {answered && (
-        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה מאוד!' : 'כמעט — בוא נבין'}
+        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה מאוד!' : g('כמעט — בוא נבין', 'כמעט — בואי נבין')}
           explain={q.explain} nextLabel={last ? 'לסיכום' : 'הבא'} onNext={next} />
       )}
     </div>

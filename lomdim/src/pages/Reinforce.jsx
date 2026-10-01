@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { GRAD, VAR_GRAD, varKind, isVarKind } from '../lib/mastery'
@@ -146,6 +147,7 @@ export default function Reinforce({ nav, params }) {
 }
 
 function QuestionCard({ item, topic, picked, onPick, onNext }) {
+  const g = useG()
   const q = item.q
   const answered = picked != null
   return (
@@ -153,7 +155,7 @@ function QuestionCard({ item, topic, picked, onPick, onNext }) {
       <QuestionBlock topic={topic} sub="חיזוק" text={q.q} />
       <Options choices={q.choices} answer={q.answer} picked={picked} onPick={onPick} />
       {answered && (
-        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה! מתקדם לעבר הטמעה' : 'חוזר לחיזוק — ננסה שוב'}
+        <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? g('יפה! מתקדם לעבר הטמעה', 'יפה! מתקדמת לעבר הטמעה') : 'חוזר לחיזוק — ננסה שוב'}
           explain={q.explain} onNext={onNext} />
       )}
     </>

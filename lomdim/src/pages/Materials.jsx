@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useG } from '../lib/gender'
 import { toAIInput } from '../lib/image'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
@@ -11,6 +12,7 @@ const fileKey = (m) => m.storage_path || (m.content_hash || '').split(':')[0] ||
 
 // "החומרים שהעליתי" — מסך נפרד (יצא ממסך המקצוע כדי להוריד עומס): צפייה, שיוך לנושא, מחיקה
 export default function Materials({ nav, params }) {
+  const g = useG()
   const { subjectId, subjectName } = params
   const id = subjectId
   const { profile } = useAuth()
@@ -208,7 +210,7 @@ export default function Materials({ nav, params }) {
       <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">החומרים שהעליתי</h1>
       <div className="text-[13.5px] text-muted mt-1.5 mb-4">כל הדפים והקבצים במקצוע. אפשר לצפות, לשייך לנושא אחר או למחוק.</div>
       <button type="button" className="ts-practice mb-4" onClick={() => nav.go('upload', { subjectId: id, subjectName })}>
-        <Icon name="upload" size={19} /><span>העלה חומר חדש</span>
+        <Icon name="upload" size={19} /><span>{g('העלה חומר חדש', 'העלי חומר חדש')}</span>
       </button>
       <div className="flex flex-col gap-2">
         {materials.length === 0 ? (
@@ -268,7 +270,7 @@ export default function Materials({ nav, params }) {
                           לאיזה נושא נוסף שייך הדף? המערכת תקרא אותו שוב ותכין לנושא הזה סיכום, שאלות וכרטיסיות רק מהחלק הרלוונטי.
                         </div>
                         <select className="field !py-1.5 !text-[16px]" value={addSel} onChange={(e) => setAddSel(e.target.value)}>
-                          <option value="">בחר/י נושא…</option>
+                          <option value="">{g('בחר נושא…', 'בחרי נושא…')}</option>
                           {topics.filter((t) => !usedTopics.has(t.id)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                           <option value="__new">+ נושא חדש…</option>
                         </select>
