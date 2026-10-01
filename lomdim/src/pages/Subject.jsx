@@ -104,12 +104,7 @@ export default function Subject({ nav, params }) {
             {topics.length} נושאים{hasExam ? ` · ${examKind} ${examDays === 0 ? 'היום' : `בעוד ${examDays} ימים`}` : ''}
           </div>
         </div>
-{!isEmpty && (
-        <button type="button" className="up-pill" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={subject.color} strokeWidth="2.8" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          {g('העלה חומר', 'העלי חומר')}
-        </button>
-        )}
+
       </div>
 
       {/* מקצוע ריק — פעולה אחת ברורה במקום כל המסך */}
@@ -266,8 +261,11 @@ export default function Subject({ nav, params }) {
         ))}
       </div>
 
-      {/* החומרים — מסך נפרד */}
-      <button type="button" className="milky-row mt-6" onClick={() => nav.go('materials', { subjectId: id, subjectName: name })}>
+      {/* העלאת חומר + החומרים (מסך נפרד) */}
+      <button type="button" className="ts-practice mt-6 !mb-2" onClick={() => nav.go('upload', { subjectId: id, subjectName: name })}>
+        <Icon name="upload" size={19} /><span>{g('העלה חומר חדש', 'העלי חומר חדש')}</span>
+      </button>
+      <button type="button" className="milky-row" onClick={() => nav.go('materials', { subjectId: id, subjectName: name })}>
         <Icon name="archive" />
         <span className="flex-1 text-start font-bold text-[15px]">החומרים שהעליתי ({materials.length})</span>
         <Icon name="chevron" size={18} />
