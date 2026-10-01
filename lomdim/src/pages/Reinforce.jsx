@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { buildItem, isChatCard } from '../lib/flashcardQuiz'
 import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
@@ -44,14 +45,23 @@ export default function Reinforce({ nav, params }) {
       const fIds = (ri || []).filter((r) => r.kind === 'flashcard').map((r) => r.ref_id)
       const [{ data: qs }, { data: fcs }, { data: tp }] = await Promise.all([
         qIds.length ? supabase.from('questions').select('*').in('id', qIds) : Promise.resolve({ data: [] }),
-        fIds.length ? supabase.from('flashcards').select('*').in('id', fIds) : Promise.resolve({ data: [] }),
+        // כל הכרטיסיות של המקצוע — כדי לבנות מסיחים לשאלת ההגדרה
+        fIds.length ? supabase.from('flashcards').select('*').eq('subject_id', subjectId) : Promise.resolve({ data: [] }),
         supabase.from('topics').select('id, name').eq('subject_id', subjectId),
       ])
       setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       const items = []
       for (const r of ri || []) {
         if (isQ(r)) { const q = (qs || []).find((x) => x.id === r.ref_id); if (q) items.push({ type: 'q', reviewId: r.id, kind: r.kind, streak: r.streak || 0, q: shuffleChoices(q) }) }
-        else { const c = (fcs || []).find((x) => x.id === r.ref_id); if (c) items.push({ type: 'fc', reviewId: r.id, streak: r.streak || 0, card: c }) }
+        else {
+          const c = (fcs || []).find((x) => x.id === r.ref_id)
+          if (!c) continue
+          // כרטיסייה → שאלת בחירה (מושג ↔ הגדרה), כמו בתרגול. רק אם אין מספיק כרטיסיות למסיחים — כרטיס הפוך
+          const it = buildItem(c, (fcs || []).filter((x) => !isChatCard(x)))
+          if (it.valid) items.push({ type: 'q', fc: true, reviewId: r.id, kind: 'flashcard', streak: r.streak || 0,
+            q: { id: c.id, topic_id: c.topic_id, q: it.q, prompt: it.prompt, choices: it.choices, answer: it.answer, difficulty: 'קל', explain: `התשובה הנכונה: **${it.choices[it.answer]}**` } })
+          else items.push({ type: 'fc', reviewId: r.id, streak: r.streak || 0, card: c })
+        }
       }
       // סבב של עד ROUND פריטים: קודם אלה שחיכו הכי הרבה זמן, ואז מערבבים
       const byWait = (ri || []).reduce((m, r) => (m[r.id] = r.updated_at || r.created_at || '', m), {})
@@ -96,7 +106,8 @@ export default function Reinforce({ nav, params }) {
     if (ok) setCorrect((c) => c + 1)
     setResults((r) => { const n = [...r]; n[idx] = ok; return n })
     await supabase.from('attempts').insert({
-      question_id: item.q.id, topic_id: item.q.topic_id, subject_id: subjectId, correct: ok, difficulty: item.q.difficulty,
+      // שאלת הגדרה מכרטיסייה — בלי question_id (זו לא שאלה מטבלת השאלות)
+      ...(item.fc ? {} : { question_id: item.q.id }), topic_id: item.q.topic_id, subject_id: subjectId, correct: ok, difficulty: item.q.difficulty,
     })
     await grade(item, ok)
   }
@@ -152,7 +163,7 @@ function QuestionCard({ item, topic, picked, onPick, onNext }) {
   const answered = picked != null
   return (
     <>
-      <QuestionBlock topic={topic} sub="חיזוק" text={q.q} />
+      <QuestionBlock topic={topic} sub={item.fc ? `חיזוק · ${q.prompt}` : 'חיזוק'} text={q.q} />
       <Options choices={q.choices} answer={q.answer} picked={picked} onPick={onPick} />
       {answered && (
         <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? g('יפה! מתקדם לעבר הטמעה', 'יפה! מתקדמת לעבר הטמעה') : 'חוזר לחיזוק — ננסה שוב'}
