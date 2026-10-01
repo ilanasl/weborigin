@@ -267,7 +267,7 @@ export default function Upload({ nav, params }) {
             <label className="milky-row !items-start cursor-pointer">
               <input type="checkbox" checked={lastYear} onChange={(e) => setLastYear(e.target.checked)} className="w-5 h-5 mt-0.5 flex-none" style={{ accentColor: 'var(--primary)' }} />
               <span className="flex flex-col gap-0.5">
-                <span className="font-bold text-[14.5px]">חומר משנה שעברה (לחזרה)</span>
+                <span className="font-bold text-[14.5px]">חומר משנה שעברה</span>
                 <span className="text-[12px] text-muted">חל על כל הקבצים שנבחרו</span>
               </span>
             </label>
