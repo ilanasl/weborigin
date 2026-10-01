@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { mastery } from '../lib/mastery'
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
 const fileKey = (m) => m.storage_path || (m.content_hash || '').split(':')[0] || m.id
@@ -28,6 +29,7 @@ export default function Materials({ nav, params }) {
   const [addBusy, setAddBusy] = useState(null)
   const [addErr, setAddErr] = useState('')
   const [addDone, setAddDone] = useState(null)
+  const [pendingMove, setPendingMove] = useState(null)   // { m, topicId, from, to } — העברה שתרוקן נושא
 
   async function load() {
     setLoading(true)
@@ -51,6 +53,15 @@ export default function Materials({ nav, params }) {
 
   // שיוך חומר לנושא אחר — מעביר גם את השאלות שנוצרו ממנו.
   // בלי טעינה מחדש של כל המסך — כדי לא לקפוץ למעלה ולאבד את המקום (אפשר לסווג כמה חומרים ברצף).
+  // העברת הדף האחרון של נושא תאחד אותו לתוך הנושא החדש (והישן יימחק) — שואלים קודם
+  function askMove(m, topicId) {
+    if (!topicId || topicId === m.topic_id) return
+    const isLast = m.topic_id && !materials.some((x) => x.id !== m.id && x.topic_id === m.topic_id)
+    if (!isLast) { moveMaterialTopic(m, topicId); return }
+    const nameOf = (tid) => topics.find((x) => x.id === tid)?.name || ''
+    setPendingMove({ m, topicId, from: nameOf(m.topic_id), to: nameOf(topicId) })
+  }
+
   async function moveMaterialTopic(m, topicId) {
     if (!topicId || topicId === m.topic_id) return
     const prev = m.topic_id
@@ -212,6 +223,12 @@ export default function Materials({ nav, params }) {
       <button type="button" className="ts-practice mb-4" onClick={() => nav.go('upload', { subjectId: id, subjectName })}>
         <Icon name="upload" size={19} /><span>{g('העלה חומר חדש', 'העלי חומר חדש')}</span>
       </button>
+      <ConfirmDialog open={!!pendingMove} icon="refresh"
+        title="לאחד את הנושאים?"
+        text={pendingMove ? `זה הדף האחרון בנושא "${pendingMove.from}". אחרי ההעברה הנושא יאוחד לתוך "${pendingMove.to}" — השאלות, הכרטיסיות וההתקדמות שלו יעברו לשם, והנושא "${pendingMove.from}" יימחק.` : ''}
+        confirmLabel="כן, לאחד" cancelLabel="ביטול"
+        onCancel={() => setPendingMove(null)}
+        onConfirm={() => { const p = pendingMove; setPendingMove(null); moveMaterialTopic(p.m, p.topicId) }} />
       <div className="flex flex-col gap-2">
         {materials.length === 0 ? (
           <div className="milky-row text-muted text-sm">עדיין לא הועלה חומר.</div>
@@ -237,7 +254,7 @@ export default function Materials({ nav, params }) {
                 <div>
                   <div className="text-[12px] text-muted mb-1">נושא</div>
                   <select className="field !py-1.5 !text-[16px]" value={m.topic_id || ''}
-                    onChange={(e) => moveMaterialTopic(m, e.target.value)}>
+                    onChange={(e) => askMove(m, e.target.value)}>
                     {!m.topic_id && <option value="">— ללא —</option>}
                     {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
