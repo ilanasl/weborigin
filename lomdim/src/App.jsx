@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Icon from './components/Icon'
+import ConfirmDialog from './components/ConfirmDialog'
 import { isConfigured, supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
@@ -116,6 +117,7 @@ function Shell() {
   // אחרי טעינת גרסה חדשה — חוזרים לאותה מחסנית מסכים
   const [stack, setStack] = useState(() => (restoredStack() || [{ name: 'home', params: {} }]).map((r) => ({ ...r, id: ++seq })))
   const stackRef = useRef(stack)
+  const [askLogout, setAskLogout] = useState(false)
   stackRef.current = stack
   // מעבר מסך: אם יש גרסה חדשה — טוענים אותה ישר למסך היעד; אחרת מעבר רגיל
   const apply = useCallback((next) => {
@@ -187,11 +189,16 @@ function Shell() {
         <div className="flex-1" />
         {showNav && <>
         <button onClick={() => go('settings')} title="הגדרות" aria-label="הגדרות" className="hbtn !px-0 w-10"><Icon name="settings" size={19} /></button>
-        <button onClick={() => confirmLeave() && signOut()} className="hbtn" aria-label="יציאה"><Icon name="logout" size={18} />יציאה</button>
+        <button onClick={() => confirmLeave() && setAskLogout(true)} className="hbtn" aria-label="יציאה"><Icon name="logout" size={18} />יציאה</button>
         </>}
       </header>
       <Page key={route.id} nav={nav} params={route.params} />
       {showNav && <FloatingNav route={route.name} go={go} reset={reset} />}
+      <ConfirmDialog open={askLogout} danger icon="logout"
+        title="לצאת מהחשבון?"
+        text="כדי לחזור צריך להתחבר שוב עם האימייל והסיסמה. ההתקדמות נשמרת."
+        confirmLabel="כן, לצאת" cancelLabel="להישאר"
+        onCancel={() => setAskLogout(false)} onConfirm={() => { setAskLogout(false); signOut() }} />
     </div>
   )
 }
