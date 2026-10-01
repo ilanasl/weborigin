@@ -100,7 +100,8 @@ export default function Home({ nav }) {
     try {
       const tg = await dailyTarget()
       const dest = tg || (focus ? { subjectId: focus.id, subjectName: focus.name } : null)
-      if (dest) nav.go('practice', { ...dest, mode: 'practice' })
+      // הסבב מהכרטיס משלים בדיוק את מה שחסר ליעד היומי (8/10 → סבב של 2)
+      if (dest) nav.go('practice', { ...dest, mode: 'practice', count: Math.max(1, DAILY_GOAL - today.n) })
     } finally { setTodayBusy(false) }
   }
   const cardMeta = (s) => {
@@ -143,7 +144,7 @@ export default function Home({ nav }) {
             <span className="arrow-btn" style={{ color: '#5E7A00' }} aria-hidden="true"><ArrowIcon /></span>
           )}
           <div className="hero-num tnum">{Math.min(today.n, DAILY_GOAL)}<span>/{DAILY_GOAL}</span></div>
-          <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
+          <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : today.n > 0 ? `עוד ${DAILY_GOAL - today.n} לסיום היום` : 'שאלות היום'}</div>
           <div className="hero-foot"><div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div></div>
         </div>
         <button type="button" className="hero hero-b text-start" onClick={() => setStreakInfo(true)} aria-label="מה זה רצף?">
