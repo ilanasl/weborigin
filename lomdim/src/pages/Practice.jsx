@@ -54,14 +54,16 @@ export default function Practice({ nav, params }) {
       }
       const { data } = await q
       // דגימה אקראית מכל השאלות (לא רק מה-40 הראשונות)
-      const total = examMode ? 15 : 10
+      // params.count — סבב קצר שמשלים את היעד היומי (מהכרטיס בבית)
+      const total = examMode ? 15 : (params.count > 0 ? params.count : 10)
       let fcItems = []
       // תרגול רגיל: 2–3 שאלות הגדרה מהכרטיסיות (מושג ↔ הגדרה), במקום מסך כרטיסיות נפרד
       if (!examMode) {
         const { data: cards } = await supabase.from('flashcards').select('*').eq('subject_id', subjectId)
         const all = (cards || []).filter((c) => !isChatCard(c))
         const own = topicId ? all.filter((c) => c.topic_id === topicId) : all
-        const want = Math.max(FC_PER_ROUND, total - (data || []).length)   // מעט שאלות רגילות → משלימים מכרטיסיות
+        const fcBase = total >= 6 ? FC_PER_ROUND : total >= 3 ? 1 : 0   // בסבב קצר — פחות שאלות הגדרה
+        const want = Math.max(fcBase, total - (data || []).length)   // מעט שאלות רגילות → משלימים מכרטיסיות
         fcItems = shuffle(own).slice(0, want).map((c) => buildItem(c, all)).filter((it) => it.valid)
           .map((it) => ({ ...it, fc: true, explain: `התשובה הנכונה: **${it.choices[it.answer]}**`, difficulty: 'קל' }))
       }
@@ -87,7 +89,7 @@ export default function Practice({ nav, params }) {
         subtitle={pct >= 80 ? 'ממשיכים ככה.' : 'עוד קצת תרגול, וזה אצלך.'}
         wrongCount={examMode ? 0 : queue.length - correct}
         onReinforce={() => { nav.back(); nav.go('reinforce', { subjectId, subjectName }) }}
-        onAgain={() => { nav.back(); nav.go('practice', params) }}
+        onAgain={() => { nav.back(); nav.go('practice', { ...params, count: undefined }) }}  // סבב נוסף — רגיל (10), לא קצר
         onBack={() => nav.back()} />
     )
   }
