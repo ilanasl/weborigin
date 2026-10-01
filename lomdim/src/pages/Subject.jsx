@@ -288,7 +288,8 @@ export default function Subject({ nav, params }) {
 
       {/* כרטיס מוכנות — בצבע המקצוע */}
       <div className="ready-hero" style={{ background: subject.bg }}>
-        <div className="text-[14px] font-semibold">מוכנות ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}</div>
+        {/* בלי מבחן קרוב — זה לא "מוכנות", אלא כמה החומר שולט */}
+        <div className="text-[14px] font-semibold">{hasExam ? `מוכנות ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : 'השליטה שלי בחומר'}</div>
         <div className="ready-hero-num tnum" dir="ltr">{ready == null ? '—' : `${ready}%`}</div>
         <div className="hero-track !flex-none"><i style={{ width: `${ready || 0}%` }} /></div>
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עוד לא תורגל — כמה תרגולים והמספר יופיע.</div>}
@@ -399,9 +400,9 @@ export default function Subject({ nav, params }) {
               onClick={() => nav.go('topicSummary', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name })}>
               <span className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-[15.5px]">{t.name}</span>
-                {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>במבחן</span>}
-                {t.m.due && <span className="tp-badge" style={{ background: '#B7A5FF' }}>חזרה שוטפת</span>}
-                {t.origin === 'חזרה' && <span className="tp-badge tp-badge-muted">חזרה</span>}
+                {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>במיקוד</span>}
+                {t.m.due && <span className="tp-badge" style={{ background: '#B7A5FF' }}>לרענון</span>}
+                {t.origin === 'חזרה' && <span className="tp-badge tp-badge-muted">משנה שעברה</span>}
               </span>
               {t.m.pct == null ? (
                 <span className="text-[12.5px] text-muted">עוד לא תורגל{t.m.n ? ` · ${t.m.n} מתוך 5 תשובות` : ''}</span>

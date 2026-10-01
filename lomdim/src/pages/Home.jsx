@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ConfirmDialog from '../components/ConfirmDialog'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { mastery, examReadiness } from '../lib/mastery'
@@ -31,6 +32,7 @@ export default function Home({ nav }) {
   const [today, setToday] = useState({ n: 0, streak: 0 })
   const [loading, setLoading] = useState(true)
   const [todayBusy, setTodayBusy] = useState(false)
+  const [streakInfo, setStreakInfo] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -144,7 +146,7 @@ export default function Home({ nav }) {
           <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
           <div className="hero-foot"><div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div></div>
         </div>
-        <button type="button" className="hero hero-b text-start" onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים">
+        <button type="button" className="hero hero-b text-start" onClick={() => setStreakInfo(true)} aria-label="מה זה רצף?">
           <span className="arrow-btn" style={{ color: '#5A43D1' }} aria-hidden="true"><ArrowIcon /></span>
 
           <div className="hero-numrow">
@@ -155,6 +157,13 @@ export default function Home({ nav }) {
           <div className="hero-foot hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
         </button>
       </div>
+
+      {/* הסבר על הרצף והבונוס (לגבש בהמשך — ראו OPEN_DECISIONS) */}
+      <ConfirmDialog open={streakInfo} icon="flame"
+        title={today.streak > 0 ? `${today.streak} ${today.streak === 1 ? 'יום' : 'ימים'} ברצף 🔥` : 'מה זה רצף? 🔥'}
+        text={`כל יום שבו עונים על ${DAILY_GOAL} שאלות לפחות ממשיך את הרצף. ברצף של 3 ימים, של 7 ימים, ואז כל שבוע — מקבלים בונוס מטבעות. ${today.toBonus === 1 ? 'עוד יום אחד' : `עוד ${today.toBonus} ימים`} לבונוס הבא.`}
+        confirmLabel="לחנות הפרסים" cancelLabel="סגור"
+        onCancel={() => setStreakInfo(false)} onConfirm={() => { setStreakInfo(false); nav.go('store') }} />
 
       {upcoming && (
         <button type="button" className="milky-row" onClick={() => nav.go('planner', { subjectId: upcoming.id, subjectName: upcoming.name })}>
