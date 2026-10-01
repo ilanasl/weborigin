@@ -9,20 +9,23 @@ export default function Summaries({ nav, params }) {
   const { subjectId, subjectName } = params
   const [items, setItems] = useState([])   // [{ id, name, in_exam, summary }]
   const [loading, setLoading] = useState(true)
+  const [openSrc, setOpenSrc] = useState({})   // אילו "טקסט מלא" פתוחים
 
   useEffect(() => {
     (async () => {
       const [{ data: tp }, { data: mats }] = await Promise.all([
         supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId).order('created_at'),
-        supabase.from('materials').select('topic_id, kind, summary_md, created_at').eq('subject_id', subjectId)
+        supabase.from('materials').select('topic_id, kind, summary_md, source_text, created_at').eq('subject_id', subjectId)
           .order('created_at', { ascending: false }),
       ])
       // אותו כלל כמו במסך הנושא: סיכום מאוחד אם יש, אחרת הסיכום העדכני מהדפים
       const list = (tp || []).map((t) => {
         const own = (mats || []).filter((m) => m.topic_id === t.id && m.summary_md)
+        // הטקסט המלא (שיר / פסוקים) — אם נשמר לנושא, מוצג כמו במסך הנושא
+        const source = (mats || []).find((m) => m.topic_id === t.id && m.source_text)?.source_text || null
         const merged = own.find((m) => m.kind === 'summary')
         const page = own.find((m) => m.kind !== 'summary' && m.kind !== 'note')
-        return { ...t, summary: merged ? stripNotebookWarnings(merged.summary_md) : page?.summary_md || null }
+        return { ...t, source, summary: merged ? stripNotebookWarnings(merged.summary_md) : page?.summary_md || null }
       })
       // נושאי המיקוד ראשונים
       list.sort((a, b) => (b.in_exam ? 1 : 0) - (a.in_exam ? 1 : 0))
@@ -70,6 +73,18 @@ export default function Summaries({ nav, params }) {
                   <Icon name="chevron" size={18} />
                 </button>
               </div>
+              {t.source && (
+                <>
+                  <button type="button" className="milky-row mb-3" onClick={() => setOpenSrc((s) => ({ ...s, [t.id]: !s[t.id] }))} aria-expanded={!!openSrc[t.id]}>
+                    <Icon name="text" />
+                    <span className="flex-1 text-start font-bold text-[14.5px]">הטקסט המלא</span>
+                    <Icon name="down" size={18} style={{ transform: openSrc[t.id] ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
+                  </button>
+                  {openSrc[t.id] && (
+                    <div className="card mb-3"><div className="whitespace-pre-line text-[14.5px] leading-relaxed">{t.source}</div></div>
+                  )}
+                </>
+              )}
               <div className="paper">
                 {t.summary ? <Markdown text={t.summary} examBox /> : (
                   <div className="text-[14px]" style={{ color: '#3E3E45' }}>עדיין אין סיכום לנושא הזה.</div>
