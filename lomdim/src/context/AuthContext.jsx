@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [recovery, setRecovery] = useState(false)   // הגיעו מקישור "שכחתי סיסמה" — צריך לבחור סיסמה חדשה
 
   async function loadProfile(uid) {
     if (!uid) { setProfile(null); return }
@@ -23,7 +24,8 @@ export function AuthProvider({ children }) {
       await loadProfile(u?.id)
       setLoading(false)
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
       const u = session?.user ?? null
       setUser(u)
       loadProfile(u?.id)
@@ -34,6 +36,13 @@ export function AuthProvider({ children }) {
   const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
   const signOut = () => supabase.auth.signOut()
+  // שכחתי סיסמה: שולח מייל עם קישור שחוזר לאפליקציה; שם בוחרים סיסמה חדשה
+  const resetPassword = (email) => supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+  async function updatePassword(password) {
+    const res = await supabase.auth.updateUser({ password })
+    if (!res.error) setRecovery(false)
+    return res
+  }
 
   // מחזיר false אם עמודת הכיתה עוד לא נוספה במסד (צריך להריץ את ה-SQL) — ואז שומר בלי הכיתה
   async function saveProfile({ name, gender, grade }) {
@@ -48,7 +57,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthCtx.Provider value={{ user, profile, loading, signIn, signUp, signOut, saveProfile }}>
+    <AuthCtx.Provider value={{ user, profile, loading, recovery, signIn, signUp, signOut, resetPassword, updatePassword, saveProfile }}>
       {children}
     </AuthCtx.Provider>
   )
