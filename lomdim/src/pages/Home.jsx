@@ -144,16 +144,16 @@ export default function Home({ nav }) {
           <div className="hero-lbl">{done ? '✓ היעד של היום הושלם' : 'שאלות היום'}</div>
           <div className="hero-foot"><div className="hero-track"><i style={{ width: `${Math.min(100, today.n / DAILY_GOAL * 100)}%` }} /></div></div>
         </div>
-        <div className="hero hero-b">
-          <button type="button" className="arrow-btn" style={{ color: '#5A43D1' }} onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים"><ArrowIcon /></button>
-          
+        <button type="button" className="hero hero-b text-start" onClick={() => nav.go('store')} aria-label="למטבעות ולפרסים">
+          <span className="arrow-btn" style={{ color: '#5A43D1' }} aria-hidden="true"><ArrowIcon /></span>
+
           <div className="hero-numrow">
             <FlameIcon />
             <div className="hero-num tnum">{today.streak}</div>
           </div>
           <div className="hero-lbl">ימים ברצף</div>
           <div className="hero-foot hero-sub">{today.toBonus === 1 ? 'עוד יום אחד לבונוס' : `עוד ${today.toBonus} ימים לבונוס`}</div>
-        </div>
+        </button>
       </div>
 
       {upcoming && (
