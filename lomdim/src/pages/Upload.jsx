@@ -101,8 +101,19 @@ export default function Upload({ nav, params }) {
     setStatus(st.slice())
     const mark = (fi, s) => { st[fi] = s; setStatus(st.slice()) }
     try {
-      const { data: tp } = await supabase.from('topics').select('name').eq('subject_id', subjectId)
+      const { data: tp } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
       const knownTopics = (tp || []).map((t) => t.name)
+      // הטקסט המלא שצורף לכל נושא (פסוקים/שיר) — שאלה שמצטטת פסוק תצטט מכאן, בנוסח שצירפנו
+      const fullTextByTopic = {}
+      try {
+        const { data: ft } = await supabase.from('materials').select('topic_id, source_text').eq('subject_id', subjectId)
+          .not('source_text', 'is', null).order('created_at', { ascending: false })
+        const nameOf = Object.fromEntries((tp || []).map((t) => [t.id, t.name]))
+        for (const m of ft || []) {
+          const n = nameOf[m.topic_id]
+          if (n && m.source_text && !(fullTextByTopic[n] || '').includes(m.source_text)) fullTextByTopic[n] = [fullTextByTopic[n], m.source_text].filter(Boolean).join('\n\n')
+        }
+      } catch { /* בלי טקסט מלא — ממשיכים כרגיל */ }
       setTopicsList([...knownTopics])
       const res = []
       const flat = []
@@ -115,10 +126,10 @@ export default function Upload({ nav, params }) {
         try {
           let out
           if (isText(file)) {
-            out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, learner: profile, noSummary: onlyPractice })
+            out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, fullTextByTopic, learner: profile, noSummary: onlyPractice })
           } else {
             out = await analyzeMaterial({
-              ...(await toAIInput(file)), subjectName, knownTopics, learner: profile, noSummary: onlyPractice,
+              ...(await toAIInput(file)), subjectName, knownTopics, fullTextByTopic, learner: profile, noSummary: onlyPractice,
             })
           }
           res[fi] = { source_text: out.source_text || null, topics: out.topics || [], error: null }

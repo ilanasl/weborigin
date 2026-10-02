@@ -34,7 +34,7 @@ export const stripNotebookWarnings = (md) => String(md || '').split('\n').filter
 // רמת הפירוט של נושא: פרק שלם, לא כלל בודד
 const TOPIC_LEVEL_RULE = 'רמת נושא: נושא הוא פרק לימודי שלם (למשל "חוקי חזקות", "שם המספר", "חוק הפילוג המורחב") — לא כלל בודד, מקרה פרטי או סוג תרגיל בתוך הפרק (למשל לא "חוקי חזקות – כפל וחילוק" בנפרד מ"חוקי חזקות"). אם הדף עוסק בחלק מפרק שכבר קיים ברשימת הנושאים הקיימים — החזר/י את שם הנושא הקיים בדיוק, גם אם הכותרת בדף שונה.'
 // שאלה שמפנה לפסוק/שורה/קטע — חייבת להביא אותו (רק את החלק הרלוונטי), כי התלמיד/ה עונה בלי ספר פתוח
-const QUOTE_RULE = 'חשוב מאוד — שאלה עומדת בפני עצמה: התלמיד/ה עונה בלי ספר או מחברת פתוחים. לכן שאלה שעוסקת בפסוק, שורה, בית או קטע מסוים חייבת לצטט אותו בתוך השאלה עצמה, במירכאות — אסור להסתפק בהפניה כמו "בפסוק א\'" או "בשורה 3" בלי הציטוט. מצטטים רק את המילים שהשאלה עוסקת בהן (עד כ-15 מילים), ומשמיטים את השאר עם "…"; אם צריך הקשר רחב יותר — מסכמים אותו במילים בחצי משפט ("משה פונה לפרעה ואומר: "…""). הציטוט מילה-במילה מהחומר; בטקסט מוכר כמו פסוק מהתנ"ך מותר לצטט גם אם רק ההפניה מופיעה בחומר — אבל רק אם בטוח/ה בנוסח המדויק. אם לא בטוח/ה בנוסח — נסח/י את השאלה כך שלא תהיה תלויה בציטוט.'
+const QUOTE_RULE = 'חשוב מאוד — שאלה עומדת בפני עצמה: התלמיד/ה עונה בלי ספר או מחברת פתוחים. לכן שאלה שעוסקת בפסוק, שורה, בית או קטע מסוים חייבת לצטט אותו בתוך השאלה עצמה, במירכאות — אסור להסתפק בהפניה כמו "בפסוק א\'" או "בשורה 3" בלי הציטוט. מצטטים רק את המילים שהשאלה עוסקת בהן (עד כ-15 מילים), ומשמיטים את השאר עם "…"; אם צריך הקשר רחב יותר — מסכמים אותו במילים בחצי משפט ("משה פונה לפרעה ואומר: "…""). מאיפה מצטטים: אם צורף "הטקסט המלא" של הנושא והפסוק/השורה מופיעים בו — זה הנוסח הנכון: מעתיקים משם מילה-במילה, בלי לשנות ובלי להשלים מהזיכרון. אחרת מהחומר עצמו; בטקסט מוכר כמו פסוק מהתנ"ך מותר לצטט גם אם רק ההפניה מופיעה בחומר — אבל רק אם בטוח/ה בנוסח המדויק. אם לא בטוח/ה בנוסח — נסח/י את השאלה כך שלא תהיה תלויה בציטוט.'
 const PLAUSIBLE_RULE = 'חשוב מאוד — מסיחים (התשובות השגויות) חייבים להיות סבירים ומפתים: מאותו תחום ובאותה "שפה" של התשובה הנכונה, כך שתלמיד/ה שהבין/ה רק חלקית עלול/ה לבחור בהם. בנה/י אותם מטעויות נפוצות, מבלבול בין מושגים קרובים, מחצי-אמת או ממה שנכון במקרה אחר. אסור בהחלט מסיחים מופרכים, מצחיקים, מחוץ לנושא או כאלה שכל אחד/ת פוסל/ת מיד (למשל בשאלה על מטרת המילים בשיר — לא "ללמד לבנות מטריה" או "להציג סטטיסטיקה"). בדיקה לפני סיום: אם אפשר לנחש את התשובה רק כי שלוש האפשרויות האחרות "לא קשורות" — החלף/י אותן במסיחים קשורים ומבלבלים.'
 const VARY_RULE = 'חשוב מאוד — מיקום התשובה הנכונה: פזר/י את התשובה הנכונה באקראי בין המיקומים (ראשון/שני/שלישי/רביעי). אסור שהתשובה הנכונה תהיה תמיד או ברוב השאלות באותו מיקום, ובפרט לא תמיד הראשונה. בסדרה של שאלות ודא/י שהאינדקס answer מגוון — חלק 0, חלק 1, חלק 2, חלק 3.'
 // כיתת הלומד/ת (מההגדרות) — קובעת את רמת השפה והעומק של הסיכומים, ההסברים והשאלות
@@ -140,7 +140,7 @@ function buildParts(payload) {
     return { parts, wantJson: true }
   }
   if (task === 'review_questions') {
-    const { items = [], subjectName, learner, source } = payload  // [{id, q, choices, answer, explain}]
+    const { items = [], subjectName, learner, source, fullText } = payload  // [{id, q, choices, answer, explain}]
     parts.push({ text:
       `לפניך שאלות אמריקאיות במקצוע "${subjectName}" (answer = אינדקס התשובה הנכונה, 0 = הראשונה). בצע/י בקרת איכות לכל שאלה בנפרד:\n` +
       `(1) נכונות — הכי חשוב: פתור/י את השאלה בעצמך צעד-אחר-צעד. ודא/י שהאפשרות המסומנת נכונה לפי הידע המקובל ברמת הכיתה${source ? ' (החומר המצורף הוא מחברת תלמיד/ה ועלול לכלול טעויות — כשהוא סותר את הידע המקובל, הידע הנכון גובר)' : ''}, ושאין אפשרות נוספת שגם היא נכונה. ` +
@@ -153,6 +153,7 @@ function buildParts(payload) {
       `ההסבר (explain) חייב להתאים לתשובה הנכונה. שאלה תקינה — "status":"ok" בלי שדות נוספים. שאלה שתוקנה — "status":"fixed" עם השאלה המלאה המתוקנת. ` +
       `החזר/י JSON בלבד, עם אותם id: {"items":[{"id":"","status":"ok|fixed|drop","q":"","choices":["","","",""],"answer":0,"explain":""}]}. ` +
       HEB_RULE + ' ' + LENGTH_RULE + ' ' + PLAUSIBLE_RULE + ' ' + QUOTE_RULE + ' ' + nikudRule(subjectName) + subjectRule(subjectName) + learnerRule(learner) +
+      (fullText ? `\n\nהטקסט המלא שצורף לנושא (פסוקים / שיר) — זה הנוסח הנכון; ציטוטים מעתיקים מכאן מילה-במילה:\n"""${String(fullText).slice(0, 8000)}"""` : '') +
       (source ? `\n\nהחומר שממנו נוצרו השאלות:\n"""${String(source).slice(0, 10000)}"""` : '') +
       `\n\nהשאלות:\n${JSON.stringify(items)}` })
     return { parts, wantJson: true }
@@ -373,7 +374,7 @@ export function readReview(orig, it) {
 export const reviewBatch = async (p) => deepClean(await call({ task: 'review_questions', ...p }))
 
 // בקרת איכות אוטומטית לשאלות חדשות (נכונות, אורך, מסיחים, ערבוב מקצועות) — לפני שהן נשמרות
-async function reviewQuestions(questions, { subjectName, learner, source }) {
+async function reviewQuestions(questions, { subjectName, learner, source, fullText }) {
   const list = (questions || []).filter((q) => Array.isArray(q?.choices) && q.choices.length >= 2 && typeof q.answer === 'number')
   if (!list.length) return questions || []
   const CH = 12
@@ -381,7 +382,7 @@ async function reviewQuestions(questions, { subjectName, learner, source }) {
   for (let i = 0; i < list.length; i += CH) chunks.push(list.slice(i, i + CH))
   const done = await Promise.all(chunks.map(async (chunk) => {
     try {
-      const { items } = await reviewBatch({ subjectName, learner, source, items: chunk.map((q, i) => ({ id: String(i), q: q.q, choices: q.choices, answer: q.answer, explain: q.explain || '' })) })
+      const { items } = await reviewBatch({ subjectName, learner, source, fullText, items: chunk.map((q, i) => ({ id: String(i), q: q.q, choices: q.choices, answer: q.answer, explain: q.explain || '' })) })
       const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
       const res = chunk.map((q, i) => ({ q, r: readReview(q, byId[String(i)]) }))
       // בודק שמוחק יותר מחצי — חשוד; לא מוחקים כלום במנה הזו
@@ -403,6 +404,7 @@ export const analyzeMaterial = async (p) => {
   const extra = [out.source_text, p.text].filter(Boolean).join('\n\n')
   const reviewed = await Promise.all(valid.map((t) => reviewQuestions(t.questions, {
     subjectName: p.subjectName, learner: p.learner, source: [t.summary_md, extra].filter(Boolean).join('\n\n'),
+    fullText: p.fullTextByTopic?.[t.topic] || '',  // הטקסט המלא שצורף לנושא (פסוקים/שיר) — ממנו מצטטים
   })))
   const topics = valid.map((t, ti) => ({
     ...t,

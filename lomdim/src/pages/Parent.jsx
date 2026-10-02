@@ -22,10 +22,16 @@ function isNikudCandidate(row) {
 }
 
 // שאלות שכבר נבדקו בכלי התיקון — כדי שהרצה חוזרת לא תשלם שוב עליהן
-// q2: נוסף כלל הציטוט (שאלה שמפנה לפסוק בלי להביא אותו) — כל השאלות נבדקות שוב פעם אחת
-const FIXED_KEY = 'lomdim-reviewed-q2'
+const FIXED_KEY = 'lomdim-reviewed-q'
+// שאלה שמפנה לפסוק/שורה/בית ("בפסוק א'", "שורה 3") בלי ציטוט במירכאות — נבדקת שוב גם אם כבר נבדקה
+const QUOTE_KEY = 'lomdim-quote-q'
+const REF_RE = /(פסוק(?:ים)?|שור(?:ה|ות)|בית)\s+(?:[א-ת]{1,2}['׳]|\d|הראשון|השני|השלישי|האחרון)/
+const QUOTED_RE = /["“”«»״][^"“”«»״]{6,}["“”«»״]/
+const needsQuote = (x) => REF_RE.test(x.q || '') && !QUOTED_RE.test(x.q || '')
 const readFixed = () => { try { return new Set(JSON.parse(localStorage.getItem(FIXED_KEY) || '[]')) } catch { return new Set() } }
 const saveFixed = (s) => { try { localStorage.setItem(FIXED_KEY, JSON.stringify([...s])) } catch { /* */ } }
+const readQuoted = () => { try { return new Set(JSON.parse(localStorage.getItem(QUOTE_KEY) || '[]')) } catch { return new Set() } }
+const saveQuoted = (s) => { try { localStorage.setItem(QUOTE_KEY, JSON.stringify([...s])) } catch { /* */ } }
 
 const Chevron = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
@@ -130,32 +136,38 @@ export default function Parent({ nav }) {
   async function fixExisting() {
     if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים, ערבוב מקצועות ושאלות שמפנות לפסוק או לשורה בלי לצטט אותם?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
     setFxBusy(true); setFxNote('טוען שאלות…')
-    let q = supabase.from('questions').select('id, subject_id, material_id, q, choices, answer, explain')
+    let q = supabase.from('questions').select('id, subject_id, topic_id, material_id, q, choices, answer, explain')
     if (fxSubj !== 'all') q = q.eq('subject_id', fxSubj)
     const { data } = await q
     const done = readFixed()
-    // שאלות שנבדקו כבר בהרצה קודמת — מדלגים (חוסך קרדיטים)
-    const all = (data || []).filter((x) => !done.has(x.id) && Array.isArray(x.choices) && typeof x.answer === 'number')
+    const quoted = readQuoted()
+    // שאלות שנבדקו כבר בהרצה קודמת — מדלגים (חוסך קרדיטים), חוץ משאלה שמפנה לפסוק בלי לצטט אותו
+    const all = (data || []).filter((x) => (!done.has(x.id) || (needsQuote(x) && !quoted.has(x.id))) && Array.isArray(x.choices) && typeof x.answer === 'number')
     if (!all.length) { setFxBusy(false); setFxNote('✓ אין שאלות חדשות לבדיקה — הכול כבר נבדק.'); return }
     const names = Object.fromEntries(subjects.map((s) => [s.id, s.name]))
     // החומר שממנו נוצרה כל שאלה — כדי לבדוק נכונות מול המקור
     const matIds = [...new Set(all.map((x) => x.material_id).filter(Boolean))]
     const { data: mats } = matIds.length ? await supabase.from('materials').select('id, summary_md, source_text').in('id', matIds) : { data: [] }
     const srcOf = Object.fromEntries((mats || []).map((m) => [m.id, [m.summary_md, m.source_text].filter(Boolean).join('\n\n')]))
+    // הטקסט המלא שצורף לכל נושא (פסוקים/שיר) — ממנו מצטטים, זה הנוסח הנכון
+    const topIds = [...new Set(all.map((x) => x.topic_id).filter(Boolean))]
+    const { data: fts } = topIds.length ? await supabase.from('materials').select('topic_id, source_text').in('topic_id', topIds).not('source_text', 'is', null) : { data: [] }
+    const fullOf = {}
+    for (const m of fts || []) if (m.source_text && !(fullOf[m.topic_id] || '').includes(m.source_text)) fullOf[m.topic_id] = [fullOf[m.topic_id], m.source_text].filter(Boolean).join('\n\n')
     let updated = 0, removed = 0, checked = 0
     const CH = 10
     // קבוצה לכל חומר (שאלות בלי חומר — לפי מקצוע), קודם השאלות שהתשובה בהן בולטת באורכה
     const groups = {}
-    for (const x of all) (groups[`${x.subject_id}|${x.material_id || ''}`] ||= []).push(x)
+    for (const x of all) (groups[`${x.subject_id}|${x.topic_id || ''}|${x.material_id || ''}`] ||= []).push(x)
     for (const list of Object.values(groups)) {
       list.sort((a, b) => isUnbalanced(b) - isUnbalanced(a))
-      const { subject_id: sid, material_id: mid } = list[0]
+      const { subject_id: sid, topic_id: tid, material_id: mid } = list[0]
       for (let i = 0; i < list.length; i += CH) {
         const batch = list.slice(i, i + CH)
         setFxNote(`בודק… ${checked + batch.length}/${all.length}`)
         try {
           const { items } = await reviewBatch({
-            subjectName: names[sid] || '', learner: profile, source: (mid && srcOf[mid]) || '',
+            subjectName: names[sid] || '', learner: profile, source: (mid && srcOf[mid]) || '', fullText: (tid && fullOf[tid]) || '',
             items: batch.map((x) => ({ id: x.id, q: x.q, choices: x.choices, answer: x.answer, explain: x.explain || '' })),
           })
           const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
@@ -175,11 +187,12 @@ export default function Parent({ nav }) {
                 updated++
               }
               done.add(orig.id)
+              if (needsQuote(orig)) quoted.add(orig.id)
             } catch { /* תיבדק שוב בהרצה הבאה */ }
           }
         } catch { /* מדלגים על מנה שנכשלה — תיבדק בהרצה הבאה */ }
         checked += batch.length
-        saveFixed(done)
+        saveFixed(done); saveQuoted(quoted)
       }
     }
     setFxBusy(false)
