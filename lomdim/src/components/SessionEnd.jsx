@@ -22,6 +22,12 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
     color: CONFETTI_COLORS[i % CONFETTI_COLORS.length], rot: `${(i * 47) % 360}deg`,
   })), [])
 
+  // מטבעות שהגיעו אבל לא נשמרו — שלא ייעלמו בשקט
+  const coinError = reward?.error && (
+    <div className="milky-row !items-start text-[13px] leading-relaxed" style={{ color: 'var(--accent)' }}>
+      <span>⚠️ הרווחת {reward.missed} מטבעות, אבל הם לא נשמרו. כנראה חסרה הגדרה במסד הנתונים — כדאי לבדוק באזור ההורה או לפנות לתמיכה. <span className="text-muted" dir="ltr">({String(reward.error).slice(0, 80)})</span></span>
+    </div>
+  )
   const coinCard = reward && reward.earned > 0 && (
     <div className="end-coins">
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
@@ -97,6 +103,7 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
       )}
 
       {coinCard}
+      {coinError}
 
       {!celebrate && today != null && today < DAILY_GOAL && (
         <div className="milky-row flex-col !items-stretch !gap-2">
