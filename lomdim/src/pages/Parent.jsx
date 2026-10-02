@@ -22,7 +22,8 @@ function isNikudCandidate(row) {
 }
 
 // שאלות שכבר נבדקו בכלי התיקון — כדי שהרצה חוזרת לא תשלם שוב עליהן
-const FIXED_KEY = 'lomdim-reviewed-q'
+// q2: נוסף כלל הציטוט (שאלה שמפנה לפסוק בלי להביא אותו) — כל השאלות נבדקות שוב פעם אחת
+const FIXED_KEY = 'lomdim-reviewed-q2'
 const readFixed = () => { try { return new Set(JSON.parse(localStorage.getItem(FIXED_KEY) || '[]')) } catch { return new Set() } }
 const saveFixed = (s) => { try { localStorage.setItem(FIXED_KEY, JSON.stringify([...s])) } catch { /* */ } }
 
@@ -127,7 +128,7 @@ export default function Parent({ nav }) {
   }
 
   async function fixExisting() {
-    if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים וערבוב מקצועות?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
+    if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים, ערבוב מקצועות ושאלות שמפנות לפסוק או לשורה בלי לצטט אותם?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
     setFxBusy(true); setFxNote('טוען שאלות…')
     let q = supabase.from('questions').select('id, subject_id, material_id, q, choices, answer, explain')
     if (fxSubj !== 'all') q = q.eq('subject_id', fxSubj)
