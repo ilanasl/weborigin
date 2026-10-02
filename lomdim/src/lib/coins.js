@@ -105,6 +105,7 @@ export async function settleSession({ subjectId, topicId, correctCount = 0 }) {
   const today = todayCount || 0
   if (!inserts.length) return { earned: 0, events: [], todayCount: today }
   const { error } = await supabase.from('coin_events').insert(inserts)
-  if (error) return { earned: 0, events: [], todayCount: today }
+  // שמירת המטבעות נכשלה (למשל טבלת coin_events חסרה במסד) — מחזירים את השגיאה כדי להציג אותה
+  if (error) return { earned: 0, events: [], todayCount: today, error: error.message || String(error), missed: inserts.reduce((a, b) => a + b.amount, 0) }
   return { earned: inserts.reduce((a, b) => a + b.amount, 0), events: inserts, todayCount: today }
 }
