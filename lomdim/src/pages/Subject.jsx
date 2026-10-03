@@ -150,7 +150,7 @@ export default function Subject({ nav, params }) {
                   ))}
                 </div>
               </div>
-            ) : <span className="text-[13px] font-semibold">הכול חזק! 🎉</span>}
+            ) : <span className="text-[13px] font-semibold inline-flex items-center gap-1.5">הכול חזק! <Icon name="sparkle" size={16} /></span>}
           </div>
         )}
         <div className="flex gap-2 mt-0.5">
