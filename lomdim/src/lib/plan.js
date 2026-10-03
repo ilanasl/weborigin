@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { fetchAll } from './fetchAll'
 import { mastery, STRONG } from './mastery'
 import { matchScopeTopics } from './gemini'
 
@@ -106,7 +107,7 @@ export async function planToday(subjectId) {
   const [{ data: s }, { data: tp }, { data: at }] = await Promise.all([
     supabase.from('subjects').select('*').eq('id', subjectId).single(),
     supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId),
-    supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
+    fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId)),
   ])
   if (!s) return null
   const kind = nearestKind(s)
@@ -154,9 +155,9 @@ export async function dailyTarget() {
   }
   // בלי תוכנית להיום — מקצוע שתורגל הכי מעט + נושא חלש
   const [{ data: qs }, { data: tp }, { data: at }] = await Promise.all([
-    supabase.from('questions').select('topic_id, subject_id'),
+    fetchAll(() => supabase.from('questions').select('topic_id, subject_id')),
     supabase.from('topics').select('id, name, subject_id'),
-    supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
+    fetchAll(() => supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at')),
   ])
   const withQ = new Set((qs || []).map((q) => q.topic_id).filter(Boolean))
   const topics = (tp || []).filter((t) => withQ.has(t.id))

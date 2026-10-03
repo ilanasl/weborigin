@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useG } from '../lib/gender'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import Icon from '../components/Icon'
 import { mastery, level, LEVEL_LABEL } from '../lib/mastery'
 
@@ -16,8 +17,8 @@ export default function PracticePicker({ nav, params }) {
     (async () => {
       const [{ data: tp }, { data: at }, { data: qs }] = await Promise.all([
         supabase.from('topics').select('*').eq('subject_id', subjectId).order('created_at'),
-        supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
-        supabase.from('questions').select('topic_id').eq('subject_id', subjectId),
+        fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId)),
+        fetchAll(() => supabase.from('questions').select('topic_id').eq('subject_id', subjectId)),
       ])
       const byTopic = {}
       for (const a of at || []) {

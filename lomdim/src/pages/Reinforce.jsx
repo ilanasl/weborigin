@@ -3,6 +3,7 @@ import { buildItem, isChatCard } from '../lib/flashcardQuiz'
 import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { GRAD, VAR_GRAD, varKind, isVarKind } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
 import SessionEnd from '../components/SessionEnd'
@@ -48,14 +49,14 @@ export default function Reinforce({ nav, params }) {
 
   useEffect(() => {
     (async () => {
-      const { data: ri } = await supabase.from('review_items').select('*').eq('subject_id', subjectId)
+      const { data: ri } = await fetchAll(() => supabase.from('review_items').select('*').eq('subject_id', subjectId))
       const isQ = (r) => r.kind === 'question' || isVarKind(r.kind)
       const qIds = (ri || []).filter(isQ).map((r) => r.ref_id)
       const fIds = (ri || []).filter((r) => r.kind === 'flashcard').map((r) => r.ref_id)
       const [{ data: qs }, { data: fcs }, { data: tp }] = await Promise.all([
         qIds.length ? supabase.from('questions').select('*').in('id', qIds) : Promise.resolve({ data: [] }),
         // כל הכרטיסיות של המקצוע — כדי לבנות מסיחים לשאלת ההגדרה
-        fIds.length ? supabase.from('flashcards').select('*').eq('subject_id', subjectId) : Promise.resolve({ data: [] }),
+        fIds.length ? fetchAll(() => supabase.from('flashcards').select('*').eq('subject_id', subjectId)) : Promise.resolve({ data: [] }),
         supabase.from('topics').select('id, name').eq('subject_id', subjectId),
       ])
       setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))

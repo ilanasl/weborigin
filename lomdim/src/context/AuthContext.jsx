@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { forgetAll } from '../lib/screenCache'
 
 const AuthCtx = createContext(null)
 export const useAuth = () => useContext(AuthCtx)
@@ -35,7 +36,8 @@ export function AuthProvider({ children }) {
 
   const signIn = (email, password) => supabase.auth.signInWithPassword({ email, password })
   const signUp = (email, password) => supabase.auth.signUp({ email, password })
-  const signOut = () => supabase.auth.signOut()
+  // יציאה — מנקים את זיכרון המסכים, כדי שמשתמש אחר לא יראה לרגע את הנתונים הקודמים
+  const signOut = () => { forgetAll(); return supabase.auth.signOut() }
   // שכחתי סיסמה: שולח מייל עם קישור שחוזר לאפליקציה; שם בוחרים סיסמה חדשה
   const resetPassword = (email) => supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
   async function updatePassword(password) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { daysUntil } from '../lib/plan'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { mastery, examReadiness, level } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 import Icon from '../components/Icon'
@@ -29,8 +30,8 @@ export default function ParentReport({ nav }) {
       const [{ data: subs }, { data: tp }, { data: at }, { data: ri }] = await Promise.all([
         supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
         supabase.from('topics').select('id, subject_id, name, in_exam'),
-        supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at'),
-        supabase.from('review_items').select('subject_id'),
+        fetchAll(() => supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at')),
+        fetchAll(() => supabase.from('review_items').select('subject_id')),
       ])
       const now = Date.now()
       const atts = (at || []).map((a) => ({ ...a, ts: new Date(a.created_at).getTime() }))

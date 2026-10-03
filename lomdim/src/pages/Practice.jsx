@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { generateVariations } from '../lib/gemini'
 import { settleSession } from '../lib/coins'
 import { VARIATIONS, varKind, GRAD } from '../lib/mastery'
@@ -46,16 +47,17 @@ export default function Practice({ nav, params }) {
     (async () => {
       const { data: tp } = await supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId)
       setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
-      let q = supabase.from('questions').select('*').eq('subject_id', subjectId)
-      if (topicId) q = q.eq('topic_id', topicId)
       // סימולציית מבדק: רק מהנושאים שבמיקוד (אם הוגדר); בלי מיקוד — מכל החומר
-      else if (examMode) {
-        const scopeIds = (tp || []).filter((t) => t.in_exam).map((t) => t.id)
-        if (scopeIds.length) q = q.in('topic_id', scopeIds)
-      }
+      const scopeIds = examMode && !topicId ? (tp || []).filter((t) => t.in_exam).map((t) => t.id) : []
+      const q = fetchAll(() => {
+        let b = supabase.from('questions').select('*').eq('subject_id', subjectId)
+        if (topicId) b = b.eq('topic_id', topicId)
+        else if (scopeIds.length) b = b.in('topic_id', scopeIds)
+        return b
+      })
       const [{ data: all }, { data: vr }] = await Promise.all([
         q,
-        supabase.from('review_items').select('ref_id').eq('subject_id', subjectId).like('kind', 'var:%'),
+        fetchAll(() => supabase.from('review_items').select('ref_id').eq('subject_id', subjectId).like('kind', 'var:%')),
       ])
       // שאלות "וריאציה" (נוצרו אחרי טעות) — רק ב"לחיזוק", לא בתרגול ובסימולציה
       const varIds = new Set((vr || []).map((r) => r.ref_id))
@@ -68,7 +70,7 @@ export default function Practice({ nav, params }) {
       let fcItems = []
       // תרגול רגיל: 2–3 שאלות הגדרה מהכרטיסיות (מושג ↔ הגדרה), במקום מסך כרטיסיות נפרד
       if (!examMode) {
-        const { data: cards } = await supabase.from('flashcards').select('*').eq('subject_id', subjectId)
+        const { data: cards } = await fetchAll(() => supabase.from('flashcards').select('*').eq('subject_id', subjectId))
         const all = (cards || []).filter((c) => !isChatCard(c))
         const own = topicId ? all.filter((c) => c.topic_id === topicId) : all
         const fcBase = total >= 6 ? FC_PER_ROUND : total >= 3 ? 1 : 0   // בסבב קצר — פחות שאלות הגדרה

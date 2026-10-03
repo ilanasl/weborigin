@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { withTone } from '../lib/tone'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { mastery, examReadiness } from '../lib/mastery'
 import { LEAD_DEFAULT, daysUntil } from '../lib/plan'
 import Icon from '../components/Icon'
@@ -21,7 +22,7 @@ export default function ExamBoard({ nav }) {
     const [{ data: subs }, { data: tp }, { data: at }] = await Promise.all([
       supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
       supabase.from('topics').select('*'),
-      supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at'),
+      fetchAll(() => supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at')),
     ])
     const byTS = {}
     for (const a of at || []) {

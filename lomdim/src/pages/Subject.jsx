@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useG } from '../lib/gender'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
+import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
 import { expirePastExams, PASSED_KEY, daysUntil, parseDay } from '../lib/plan'
 
@@ -13,24 +15,29 @@ import { foldLegacyCheckTopic, LEGACY_CHECK_TOPIC } from '../lib/checkTopic'
 export default function Subject({ nav, params }) {
   const g = useG()
   const { id } = params
-  const [subject, setSubject] = useState(null)
-  const [topics, setTopics] = useState([])
-  const [materials, setMaterials] = useState([])
-  const [qCount, setQCount] = useState(0)
-    const [rvCount, setRvCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  // חזרה למסך — מציגים מיד את מה שהיה, ומרעננים ברקע
+  const snap = cached(`subject:${id}`)
+  const [subject, setSubject] = useState(snap?.subject || null)
+  const [topics, setTopics] = useState(snap?.topics || [])
+  const [materials, setMaterials] = useState(snap?.materials || [])
+  const [qCount, setQCount] = useState(snap?.qCount || 0)
+  const [rvCount, setRvCount] = useState(snap?.rvCount || 0)
+  const [loading, setLoading] = useState(!snap)
 
   async function load() {
-    setLoading(true)
-    const { data: s0 } = await supabase.from('subjects').select('*').eq('id', id).single()
-    const [s] = await expirePastExams(s0 ? [s0] : [])
-    const [{ data: tp }, { data: mt }, { data: at }, { count: qc }, { count: rc }] = await Promise.all([
-      supabase.from('topics').select('*').eq('subject_id', id).order('created_at'),
-      supabase.from('materials').select('*').eq('subject_id', id).order('created_at', { ascending: false }),
-      supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id),
+    // הכול במקביל; מהחומרים — רק מה שהמסך מציג (בלי טקסט הסיכומים, שיכול להיות כבד)
+    const topicsQ = () => supabase.from('topics').select('*').eq('subject_id', id).order('created_at')
+    const [{ data: s0 }, { data: tp0 }, { data: mt }, { data: at }, { count: qc }, { count: rc }] = await Promise.all([
+      supabase.from('subjects').select('*').eq('id', id).single(),
+      topicsQ(),
+      supabase.from('materials').select('id, created_at, storage_path, content_hash').eq('subject_id', id).order('created_at', { ascending: false }),
+      fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id)),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('subject_id', id),
       supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('subject_id', id),
     ])
+    // מבחן/מבדק שעבר — מתאפס; רק אז סימון הנושאים השתנה וצריך לטעון אותם שוב
+    const [s] = await expirePastExams(s0 ? [s0] : [])
+    const tp = s && s !== s0 ? (await topicsQ()).data : tp0
     const byTopic = {}
     for (const a of at || []) {
       if (!a.topic_id) continue
@@ -38,12 +45,17 @@ export default function Subject({ nav, params }) {
         correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime(),
       })
     }
-    setSubject(withTone(s))
-    setTopics((tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })))
-    // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
-    setMaterials((mt || []).filter((m) => m.storage_path || m.content_hash))
-    setQCount(qc || 0); setRvCount(rc || 0)
+    const next = {
+      subject: s ? withTone(s) : null,
+      topics: (tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })),
+      // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
+      materials: (mt || []).filter((m) => m.storage_path || m.content_hash),
+      qCount: qc || 0, rvCount: rc || 0,
+    }
+    setSubject(next.subject); setTopics(next.topics); setMaterials(next.materials)
+    setQCount(next.qCount); setRvCount(next.rvCount)
     setLoading(false)
+    remember(`subject:${id}`, next)
   }
   useEffect(() => { load() }, [id])
   // חד-פעמי: "תרגילים שבדקתי" כבר לא יחידה נפרדת — השאלות עוברות לנושאים שלהן
@@ -65,7 +77,6 @@ export default function Subject({ nav, params }) {
   // תאריך המבחן הקרוב, קצר ("12.10") — לכפתור הסימולציה
   const examRaw = upcomingExams[0] ? (upcomingExams[0].kind === 'מבדק' ? subject.quiz_date : subject.exam_date) : null
   const examDate = examRaw ? (() => { const d = parseDay(examRaw); return `${d.getDate()}.${d.getMonth() + 1}` })() : null
-  const summary = materials.find((m) => m.summary_md)
 
   // מוכנות למבחן: נושאי המבחן (או כולם אם לא הוגדר מיקוד); נושא שלא תורגל נספר כ-0
   const rd = examReadiness(topics.map((t) => ({ in_exam: t.in_exam, pct: t.m.pct })))
@@ -91,6 +102,17 @@ export default function Subject({ nav, params }) {
   })()
   // תרגיל ניתוח משפט רלוונטי ללשון/עברית/דקדוק
   const isLang = /עברית|לשון|דקדוק|תחביר/.test(name || '')
+
+  // הסיכום האחרון כהקשר ל"תסביר לי" — נטען רק בלחיצה (לא בכל כניסה למסך)
+  const openExplain = async () => {
+    let context
+    try {
+      const { data } = await supabase.from('materials').select('summary_md').eq('subject_id', id)
+        .not('summary_md', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      context = data?.summary_md || undefined
+    } catch { /* בלי הקשר */ }
+    nav.go('explain', { subjectId: id, subjectName: name, context })
+  }
 
   const isEmpty = topics.length === 0 && materials.length === 0
   const goPractice = (mode) => nav.go('practice', { subjectId: id, subjectName: name, mode })
@@ -180,7 +202,7 @@ export default function Subject({ nav, params }) {
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
-        const explainTile = { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: 'chat', go: () => nav.go('explain', { subjectId: id, subjectName: name, context: summary?.summary_md }) }
+        const explainTile = { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: 'chat', go: openExplain }
         // מספר אי-זוגי → "תסביר לי" בסוף ברוחב מלא; זוגי → בתוך הרשת
         const tools = [...list, explainTile]
         const odd = tools.length % 2 === 1
