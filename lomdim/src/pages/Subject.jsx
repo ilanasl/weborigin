@@ -157,13 +157,13 @@ export default function Subject({ nav, params }) {
           <button type="button" className="ready-btn" style={{ background: 'var(--on-fill)', color: subject.bg }} disabled={qCount === 0}
             onClick={() => nav.go('practicePicker', { subjectId: id, subjectName: name, mode: 'practice' })}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
-            <span className="ready-lbl"><span>תרגול חופשי</span><small>כל החומר</small></span>
+            <span className="ready-lbl" style={{ color: '#fff' }}><span>תרגול חופשי</span><small>כל החומר</small></span>
           </button>
           <button type="button" className="ready-btn" style={{ background: '#fff', color: 'var(--on-fill)' }} disabled={qCount === 0} onClick={() => goPractice('exam')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
             <span className="ready-lbl">
               <span>סימולציה</span>
-              <small>{examDate ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}${needsMaterial ? ' · כל החומר' : ''}` : 'כמו מבחן, על כל החומר'}</small>
+              <small>{examDate ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}` : 'כמו מבחן, על כל החומר'}</small>
             </span>
           </button>
         </div>

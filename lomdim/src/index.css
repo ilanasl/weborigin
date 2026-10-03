@@ -349,7 +349,7 @@ button{font-family:inherit; cursor:pointer}
 .ready-btn{ flex:1; min-height:52px; padding:6px 10px; border-radius:24px; border:none; font-family:var(--disp); font-weight:700; font-size:16px;
   display:flex; align-items:center; justify-content:center; gap:8px }
 .ready-btn:disabled{ opacity:.5 }
-.ready-lbl{ display:flex; flex-direction:column; align-items:flex-start; line-height:1.15 }
+.ready-lbl{ color:inherit; font-size:inherit; font-weight:inherit; display:flex; flex-direction:column; align-items:flex-start; line-height:1.15 }
 .ready-lbl small{ font-family:'IBM Plex Sans Hebrew',system-ui,sans-serif; font-size:11.5px; font-weight:600; opacity:.72 }
 .tools-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px }
 .tool{ position:relative; min-height:68px; display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:10px;
