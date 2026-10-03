@@ -136,7 +136,7 @@ export default function Subject({ nav, params }) {
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עוד לא תורגל — כמה תרגולים והמספר יופיע.</div>}
         {ready != null && (
           <div className="flex flex-col gap-2 mt-0.5">
-            <span className="text-[13.5px] font-bold">✓ חזק ב-{strong.length} מתוך {rd.total} נושאים · תורגלו {rd.practiced}</span>
+            <span className="text-[13.5px] font-bold inline-flex items-center gap-1.5"><Icon name="check" size={16} />חזק ב-{strong.length} מתוך {rd.total} נושאים · תורגלו {rd.practiced}</span>
             {focus.length > 0 ? (
               <div className="flex flex-col gap-1">
                 <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>הכי כדאי לתרגל עכשיו</span>
