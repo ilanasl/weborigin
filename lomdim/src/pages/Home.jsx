@@ -175,7 +175,8 @@ export default function Home({ nav }) {
             <span className="font-bold text-[15px] truncate">{upcoming.exams[0].kind} ב{upcoming.name}</span>
             <span className="text-[13px] text-muted">{upcoming.examDays === 0 ? 'היום! בהצלחה 🍀' : upcoming.ready == null ? 'מוכנות: עוד לא תורגל' : `מוכנות ${upcoming.ready}%`}</span>
           </span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+          {/* אותו חץ עגול כמו בכרטיסי המקצועות, בצבע המקצוע */}
+          <span className="w-9 h-9 rounded-full grid place-items-center flex-none" style={{ background: upcoming.bg, color: 'var(--on-fill)' }} aria-hidden="true"><ArrowIcon size={17} /></span>
         </button>
       )}
 
