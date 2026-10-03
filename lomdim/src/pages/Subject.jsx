@@ -62,9 +62,9 @@ export default function Subject({ nav, params }) {
   ].filter((x) => x.days != null && x.days >= 0).sort((a, b) => a.days - b.days)
   const examDays = upcomingExams[0]?.days ?? null
   const examKind = upcomingExams[0]?.kind || 'מבחן'
-  // תאריך המבחן הקרוב, קצר ("8 באוק׳") — לכפתור הסימולציה
+  // תאריך המבחן הקרוב, קצר ("12.10") — לכפתור הסימולציה
   const examRaw = upcomingExams[0] ? (upcomingExams[0].kind === 'מבדק' ? subject.quiz_date : subject.exam_date) : null
-  const examDate = examRaw ? parseDay(examRaw).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : null
+  const examDate = examRaw ? (() => { const d = parseDay(examRaw); return `${d.getDate()}.${d.getMonth() + 1}` })() : null
   const summary = materials.find((m) => m.summary_md)
 
   // מוכנות למבחן: נושאי המבחן (או כולם אם לא הוגדר מיקוד); נושא שלא תורגל נספר כ-0
@@ -163,7 +163,8 @@ export default function Subject({ nav, params }) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
             <span className="ready-lbl">
               <span>סימולציה</span>
-              <small>{examDate ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}` : 'כמו מבחן, על כל החומר'}</small>
+              {/* סימולציה על המבדק רק כשהוגדר לו חומר; אחרת — על כל החומר */}
+              <small>{examDate && !needsMaterial ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}` : 'על כל החומר'}</small>
             </span>
           </button>
         </div>
