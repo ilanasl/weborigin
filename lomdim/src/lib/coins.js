@@ -1,6 +1,7 @@
 // ── מערכת מטבעות ותגמול ──
 // היתרה = סכום כל שורות coin_events (רווח חיובי, פדיון שלילי). שורות לא נמחקות → מטבעות לא נעלמים.
 import { supabase } from './supabase'
+import { fetchAll } from './fetchAll'
 import { mastery, STRONG } from './mastery'
 
 export const DAILY_GOAL = 10        // כמה שאלות ביום נחשבות "משימת היום"
@@ -20,14 +21,14 @@ function streakBonus(s) {
 
 // כמה מטבעות יש כרגע
 export async function coinBalance() {
-  const { data } = await supabase.from('coin_events').select('amount')
+  const { data } = await fetchAll(() => supabase.from('coin_events').select('amount'))
   return (data || []).reduce((s, e) => s + Number(e.amount || 0), 0)
 }
 
 // תמונת מצב לחנות: יתרה, כמה "תפוסים" בבקשות ממתינות, וכמה זמין לפדיון
 export async function coinSummary() {
   const [{ data: ev }, { data: pend }] = await Promise.all([
-    supabase.from('coin_events').select('amount, reason, label, created_at').order('created_at', { ascending: false }),
+    fetchAll(() => supabase.from('coin_events').select('amount, reason, label, created_at').order('created_at', { ascending: false })),
     supabase.from('redemptions').select('cost').eq('status', 'pending'),
   ])
   const balance = (ev || []).reduce((s, e) => s + Number(e.amount || 0), 0)
@@ -38,7 +39,7 @@ export async function coinSummary() {
 // רצף ימים רצופים (כולל היום) שבהם הושג היעד היומי — נגזר מיומן התשובות
 async function streakDays() {
   const since = new Date(); since.setDate(since.getDate() - 90)
-  const { data } = await supabase.from('attempts').select('created_at').gte('created_at', since.toISOString())
+  const { data } = await fetchAll(() => supabase.from('attempts').select('created_at').gte('created_at', since.toISOString()))
   const perDay = {}
   for (const a of data || []) { const k = dayKey(a.created_at); perDay[k] = (perDay[k] || 0) + 1 }
   let s = 0
@@ -51,8 +52,8 @@ async function streakDays() {
 }
 
 async function topicPct(subjectId, topicId) {
-  const { data } = await supabase.from('attempts')
-    .select('correct, difficulty, created_at').eq('subject_id', subjectId).eq('topic_id', topicId)
+  const { data } = await fetchAll(() => supabase.from('attempts')
+    .select('correct, difficulty, created_at').eq('subject_id', subjectId).eq('topic_id', topicId))
   const att = (data || []).map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() }))
   return mastery(att).pct
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { GRAD } from '../lib/mastery'
 import { settleSession } from '../lib/coins'
 import { primeAudio } from '../lib/celebrate'
@@ -28,7 +29,7 @@ export default function Flashcards({ nav, params }) {
   async function build() {
     setLoading(true); setDone(false); setIdx(0); setPicked(null); setCorrect(0); setResults([]); setReward(null); setPlanDay(null)
     const [{ data: cards }, { data: tp }] = await Promise.all([
-      supabase.from('flashcards').select('*').eq('subject_id', subjectId),
+      fetchAll(() => supabase.from('flashcards').select('*').eq('subject_id', subjectId)),
       supabase.from('topics').select('id, name').eq('subject_id', subjectId),
     ])
     setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))

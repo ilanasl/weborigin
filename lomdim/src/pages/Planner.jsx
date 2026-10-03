@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { mastery } from '../lib/mastery'
 import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
@@ -37,7 +38,7 @@ export default function Planner({ nav, params }) {
     const [s] = await expirePastExams(s0 ? [s0] : [])
     const [{ data: tp }, { data: at }] = await Promise.all([
       supabase.from('topics').select('*').eq('subject_id', subjectId).order('created_at'),
-      supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId),
+      fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId)),
     ])
     const byTopic = {}
     for (const a of at || []) {

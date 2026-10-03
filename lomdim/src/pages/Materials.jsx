@@ -3,6 +3,7 @@ import { useG } from '../lib/gender'
 import { toAIInput } from '../lib/image'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { mastery } from '../lib/mastery'
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
@@ -96,7 +97,7 @@ export default function Materials({ nav, params }) {
       }
       await supabase.from('topics').delete().eq('id', fromId)
       // עדכון המסך במקום — בלי טעינה מחדש (כדי לא לקפוץ למעלה)
-      const { data: at } = await supabase.from('attempts').select('correct, difficulty, created_at').eq('topic_id', toId)
+      const { data: at } = await fetchAll(() => supabase.from('attempts').select('correct, difficulty, created_at').eq('topic_id', toId))
       const m = mastery((at || []).map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() })))
       setTopics((arr) => arr.filter((x) => x.id !== fromId).map((x) => (x.id === toId ? { ...x, m } : x)))
     } catch { /* אם משהו נכשל — הנושא הישן פשוט נשאר */ }

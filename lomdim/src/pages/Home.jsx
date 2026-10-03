@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import ConfirmDialog from '../components/ConfirmDialog'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
+import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness } from '../lib/mastery'
 import { expirePastExams, daysUntil, dailyTarget } from '../lib/plan'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
@@ -27,26 +29,32 @@ function dayStats(att) {
 
 export default function Home({ nav }) {
   const { profile } = useAuth()
-  const [subjects, setSubjects] = useState([])
-  const [coins, setCoins] = useState(null)
-  const [today, setToday] = useState({ n: 0, streak: 0 })
-  const [loading, setLoading] = useState(true)
+  // חזרה למסך — מציגים מיד את מה שהיה, ומרעננים ברקע
+  const snap = cached('home')
+  const [subjects, setSubjects] = useState(snap?.subjects || [])
+  const [coins, setCoins] = useState(snap?.coins ?? null)
+  const [today, setToday] = useState(snap?.today || { n: 0, streak: 0 })
+  const [loading, setLoading] = useState(!snap)
   const [todayBusy, setTodayBusy] = useState(false)
   const [streakInfo, setStreakInfo] = useState(false)
 
   async function load() {
-    setLoading(true)
-    // מבחן/מבדק שעבר — מתאפס (תאריך + מיקוד) לפני שמחשבים מוכנות ונושאים
-    const { data: subs0 } = await supabase.from('subjects').select('*').order('created_at')
-    const subs = await expirePastExams(subs0 || [])
-    const [{ data: att }, { data: tp }, { data: mt }, bal] = await Promise.all([
-      supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at'),
-      supabase.from('topics').select('id, subject_id, in_exam'),
+    // הכול במקביל — בקשה אחת לשרת במקום שתיים בזו אחר זו
+    const topicsQ = () => supabase.from('topics').select('id, subject_id, in_exam')
+    const [{ data: subs0 }, { data: att }, { data: tp0 }, { data: mt }, bal] = await Promise.all([
+      supabase.from('subjects').select('*').order('created_at'),
+      fetchAll(() => supabase.from('attempts').select('topic_id, subject_id, correct, difficulty, created_at')),
+      topicsQ(),
       supabase.from('materials').select('id, subject_id, storage_path, content_hash'),
       coinBalance(),
     ])
+    // מבחן/מבדק שעבר — מתאפס (תאריך + מיקוד); רק אז סימון הנושאים השתנה וצריך לטעון אותם שוב
+    const subs = await expirePastExams(subs0 || [])
+    const expired = subs.some((x, i) => x !== (subs0 || [])[i])
+    const tp = expired ? (await topicsQ()).data : tp0
+    const stats = dayStats(att || [])
     setCoins(bal)
-    setToday(dayStats(att || []))
+    setToday(stats)
     const list = (subs || []).map(withTone).map((s) => {
       const byTopic = {}
       for (const a of att || []) {
@@ -75,6 +83,7 @@ export default function Home({ nav }) {
     })
     setSubjects(list)
     setLoading(false)
+    remember('home', { subjects: list, coins: bal, today: stats })
   }
   useEffect(() => { load() }, [])
 

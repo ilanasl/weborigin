@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Icon from '../components/Icon'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { fetchAll } from '../lib/fetchAll'
 import { renikudQuestions, reviewBatch, readReview, isUnbalanced } from '../lib/gemini'
 import { canEnterParentZone } from '../lib/parentZone'
 
@@ -98,9 +99,10 @@ export default function Parent({ nav }) {
   async function addNikud() {
     if (!window.confirm('להוסיף ניקוד לשמות בניינים וצורות פועל בשאלות הקיימות?\nזה משתמש ב-AI (עלות קטנה חד-פעמית). ההיסטוריה נשמרת.')) return
     setNkBusy(true); setNkNote('טוען שאלות…')
-    let q = supabase.from('questions').select('id, q, choices')
-    if (nkSubj !== 'all') q = q.eq('subject_id', nkSubj)
-    const { data } = await q
+    const { data } = await fetchAll(() => {
+      const b = supabase.from('questions').select('id, q, choices')
+      return nkSubj !== 'all' ? b.eq('subject_id', nkSubj) : b
+    })
     // רק שאלות שעוד לא מנוקדות ושמכילות בניין/מספר — חוסך קרדיטים ולא רץ מחדש על הכל
     const all = (data || []).filter(isNikudCandidate)
     if (!all.length) { setNkBusy(false); setNkNote('✓ אין שאלות חדשות לניקוד — הכול מעודכן.'); return }
@@ -136,9 +138,10 @@ export default function Parent({ nav }) {
   async function fixExisting() {
     if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים, ערבוב מקצועות ושאלות שמפנות לפסוק או לשורה בלי לצטט אותם?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
     setFxBusy(true); setFxNote('טוען שאלות…')
-    let q = supabase.from('questions').select('id, subject_id, topic_id, material_id, q, choices, answer, explain')
-    if (fxSubj !== 'all') q = q.eq('subject_id', fxSubj)
-    const { data } = await q
+    const { data } = await fetchAll(() => {
+      const b = supabase.from('questions').select('id, subject_id, topic_id, material_id, q, choices, answer, explain')
+      return fxSubj !== 'all' ? b.eq('subject_id', fxSubj) : b
+    })
     const done = readFixed()
     const quoted = readQuoted()
     // שאלות שנבדקו כבר בהרצה קודמת — מדלגים (חוסך קרדיטים), חוץ משאלה שמפנה לפסוק בלי לצטט אותו
