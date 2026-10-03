@@ -150,7 +150,7 @@ export default function Subject({ nav, params }) {
                   ))}
                 </div>
               </div>
-            ) : <span className="text-[13px] font-semibold inline-flex items-center gap-1.5">הכול חזק! <Icon name="sparkle" size={16} /></span>}
+            ) : <span className="text-[15px] font-extrabold inline-flex items-center gap-1.5">הכול חזק! <ConfettiIcon /></span>}
           </div>
         )}
         <div className="flex gap-2 mt-0.5">
@@ -272,5 +272,23 @@ export default function Subject({ nav, params }) {
       </button>
       </>)}
     </div>
+  )
+}
+
+// קונפטי צבעוני ל"הכול חזק!" — בסגנון האפליקציה (לא אימוג'י של המערכת)
+function ConfettiIcon({ size = 24 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M4 28 L11 10 L22 21 Z" fill="#131316" />
+      <path d="M7.2 20 L9.6 14 M9.8 25.4 L14.6 16.6" stroke="#FFC400" strokeWidth="2" strokeLinecap="round" />
+      <path d="M15 8 q2 -3 0 -5" stroke="#7B5CFF" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <path d="M24 17 q3 -2 5 0" stroke="#FF4FA0" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      <path d="M19 12 l6 -6" stroke="#FF7A3D" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="22" cy="4" r="1.8" fill="#FF4FA0" />
+      <circle cx="28" cy="10" r="1.8" fill="#7B5CFF" />
+      <rect x="26.5" y="22.5" width="3.4" height="3.4" rx=".8" fill="#FFC400" transform="rotate(20 28 24)" />
+      <rect x="9" y="3" width="3.2" height="3.2" rx=".8" fill="#FF7A3D" transform="rotate(-25 10.5 4.5)" />
+      <circle cx="30" cy="16" r="1.3" fill="#FF7A3D" />
+    </svg>
   )
 }
