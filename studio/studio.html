@@ -322,6 +322,32 @@ const TEMPLATES = [
     ]
   },
   {
+    // Main tax banner: solid grey on the LEFT, a real photo on the RIGHT, joined by a soft blur + fade. Text optional (off).
+    id:"tax-hero", name:"Main Banner (Tax)", font:"Poppins", editorV2:true, textOptional:true,
+    sizes:{desktop:{w:3800,h:520}, mobile:{w:650,h:325}},
+    bgPos:{desktop:"center", mobile:"right"}, anchorX:{desktop:50, mobile:75}, // mobile keeps the right part of the photo, where the people are
+    bgColor:"#eaeaea", panelBg:true,
+    imageBox:{x:52,y:0,w:48,h:100, mobile:{x:45,y:0,w:55,h:100}},
+    seamBlur:0.6, mobileBlurScale:0.5, // the mobile photo is narrow: half the blur width
+    textArea:{a:5,b:50},
+    bgModes:{side:{bg:"#eaeaea",color:"#eaeaea",src:"custom",from:"left",hold:50,fade:72,tintTop:false}},
+    mobileFadeShift:{hold:-8,fade:-14}, // mobile: shorter fade so faces in the narrow photo stay clear
+    defaultTopic:"A relaxed couple in their 30s sitting side by side at a modern dining table at home, the woman pointing at the laptop screen while the man smiles, papers and coffee cups on the table, relieved and happy, bright airy dining area with soft natural daylight from a window",
+    composition:"A natural, candid lifestyle photo, shot at a MEDIUM-WIDE distance (not a close-up). Place the people on the RIGHT 60% of the frame; the LEFT third is a plain, soft, out-of-focus light-grey wall with nothing in it, so it blends into a grey panel. Keep every head inside the vertical CENTER band of the frame with clear space above it, so a short wide crop that keeps only the middle strip still shows every head complete. Photorealistic, bright soft daylight, one continuous photo, no collage.",
+    overlay:{desktop:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:50,fade:72},
+             mobile:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:42,fade:58}},
+    elements:[
+      // Same places as the site's own heading (preview only — text is off by default).
+      {key:"headline",label:"Headline",val:"Top 10 Tax Relief Services 2026",size:88,weight:700,color:"#1a1a1a",align:"left",x:15.5,y:12,anchor:"top-left",maxW:40,lh:1.1,
+       mobile:{size:30,x:5,y:12,maxW:52}},
+      {key:"subtitle",label:"Subtitle",val:"Tax Relief Made Simple",size:48,weight:400,color:"#222222",align:"left",x:15.5,y:36,anchor:"top-left",maxW:40,
+       mobile:{size:20,x:5,y:42,maxW:52}},
+      {key:"body",label:"Description",val:"Find the best tax relief companies in the country on one platform. Explore a variety of the best tax relief companies that promise you top services and features!",size:40,weight:300,color:"#333333",align:"left",x:15.5,y:52,anchor:"top-left",maxW:42,lh:1.45,hiddenMobile:true},
+      {key:"updated",label:"Last updated",val:"✓ Last Updated: October 2026",size:36,weight:400,color:"#1a1a1a",align:"left",x:15.5,y:80,anchor:"top-left",maxW:40,
+       mobile:{size:16,x:5,y:82,maxW:52}}
+    ]
+  },
+  {
     id:"gold-popup", name:"Popup (Split)", font:"Poppins",
     sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
     // White card on the left; the image fills the right side.
@@ -439,6 +465,12 @@ function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.ad
 function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const v=(vy!=null?vy:100);const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*(Math.min(v,100)/100)+Math.max(0,v-100)/100*dh;return{dx,dy,dw,dh};}
 // Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
 // Product box for a size (a template can give the mobile layout its own box).
+function imageBoxFor(tpl,size){const b=tpl.imageBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
+// Soft blur along the left edge of a photo box, so the photo melts into the panel instead of ending in a line.
+function drawSeamBlur(ctx,img,bx,by,bw,bh,hx,vy,zoom,amt,H){if(!(amt>0))return;const RS=RENDER_SCALE||1;const L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const c=L.getContext("2d");
+  c.filter=`blur(${Math.round(H*0.035*amt*RS)}px)`;c.scale(RS,RS);drawCoverBox(c,img,0,0,bw,bh,hx,vy,zoom);c.filter="none";c.setTransform(1,0,0,1,0,0);
+  c.globalCompositeOperation="destination-in";const g=c.createLinearGradient(0,0,L.width,0);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(Math.min(0.9,0.2+0.35*amt),"rgba(0,0,0,0.6)");g.addColorStop(Math.min(0.98,0.35+0.5*amt),"rgba(0,0,0,0)");c.fillStyle=g;c.fillRect(0,0,L.width,L.height);
+  ctx.drawImage(L,bx,by,bw,bh);}
 function prodBoxFor(tpl,size){const b=tpl.productBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
 // Where the product actually lands (box fit + drag offset) — shared by the renderer and the decorations.
 function prodRectFor(tpl,size,dim,image,over){const b=prodBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
@@ -624,8 +656,10 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(tpl.productShadow)groundShadowFor(ctx,image,f,(over.shadow!=null?over.shadow:0.22));
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
-  else if(tpl.imageBox){const b=tpl.imageBox,bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image)drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);else placeholderBox(ctx,bx,by,bw,bh);}
+  else if(tpl.imageBox){const b=imageBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+    if(image){drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);if(tpl.seamBlur!=null)drawSeamBlur(ctx,image,bx,by,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.h);}
+    else placeholderBox(ctx,bx,by,bw,bh);
+    if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:bx,y:by,w:bw,h:bh});}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
   if(!subjAbove)drawSubject();
   if(!imgAbove){drawDecorations(ctx,tpl,size,dim,image,over);drawMain();}
@@ -684,7 +718,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)},anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:(tpl.anchorX?Object.assign({},tpl.anchorX):{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)}),anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
 }
 
 /* ---------------- State ---------------- */
@@ -796,6 +830,12 @@ const STARTERS={
     {topic:"A stylized 3D globe made of frosted blue glass with two thin orbit rings and small glowing nodes, a floating browser window card with an empty address bar in front of it, soft blue and white palette, premium tech aesthetic, soft shadows",prompt:""},
     {topic:"An isometric miniature data-center platform with rounded edges: three slim server racks, a small cloud above, a shield icon for security and a browser window, clay-like 3D render, soft pastel blues with white, smooth lighting, clean and minimal",prompt:""},
     {topic:"A floating 3D browser window with a blank address bar and a glossy padlock badge, a small rocket and a lightning bolt for speed nearby, soft blue gradient materials, modern glassmorphism, soft glow",prompt:""},
+  ],
+  "tax-hero":[
+    {topic:"A relaxed couple in their 30s sitting side by side at a modern dining table at home, the woman pointing at the laptop screen while the man smiles, papers and coffee cups on the table, relieved and happy, bright airy dining area with soft natural daylight from a window",prompt:""},
+    {topic:"A relaxed couple in their 30s sitting together at a bright wooden kitchen table at home, reviewing papers and a laptop, smiling and relieved, coffee cups on the table, soft natural daylight from a window",prompt:""},
+    {topic:"A friendly professional tax advisor in a modern bright office, sitting at a desk across from a smiling client couple, reviewing documents together, warm trustworthy atmosphere",prompt:""},
+    {topic:"A happy couple sitting at a small table on a sunny home balcony with plants, looking at a tablet together, relaxed and relieved",prompt:""},
   ],
   "travel-overflow":[
     {topic:"Japan travel destination",prompt:""},
@@ -1026,7 +1066,7 @@ function backfillOver(tpl,o){
   if(!o.pads)o.pads={desktop:{},mobile:{}};
   if(!o.bold)o.bold={desktop:{},mobile:{}};
   if(tpl.bgModes){if(!o.bgModes||typeof o.bgModes!=="object"){o.bgModes=JSON.parse(JSON.stringify(tpl.bgModes));o._bgFresh=true;}
-    ["side","top","bottom"].forEach(k=>{if(!o.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":"side";}
+    ["side","top","bottom"].forEach(k=>{if(!o.bgModes[k]&&tpl.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":"side";}
   if(tpl.decorations){if(!o.deco||typeof o.deco!=="object")o.deco=initDeco(tpl);Object.keys(tpl.decorations).forEach(k=>{if(!o.deco[k])o.deco[k]=JSON.parse(JSON.stringify(tpl.decorations[k]));});}
 }
 /* ---------------- Editor v2 — Popup (Product): one tab per object, click-to-select, area-aware align ---------------- */
@@ -1082,6 +1122,8 @@ function ensureV2Css(){if(document.getElementById("v2css"))return;const st=docum
 
 function openEditorV2(tpl,st,onClose){
   let size="desktop";const o=st.over;backfillOver(tpl,o);ensureV2Css();
+  const isPhoto=!tpl.productBox&&!!tpl.imageBox; // the main image fills a photo box (cover) instead of a floating product
+  const tName=k=>(k==="prod"&&isPhoto)?"Photo":V2_NAME[k];
   const D=initOverrides(tpl);
   const back=document.createElement("div");back.className="backdrop";
   back.innerHTML=`<div class="modal editor v2">
@@ -1110,7 +1152,7 @@ function openEditorV2(tpl,st,onClose){
   let sel={t:"prod"};const lastIn={bg:{t:"bg",id:(o.split?"split":(o.bgMode||"side"))},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
   const colOf=s=>V2_COL[s.t];
   const bgNames={side:"Fade from side",top:"Fade from top",bottom:"Fade from bottom",split:"Split (half / half)"};
-  const nameOf=s=>s.t==="bg"?bgNames[s.id]:s.t==="extra"?("Image "+(o.extras.findIndex(e=>e.id===s.id)+1)):s.t==="text"?((elOf(s.key)||{}).label||s.key):V2_NAME[s.t];
+  const nameOf=s=>s.t==="bg"?bgNames[s.id]:s.t==="extra"?("Image "+(o.extras.findIndex(e=>e.id===s.id)+1)):s.t==="text"?((elOf(s.key)||{}).label||s.key):tName(s.t);
   const select=s=>{sel=s;lastIn[s.t]=s;renderAll();};
 
   /* ---- modes (Split turns on when it is adjusted; Panel/Fade/Bottom fade turn it off) ---- */
@@ -1124,7 +1166,8 @@ function openEditorV2(tpl,st,onClose){
   // Show exactly one background: the chosen mode's fade colour over its own background colour; every other fade is off.
   const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;o.panelColor=m.bg;o.panelTop=m.tintTop?null:m.bg;o.panelDir="top";
     const cov=id==="side"?(m.from||"left"):id;
-    ["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:1,hold:m.hold||0,fade:(m.fade!=null?m.fade:100),coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
+    ["desktop","mobile"].forEach(z=>{const sh=(z==="mobile"&&tpl.mobileFadeShift)||{hold:0,fade:0};const hd=Math.max(0,(m.hold||0)+sh.hold),fd=Math.max(hd+2,Math.min(100,(m.fade!=null?m.fade:100)+sh.fade));
+      o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:1,hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
       if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});};
   const chooseBg=id=>{if(id==="split")setMode(true);else{setMode(false);applyMode(id);}select({t:"bg",id});};
   if(o._bgFresh){delete o._bgFresh;if(!o.split)applyMode(o.bgMode||"side");}
@@ -1133,7 +1176,7 @@ function openEditorV2(tpl,st,onClose){
   const TXA=tpl.textArea||{a:5,b:45};
   const divider=()=>o.split?(o.splitAt!=null?o.splitAt:50):(tpl.textArea?TXA.b:50);
   const areaOf=s=>{const A=divider();
-    if(s.t==="prod"){const b=prodBoxFor(tpl,size);return [b.x,b.x+b.w,"Image area"];}
+    if(s.t==="prod"){const b=isPhoto?imageBoxFor(tpl,size):prodBoxFor(tpl,size);return [b.x,b.x+b.w,isPhoto?"Photo area":"Image area"];}
     if(s.t==="subj"){const b=tpl.subjectBox||tpl.productBox;return [b.x,Math.min(100,b.x+b.w),"Image area"];}
     if(s.t==="extra")return [A,100,"Image area"];
     if(s.t==="text"&&(elOf(s.key)||{}).splitOnly)return [A,100,"Right text area"];
@@ -1203,7 +1246,7 @@ function openEditorV2(tpl,st,onClose){
     p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>d.amt!=null?d.amt:0.5,set:v=>{d.amt=v;},fmt:v=>Math.round(v*100)+"%",def:def.amt}));
     p.append(rowRange(decoSel==="edge"?"Height":"Size",{min:0.5,max:2,step:0.05,get:()=>d.size!=null?d.size:1,set:v=>{d.size=v;},fmt:v=>Math.round(v*100)+"%",def:def.size}));}
   function paneBg(p){paneBgModes(p);if(tpl.decorations&&o.deco)paneDeco(p);}
-  function paneBgModes(p){const ids=["side","top","bottom"].concat(tpl.splittable?["split"]:[]);
+  function paneBgModes(p){const ids=["side","top","bottom"].filter(k=>tpl.bgModes[k]).concat(tpl.splittable?["split"]:[]);
     const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.onclick=()=>chooseBg(id);chips.append(c);});p.append(chips);
     const id=sel.id;
     if(id==="split"){p.append(note("Two flat halves. Pick one of the fades above to go back to it."));p.append(group("Split (half / half)"));
@@ -1225,7 +1268,18 @@ function openEditorV2(tpl,st,onClose){
     p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>m.fade!=null?m.fade:100,set:v=>{m.fade=v;if(v<(m.hold||0)+5){m.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].fade}));}
   async function uploadMain(fs){const f=fs[0];const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);if(fs.length>1)await addExtraFiles(tpl,o,fs.slice(1));renderAll();}
   const swapMainSubj=()=>{const u=st.uploaded,i=st.img;st.uploaded=st.uploaded2||null;st.img=st.img2||null;st.uploaded2=u||null;st.img2=i||null;if(st.img){st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);}renderAll();};
-  function paneProd(p){const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",true,uploadMain));
+  function panePhoto(p){const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",false,uploadMain));
+    if(st.uploaded)s.append(btn("Remove",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;forgetAuto(tpl);renderAll();}));p.append(s);
+    if(!st.uploaded){p.append(note("No photo yet — generate one with AI on the card, or upload a photo."));return;}
+    p.append(group("Position (inside the photo area)"));
+    p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>o.anchorX[size],set:v=>{o.anchorX[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorX[size]}));
+    p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>Math.min(100,o.anchorY[size]),set:v=>{o.anchorY[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorY[size]}));
+    p.append(group("Size"));
+    p.append(rowRange("Zoom",{min:1,max:2.5,step:0.05,get:()=>Math.max(1,o.zoom||1),set:v=>{o.zoom=v;},fmt:v=>Math.round(v*100)+"%",def:1}));
+    p.append(group("Join with the background"));
+    p.append(rowRange("Blur at the join",{min:0,max:1,step:0.02,get:()=>o.seamBlur!=null?o.seamBlur:(tpl.seamBlur||0),set:v=>{o.seamBlur=v;},fmt:v=>v>0?Math.round(v*100)+"%":"off",def:tpl.seamBlur||0}));
+    p.append(note("The fade itself (where the grey ends) is in the Background tab: Solid area / Fade ends at."));}
+  function paneProd(p){if(isPhoto)return panePhoto(p);const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",true,uploadMain));
     if(st.uploaded)s.append(btn("Remove",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;forgetAuto(tpl);renderAll();}));
     if(tpl.secondLayer&&(st.uploaded||st.uploaded2))s.append(btn("⇄ Swap with person",swapMainSubj,"swap the product and the person"));p.append(s);
     if(!st.uploaded){p.append(note("No product image yet — upload one (several files: the first is the product, the rest become extra images)."));return;}
@@ -1314,27 +1368,28 @@ function openEditorV2(tpl,st,onClose){
     p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>pos().y!=null?pos().y:rEl.y,set:v=>{pos().y=v;},fmt:v=>Math.round(v)+"%",def:rEl.y}));}
 
   /* ---- render ---- */
-  function renderTabs(){tabsEl.innerHTML="";[["bg"],["prod"],["subj"],["extra"],["logo"],["text"]].forEach(([k])=>{if(k==="subj"&&!tpl.secondLayer)return;if(k==="logo"&&!tpl.logo)return;const b=mk("button","v2-tab"+(sel.t===k?" on":""));b.type="button";b.style.setProperty("--k",V2_COL[k]);b.append(ico(k),document.createTextNode(V2_NAME[k]));b.onclick=()=>select(lastIn[k]);tabsEl.append(b);});}
+  function renderTabs(){tabsEl.innerHTML="";[["bg"],["prod"],["subj"],["extra"],["logo"],["text"]].forEach(([k])=>{if(k==="subj"&&!tpl.secondLayer)return;if(k==="logo"&&!tpl.logo)return;const b=mk("button","v2-tab"+(sel.t===k?" on":""));b.type="button";b.style.setProperty("--k",V2_COL[k]);b.append(ico(k),document.createTextNode(tName(k)));b.onclick=()=>select(lastIn[k]);tabsEl.append(b);});}
   function renderPane(){body.innerHTML="";const p=mk("div","v2-pane");p.style.setProperty("--k",colOf(sel));
-    const t=mk("div","v2-title");t.append(ico(sel.t),document.createTextNode(sel.t==="bg"?"Background":sel.t==="extra"?"Extra images":sel.t==="text"?"Texts":V2_NAME[sel.t]));p.append(t);
+    const t=mk("div","v2-title");t.append(ico(sel.t),document.createTextNode(sel.t==="bg"?"Background":sel.t==="extra"?"Extra images":sel.t==="text"?"Texts":tName(sel.t)));p.append(t);
     try{({bg:paneBg,prod:paneProd,subj:paneSubj,extra:paneExtra,logo:paneLogo,text:paneText})[sel.t](p);}catch(e){p.append(note("Could not build these controls: "+((e&&e.message)||e)));}
     body.append(p);}
   function renderSel(){selEl.innerHTML="";selEl.append(ico(sel.t),document.createTextNode(nameOf(sel)+(size==="mobile"?" · Mobile":" · Desktop")));}
   function renderAll(){rebuildPending=false;renderTabs();renderPane();renderSel();draw();}
-  {const L=back.querySelector(".v2-legend");Object.keys(V2_NAME).forEach(k=>{if(k==="subj"&&!tpl.secondLayer)return;if(k==="logo"&&!tpl.logo)return;const s=mk("span");const i=mk("i");i.style.background=V2_COL[k];s.append(i,document.createTextNode(V2_NAME[k]));L.append(s);});}
+  {const L=back.querySelector(".v2-legend");Object.keys(V2_NAME).forEach(k=>{if(k==="subj"&&!tpl.secondLayer)return;if(k==="logo"&&!tpl.logo)return;const s=mk("span");const i=mk("i");i.style.background=V2_COL[k];s.append(i,document.createTextNode(tName(k)));L.append(s);});}
 
   /* ---- direct manipulation on the preview ---- */
   const toB=ev=>{const r=prev.getBoundingClientRect();return {x:(ev.clientX-r.left)*prev.width/r.width,y:(ev.clientY-r.top)*prev.height/r.height};};
   const hitAt=pt=>{const pad=Math.max(3,prev.width/200);for(let k=lastHits.length-1;k>=0;k--){const h=lastHits[k];if(pt.x>=h.x-pad&&pt.x<=h.x+h.w+pad&&pt.y>=h.y-pad&&pt.y<=h.y+h.h+pad)return h;}return null;};
   const selFromHit=h=>h.kind==="extra"?{t:"extra",id:h.id}:h.kind==="text"?{t:"text",key:h.key}:{t:h.kind};
   function moveSel(s,dx,dy){
-    if(s.t==="prod"||s.t==="subj"){const k=s.t==="prod"?"prodOff":"subjOff";const m=o[k][size]||(o[k][size]={});m.x=(m.x||0)+dx;m.y=(m.y||0)+dy;}
+    if(s.t==="prod"&&isPhoto){o.anchorX[size]=clamp((o.anchorX[size]!=null?o.anchorX[size]:50)-dx*2,0,100);o.anchorY[size]=clamp(Math.min(100,o.anchorY[size]!=null?o.anchorY[size]:50)-dy*2,0,100);}
+    else if(s.t==="prod"||s.t==="subj"){const k=s.t==="prod"?"prodOff":"subjOff";const m=o[k][size]||(o[k][size]={});m.x=(m.x||0)+dx;m.y=(m.y||0)+dy;}
     else if(s.t==="extra"){const e=o.extras.find(x=>x.id===s.id);if(!e)return;const p=e.pos[size]||(e.pos[size]=Object.assign({},e.pos.desktop));p.x=(p.x!=null?p.x:50)+dx;p.y=(p.y!=null?p.y:55)+dy;}
     else if(s.t==="logo"){o.logoX=(o.logoX!=null?o.logoX:tpl.logo.x)+(o.split?dx*100/Math.max(10,divider()-12):dx);o.logoY=(o.logoY!=null?o.logoY:resolveLogo(tpl.logo,size).y)+dy;}
     else if(s.t==="text"){const raw=elOf(s.key),rEl=resolveEl(raw,size),p=o.pos[size][s.key]||(o.pos[size][s.key]={});const x=p.x!=null?p.x:rEl.x,y=p.y!=null?p.y:rEl.y;
       const span=raw.splitOnly?(100-6-(divider()+6)):(divider()-12);p.x=x+(o.split?dx*100/Math.max(10,span):dx);p.y=y+dy;}}
   function scaleSel(s,f){
-    if(s.t==="prod")o.zoom=clamp((o.zoom||1)*f,0.4,2.5);else if(s.t==="subj")o.subjZoom=clamp((o.subjZoom||1)*f,0.4,2);
+    if(s.t==="prod")o.zoom=clamp((o.zoom||1)*f,isPhoto?1:0.4,2.5);else if(s.t==="subj")o.subjZoom=clamp((o.subjZoom||1)*f,0.4,2);
     else if(s.t==="extra"){const e=o.extras.find(x=>x.id===s.id);if(e){const p=e.pos[size]||(e.pos[size]=Object.assign({},e.pos.desktop));p.w=clamp((p.w||30)*f,3,150);}}
     else if(s.t==="logo")o.logoScale=clamp((o.logoScale||1)*f,0.4,2);
     else if(s.t==="text"){const rEl=resolveEl(elOf(s.key),size);o.sizes[size][s.key]=clamp(Math.round((o.sizes[size][s.key]!=null?o.sizes[size][s.key]:rEl.size)*f),8,120);}}
