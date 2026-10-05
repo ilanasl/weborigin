@@ -339,7 +339,7 @@ const TEMPLATES = [
     bgModes:{side:{bg:"#eaeaea",color:"#eaeaea",src:"custom",from:"left",hold:56,fade:64,tintTop:false}},
     mobileFadeShift:{hold:-11,fade:-9}, // mobile: shorter fade so faces in the narrow photo stay clear
     defaultTopic:"A relaxed couple in their 30s sitting side by side at a modern dining table at home, the woman pointing at the laptop screen while the man smiles, papers and coffee cups on the table, relieved and happy, bright airy dining area with soft natural daylight from a window",
-    composition:"A natural, candid lifestyle photo, shot at a MEDIUM-WIDE distance (not a close-up). Place the people on the RIGHT 60% of the frame; the LEFT third is a plain, soft, out-of-focus light-grey wall with nothing in it, so it blends into a grey panel. Keep every head inside the vertical CENTER band of the frame with clear space above it, so a short wide crop that keeps only the middle strip still shows every head complete. Photorealistic, bright soft daylight, one continuous photo, no collage.",
+    composition:"A natural, candid lifestyle photo, shot at a MEDIUM-WIDE distance (not a close-up). Place the people on the RIGHT 60% of the frame. The LEFT third continues the same room naturally — soft window light, a bright airy interior, gentle out-of-focus details — with NO people and nothing important there (it gets blurred into a light-grey panel). Keep the whole photo light, bright and airy, in soft whites and light neutral greys, never a dark or saturated wall. Keep every head inside the vertical CENTER band of the frame with clear space above it, so a short wide crop that keeps only the middle strip still shows every head complete. Photorealistic, bright soft daylight, one continuous photo, no collage.",
     overlay:{desktop:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:56,fade:64},
              mobile:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:45,fade:55}},
     elements:[
@@ -1285,10 +1285,12 @@ function openEditorV2(tpl,st,onClose){
     if(!st.uploaded){p.append(note("No photo yet — generate one with AI on the card, or upload a photo."));return;}
     p.append(group("Position (inside the photo area)"));
     p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>o.anchorX[size],set:v=>{o.anchorX[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorX[size]}));
+    {const im=st.img,b=imageBoxFor(tpl,size),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&(o.zoom||1)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
     p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>Math.min(100,o.anchorY[size]),set:v=>{o.anchorY[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorY[size]}));
     p.append(group("Size"));
     p.append(rowRange("Zoom",{min:1,max:2.5,step:0.05,get:()=>Math.max(1,o.zoom||1),set:v=>{o.zoom=v;},fmt:v=>Math.round(v*100)+"%",def:1}));
     p.append(group("Join with the background"));
+    p.append(note("The blur softens the left edge of the photo. If that edge is a plain wall, there is little to blur — generate again or move the photo."));
     p.append(rowRange("Blur at the join",{min:0,max:1,step:0.02,get:()=>o.seamBlur!=null?o.seamBlur:(tpl.seamBlur||0),set:v=>{o.seamBlur=v;},fmt:v=>v>0?Math.round(v*100)+"%":"off",def:tpl.seamBlur||0}));
     p.append(note("The fade itself (where the grey ends) is in the Background tab: Solid area / Fade ends at."));}
   function paneProd(p){if(isPhoto)return panePhoto(p);const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",true,uploadMain));
