@@ -41,6 +41,10 @@
   .ghost{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-weight:600}
   .actions{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
   .grid{display:grid;gap:16px;padding:18px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  .card.is-hidden{display:none}
+  body.show-hidden .card.is-hidden{display:flex;opacity:.8;border-style:dashed}
+  .hid-tag{font-size:11px;font-weight:700;color:var(--muted);border:1px dashed var(--border);border-radius:6px;padding:1px 6px;margin-left:6px}
+  #hiddenBtn{font-size:12.5px;padding:3px 10px}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
   .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
   .card-h{display:flex;align-items:center;gap:8px}
@@ -133,6 +137,7 @@
   <div class="brand">Banner<b>Studio</b></div>
   <div class="e-seg modeseg"><button data-mode="banners" class="on">Banners</button><button data-mode="images">Ad Images</button></div>
   <span class="muted" id="count"></span>
+  <button class="ghost" id="hiddenBtn" hidden></button>
   <span style="flex:1"></span>
   <button class="ghost" id="theme">◐</button>
 </div>
@@ -348,7 +353,7 @@ const TEMPLATES = [
     ]
   },
   {
-    id:"gold-popup", name:"Popup (Split)", font:"Poppins",
+    id:"gold-popup", name:"Popup (Split)", font:"Poppins", hidden:true, // hidden from the gallery (toggle "hidden" at the top); remove the flag to show it again
     sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
     // White card on the left; the image fills the right side.
     bgColor:"#ffffff",
@@ -369,7 +374,7 @@ const TEMPLATES = [
     ]
   },
   {
-    id:"popup-fade", name:"Popup (Fade)", font:"Poppins",
+    id:"popup-fade", name:"Popup (Fade)", font:"Poppins", hidden:true,
     sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
     bgPos:{desktop:"right", mobile:"right"},
     buttonAuto:false,
@@ -873,7 +878,10 @@ function refreshSavedSelects(){
 }
 
 const grid=document.getElementById("grid");
-document.getElementById("count").textContent=`${TEMPLATES.length} banner types`;
+{const nHid=TEMPLATES.filter(t=>t.hidden).length;document.getElementById("count").textContent=`${TEMPLATES.length-nHid} banner types`;
+  // Hidden banner types stay one click away, and the button keeps reminding they exist.
+  const hb=document.getElementById("hiddenBtn");if(nHid){hb.hidden=false;const lab=()=>{hb.textContent=document.body.classList.contains("show-hidden")?`🙈 Hide the ${nHid} hidden`:`👁 ${nHid} hidden — show`;};lab();
+    hb.addEventListener("click",()=>{const on=document.body.classList.toggle("show-hidden");if(!on)TEMPLATES.forEach(t=>{if(t.hidden&&state[t.id].selected){state[t.id].selected=false;const c=document.querySelector(`.card[data-id="${t.id}"]`);if(c){c.classList.remove("sel");c.querySelector(".c-sel").checked=false;}}});lab();});}}
 
 function drawThumb(canvasEl,tpl,st){
   // Thumbnail always shows the (default) text so you can see how it sits on the
@@ -893,12 +901,12 @@ const BankDB={db:null,
 const cardRefresh={}; // tpl.id -> redraw its card + inputs
 TEMPLATES.forEach(tpl=>{
   const st=state[tpl.id];const d=tpl.sizes.desktop,m=tpl.sizes.mobile;
-  const card=document.createElement("div");card.className="card";card.dataset.id=tpl.id;
+  const card=document.createElement("div");card.className="card"+(tpl.hidden?" is-hidden":"");card.dataset.id=tpl.id;
   card.innerHTML=`
     <div class="card-h">
       <input type="checkbox" class="c-sel">
       <span class="card-title">${d.w}×${d.h} · 📱 ${m.w}×${m.h}</span>
-      <span class="card-name">${tpl.name}</span>
+      <span class="card-name">${tpl.name}${tpl.hidden?'<span class="hid-tag">hidden</span>':''}</span>
     </div>
     <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
     <div class="src">
@@ -1905,7 +1913,7 @@ document.getElementById("run").addEventListener("click",async()=>{
   log("Done.");
 });
 
-document.getElementById("selAll").addEventListener("click",()=>{TEMPLATES.forEach(t=>{state[t.id].selected=true;});document.querySelectorAll(".card").forEach(c=>{c.classList.add("sel");c.querySelector(".c-sel").checked=true;});});
+document.getElementById("selAll").addEventListener("click",()=>{const showHid=document.body.classList.contains("show-hidden");TEMPLATES.forEach(t=>{if(t.hidden&&!showHid)return;state[t.id].selected=true;const c=document.querySelector(`.card[data-id="${t.id}"]`);if(c){c.classList.add("sel");c.querySelector(".c-sel").checked=true;}});});
 document.getElementById("clr").addEventListener("click",()=>{TEMPLATES.forEach(t=>{state[t.id].selected=false;});document.querySelectorAll(".card").forEach(c=>{c.classList.remove("sel");c.querySelector(".c-sel").checked=false;});});
 document.getElementById("theme").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",next);});
 
