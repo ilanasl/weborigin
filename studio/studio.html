@@ -332,15 +332,16 @@ const TEMPLATES = [
     sizes:{desktop:{w:3800,h:520}, mobile:{w:650,h:325}},
     bgPos:{desktop:"center", mobile:"right"}, anchorX:{desktop:50, mobile:75}, // mobile keeps the right part of the photo, where the people are
     bgColor:"#eaeaea", panelBg:true,
-    imageBox:{x:52,y:0,w:48,h:100, mobile:{x:45,y:0,w:55,h:100}},
-    seamBlur:0.6, mobileBlurScale:0.5, // the mobile photo is narrow: half the blur width
+    imageBox:{x:56,y:0,w:44,h:100, mobile:{x:45,y:0,w:55,h:100}},
+    seamBlur:0.6, mobileBlurScale:0.4, // the mobile photo is narrow: a shorter blur
     textArea:{a:5,b:50},
-    bgModes:{side:{bg:"#eaeaea",color:"#eaeaea",src:"custom",from:"left",hold:50,fade:72,tintTop:false}},
-    mobileFadeShift:{hold:-8,fade:-14}, // mobile: shorter fade so faces in the narrow photo stay clear
+    // A short grey fade over the blurred edge of the photo — the blur does the blending (like the client's banner).
+    bgModes:{side:{bg:"#eaeaea",color:"#eaeaea",src:"custom",from:"left",hold:56,fade:64,tintTop:false}},
+    mobileFadeShift:{hold:-11,fade:-9}, // mobile: shorter fade so faces in the narrow photo stay clear
     defaultTopic:"A relaxed couple in their 30s sitting side by side at a modern dining table at home, the woman pointing at the laptop screen while the man smiles, papers and coffee cups on the table, relieved and happy, bright airy dining area with soft natural daylight from a window",
     composition:"A natural, candid lifestyle photo, shot at a MEDIUM-WIDE distance (not a close-up). Place the people on the RIGHT 60% of the frame; the LEFT third is a plain, soft, out-of-focus light-grey wall with nothing in it, so it blends into a grey panel. Keep every head inside the vertical CENTER band of the frame with clear space above it, so a short wide crop that keeps only the middle strip still shows every head complete. Photorealistic, bright soft daylight, one continuous photo, no collage.",
-    overlay:{desktop:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:50,fade:72},
-             mobile:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:42,fade:58}},
+    overlay:{desktop:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:56,fade:64},
+             mobile:{color:"#eaeaea",opacity:1,gradient:true,coverage:"left",hold:45,fade:55}},
     elements:[
       // Same places as the site's own heading (preview only — text is off by default).
       {key:"headline",label:"Headline",val:"Top 10 Tax Relief Services 2026",size:88,weight:700,color:"#1a1a1a",align:"left",x:15.5,y:12,anchor:"top-left",maxW:40,lh:1.1,
@@ -471,11 +472,14 @@ function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/i
 // Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
 // Product box for a size (a template can give the mobile layout its own box).
 function imageBoxFor(tpl,size){const b=tpl.imageBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
-// Soft blur along the left edge of a photo box, so the photo melts into the panel instead of ending in a line.
-function drawSeamBlur(ctx,img,bx,by,bw,bh,hx,vy,zoom,amt,H){if(!(amt>0))return;const RS=RENDER_SCALE||1;const L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const c=L.getContext("2d");
-  c.filter=`blur(${Math.round(H*0.035*amt*RS)}px)`;c.scale(RS,RS);drawCoverBox(c,img,0,0,bw,bh,hx,vy,zoom);c.filter="none";c.setTransform(1,0,0,1,0,0);
-  c.globalCompositeOperation="destination-in";const g=c.createLinearGradient(0,0,L.width,0);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(Math.min(0.9,0.2+0.35*amt),"rgba(0,0,0,0.6)");g.addColorStop(Math.min(0.98,0.35+0.5*amt),"rgba(0,0,0,0)");c.fillStyle=g;c.fillRect(0,0,L.width,L.height);
-  ctx.drawImage(L,bx,by,bw,bh);}
+// Progressive blur along the left edge of a photo box: strongly blurred at the edge, getting sharper toward the subject,
+// so the photo melts into the panel (two blurred copies, each faded out with its own mask).
+function drawSeamBlur(ctx,img,bx,by,bw,bh,hx,vy,zoom,amt,W,H){if(!(amt>0))return;const RS=RENDER_SCALE||1;
+  const ext=Math.min(bw,Math.max(W*0.12,H*0.6)*amt/0.6),R=H*0.06*amt;
+  [[R*0.4,ext],[R,ext*0.6]].forEach(([rad,e])=>{const L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const c=L.getContext("2d");
+    c.filter=`blur(${Math.max(1,Math.round(rad*RS))}px)`;c.scale(RS,RS);drawCoverBox(c,img,0,0,bw,bh,hx,vy,zoom);c.filter="none";c.setTransform(1,0,0,1,0,0);
+    c.globalCompositeOperation="destination-in";const g=c.createLinearGradient(0,0,e*RS,0);g.addColorStop(0,"rgba(0,0,0,1)");g.addColorStop(0.45,"rgba(0,0,0,0.85)");g.addColorStop(1,"rgba(0,0,0,0)");c.fillStyle=g;c.fillRect(0,0,L.width,L.height);
+    ctx.drawImage(L,bx,by,bw,bh);});}
 function prodBoxFor(tpl,size){const b=tpl.productBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
 // Where the product actually lands (box fit + drag offset) — shared by the renderer and the decorations.
 function prodRectFor(tpl,size,dim,image,over){const b=prodBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
@@ -662,7 +666,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=imageBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image){drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);if(tpl.seamBlur!=null)drawSeamBlur(ctx,image,bx,by,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.h);}
+    if(image){drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);if(tpl.seamBlur!=null)drawSeamBlur(ctx,image,bx,by,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);}
     else placeholderBox(ctx,bx,by,bw,bh);
     if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:bx,y:by,w:bw,h:bh});}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
