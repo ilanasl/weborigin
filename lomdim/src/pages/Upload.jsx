@@ -287,8 +287,8 @@ export default function Upload({ nav, params }) {
             <label className="milky-row !items-start cursor-pointer">
               <input type="checkbox" checked={onlyPractice} onChange={(e) => setOnlyPractice(e.target.checked)} className="w-5 h-5 mt-0.5 flex-none" style={{ accentColor: 'var(--primary)' }} />
               <span className="flex flex-col gap-0.5">
-                <span className="font-bold text-[14.5px]">רק תרגולים (בלי סיכום)</span>
-                <span className="text-[12px] text-muted">חומר חדש ללמוד ממנו → בלי סימון. דף תרגילים → סמנו.</span>
+                <span className="font-bold text-[14.5px]">זה דף תרגילים (בלי סיכום)</span>
+                <span className="text-[12px] text-muted">סמנו אם זה דף תרגילים — ייווצרו ממנו רק שאלות תרגול. דף עם חומר חדש ללמוד — השאירו בלי סימון, וייכתב גם סיכום.</span>
               </span>
             </label>
           </div>
