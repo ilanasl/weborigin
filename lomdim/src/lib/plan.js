@@ -97,7 +97,8 @@ export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
     const topicsOfDay = day.map((t) => ({ ...t, done: topicDone(t) }))
     days.push({ dt: addDays(d), off: d, topics: topicsOfDay, done: topicsOfDay.length > 0 && topicsOfDay.every((t) => t.done) })
   })
-  if (examDays >= 2) { const dt = addDays(examDays - 1); days.push({ dt, off: examDays - 1, review: true, done: reviewDone(dt) }) }
+  // יום חזרה — היום שלפני המבחן. נשאר בתוכנית גם כשהוא היום עצמו (יום לפני המבחן)
+  { const dt = addDays(examDays - 1); days.push({ dt, off: examDays - 1, review: true, done: reviewDone(dt) }) }
   days.push({ dt: addDays(examDays), off: examDays, exam: true })
   return { days, startsInDays: startOffset > 1 ? startOffset : null }
 }
