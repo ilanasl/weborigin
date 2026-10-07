@@ -666,7 +666,13 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=imageBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image){drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);if(tpl.seamBlur!=null)drawSeamBlur(ctx,image,bx,by,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);}
+    if(image){if(tpl.seamBlur!=null){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
+        const RS=RENDER_SCALE||1,L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const lc=L.getContext("2d");lc.scale(RS,RS);
+        drawCoverBox(lc,image,0,0,bw,bh,hx,vy,zoom);drawSeamBlur(lc,image,0,0,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);
+        const fw=Math.min(bw*0.3,Math.max(dim.w*0.06,dim.h*0.5));lc.setTransform(1,0,0,1,0,0);lc.globalCompositeOperation="destination-in";
+        const g=lc.createLinearGradient(0,0,fw*RS,0);[[0,0],[0.35,0.22],[0.7,0.75],[1,1]].forEach(([t,a])=>g.addColorStop(t,`rgba(0,0,0,${a})`));lc.fillStyle=g;lc.fillRect(0,0,L.width,L.height);
+        ctx.drawImage(L,bx,by,bw,bh);}
+      else drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);}
     else placeholderBox(ctx,bx,by,bw,bh);
     if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:bx,y:by,w:bw,h:bh});}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
