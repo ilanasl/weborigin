@@ -27,15 +27,23 @@ export default function ParentReport({ nav }) {
 
   useEffect(() => {
     (async () => {
-      const [{ data: subs }, { data: tp }, { data: at }, { data: ri }] = await Promise.all([
+      // mode = 'exam' מסמן תשובה מסימולציה. אם העמודה עוד לא קיימת במסד — טוענים בלי (הכול נחשב תרגול)
+      const attemptsQ = async () => {
+        const r = await fetchAll(() => supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at, mode'))
+        return r.error ? fetchAll(() => supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at')) : r
+      }
+      const [{ data: subs }, { data: tp }, { data: at }, { data: ri }, { data: runs }] = await Promise.all([
         supabase.from('subjects').select('*').order('created_at').then((r) => ({ ...r, data: (r.data || []).map(withTone) })),
         supabase.from('topics').select('id, subject_id, name, in_exam'),
-        fetchAll(() => supabase.from('attempts').select('subject_id, topic_id, correct, difficulty, created_at')),
+        attemptsQ(),
         fetchAll(() => supabase.from('review_items').select('subject_id')),
+        supabase.from('exam_runs').select('*').order('created_at', { ascending: false }).limit(10).then((r) => (r.error ? { data: [] } : r)),
       ])
       const now = Date.now()
       const atts = (at || []).map((a) => ({ ...a, ts: new Date(a.created_at).getTime() }))
-      const weekAtt = atts.filter((a) => now - a.ts <= WEEK)
+      // סטטיסטיקת התרגול והפעילות — בלי הסימולציות (הן מוצגות בנפרד). השליטה בנושאים כן כוללת אותן.
+      const practiceAtts = atts.filter((a) => a.mode !== 'exam')
+      const weekAtt = practiceAtts.filter((a) => now - a.ts <= WEEK)
       const weekCorrect = weekAtt.filter((a) => a.correct).length
 
       // נקודות זמן לגרף: לפני 4 שבועות → השבוע
@@ -67,7 +75,7 @@ export default function ParentReport({ nav }) {
 
       // פיד פעילות — קיבוץ לפי יום+מקצוע, אחרונים קודם
       const groups = {}
-      for (const a of atts) {
+      for (const a of practiceAtts) {
         const day = new Date(a.ts).toDateString()
         const key = day + '|' + a.subject_id
         ;(groups[key] ||= { day, ts: a.ts, subject_id: a.subject_id, n: 0, ok: 0 })
@@ -86,6 +94,7 @@ export default function ParentReport({ nav }) {
         weekPct: weekAtt.length ? Math.round(weekCorrect / weekAtt.length * 100) : null,
         activeSubjects: subjects.filter((s) => s.weekN > 0).length,
         feed,
+        runs: (runs || []).map((r) => ({ ...r, name: subjName[r.subject_id] || '', color: subjColor[r.subject_id] })),
         chartSubjects: subjects.filter((s) => s.series.some((v) => v != null)),
       })
       setLoading(false)
@@ -136,11 +145,36 @@ export default function ParentReport({ nav }) {
         ))}
       </div>
 
+      {/* סימולציות — כל סימולציה בנפרד, לא נכללת בסטטיסטיקת התרגול */}
+      {data.runs.length > 0 && (
+        <div>
+          <div className="home-h2 mb-1"><h2>סימולציות</h2><span>{data.runs.length}</span></div>
+          <div className="text-[12.5px] text-muted mb-2.5">כל סימולציה בנפרד — לא נכללת בשאלות ובהצלחה של התרגול</div>
+          <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
+            {data.runs.map((r, i) => {
+              const pct = r.total ? Math.round((r.correct / r.total) * 100) : 0
+              const what = r.kind ? `${r.kind}${r.focused ? ' · מיקוד' : ' · כל החומר'}` : 'כל החומר'
+              return (
+                <div key={r.id} className="flex items-center gap-2.5 py-2.5" style={i ? { borderTop: '1px solid rgba(255,255,255,.08)' } : undefined}>
+                  <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: r.color }} />
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <span className="text-[14px]"><b>{r.name}</b> — {r.correct} מתוך {r.total}</span>
+                    <span className="text-[12px] text-muted">{what}</span>
+                  </div>
+                  <span className="font-disp font-extrabold text-[15px] tnum flex-none" dir="ltr">{pct}%</span>
+                  <span className="text-[12px] text-muted flex-none w-[52px] text-end">{fmtDay(new Date(r.created_at).toDateString())}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* פעילות אחרונה — שורה לכל יום+מקצוע, עם אחוז ההצלחה לצידה */}
       {data.feed.length > 0 && (
         <div>
           <div className="home-h2 mb-1"><h2>פעילות אחרונה</h2></div>
-          <div className="text-[12.5px] text-muted mb-2.5">האחוז = כמה מהשאלות באותו יום באותו מקצוע נענו נכון</div>
+          <div className="text-[12.5px] text-muted mb-2.5">תרגול בלבד (בלי סימולציות). האחוז = כמה מהשאלות באותו יום באותו מקצוע נענו נכון</div>
           <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
             {data.feed.map((g, i) => {
               const pct = g.n ? Math.round((g.ok / g.n) * 100) : 0
