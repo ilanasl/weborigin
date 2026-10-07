@@ -4,3 +4,4 @@ const mem = new Map()
 export const cached = (key) => mem.get(key)
 export const remember = (key, val) => { mem.set(key, val) }
 export const forgetAll = () => mem.clear()
+export const forget = (key) => mem.delete(key)

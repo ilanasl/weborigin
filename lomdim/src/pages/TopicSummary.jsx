@@ -6,6 +6,9 @@ import { supabase } from '../lib/supabase'
 import { topicSummary, fetchSourceText, stripNotebookWarnings } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { fetchAll } from '../lib/fetchAll'
+import { forget } from '../lib/screenCache'
 
 export default function TopicSummary({ nav, params }) {
   const gx = useG()
@@ -24,6 +27,9 @@ export default function TopicSummary({ nav, params }) {
   const [name, setName] = useState(topicName || '')   // שם הנושא (אפשר לשנות במקום)
   const [editName, setEditName] = useState(false)
   const [mergeTarget, setMergeTarget] = useState('')
+  const [askMerge, setAskMerge] = useState(false)
+  const [askDelete, setAskDelete] = useState(false)
+  const [removing, setRemoving] = useState(false)
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -144,13 +150,48 @@ export default function TopicSummary({ nav, params }) {
 
   async function mergeInto() {
     if (!mergeTarget) return
-    if (!window.confirm('להעביר את כל התוכן של הנושא הזה לנושא שנבחר ולמחוק את הנושא הזה?')) return
-    setBusy(true)
+    setAskMerge(false); setRemoving(true)
     // (לבונה השאילתות של Supabase אין .catch — לכן try/catch)
     for (const tbl of ['questions', 'flashcards', 'materials', 'attempts', 'syntax_items']) {
       try { await supabase.from(tbl).update({ topic_id: mergeTarget }).eq('topic_id', topicId) } catch { /* */ }
     }
     await supabase.from('topics').delete().eq('id', topicId)
+    forget(`subject:${subjectId}`)
+    nav.reset('subject', { id: subjectId })
+  }
+
+  // מחיקת נושא לגמרי: הסיכומים, השאלות, הכרטיסיות והדפים ששייכים רק לו.
+  // היסטוריית התרגול נשמרת (בלי שיוך לנושא) — כדי לא לפגוע ביעד היומי וברצף.
+  async function deleteTopic() {
+    setAskDelete(false); setRemoving(true)
+    const inChunks = async (ids, fn) => { for (let i = 0; i < ids.length; i += 100) await fn(ids.slice(i, i + 100)) }
+    try {
+      const { data: qs } = await fetchAll(() => supabase.from('questions').select('id').eq('topic_id', topicId))
+      const qIds = (qs || []).map((q) => q.id)
+      await supabase.from('attempts').update({ topic_id: null }).eq('topic_id', topicId)
+      await inChunks(qIds, async (ids) => {
+        await supabase.from('attempts').update({ question_id: null }).in('question_id', ids)
+        await supabase.from('review_items').delete().in('ref_id', ids)
+        await supabase.from('questions').delete().in('id', ids)
+      })
+      const { data: fcs } = await fetchAll(() => supabase.from('flashcards').select('id').eq('topic_id', topicId))
+      await inChunks((fcs || []).map((f) => f.id), async (ids) => {
+        await supabase.from('review_items').delete().in('ref_id', ids)
+        await supabase.from('flashcards').delete().in('id', ids)
+      })
+      // דף שמשויך גם לנושא אחר — נשאר שם; קובץ שלא שייך לאף נושא אחר — נמחק מהאחסון
+      const { data: mats } = await supabase.from('materials').select('id, storage_path').eq('topic_id', topicId)
+      const paths = [...new Set((mats || []).map((m) => m.storage_path).filter(Boolean))]
+      await supabase.from('materials').delete().eq('topic_id', topicId)
+      if (paths.length) {
+        const { data: still } = await supabase.from('materials').select('storage_path').in('storage_path', paths)
+        const used = new Set((still || []).map((m) => m.storage_path))
+        const orphan = paths.filter((p) => !used.has(p))
+        if (orphan.length) await supabase.storage.from('materials').remove(orphan)
+      }
+      await supabase.from('topics').delete().eq('id', topicId)
+    } catch { /* מה שנמחק נמחק; הנושא יופיע שוב אם המחיקה שלו עצמו לא הצליחה */ }
+    forget(`subject:${subjectId}`)
     nav.reset('subject', { id: subjectId })
   }
 
@@ -323,6 +364,39 @@ export default function TopicSummary({ nav, params }) {
         </>
       )}
 
+      {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
+      <div className="home-h2 mt-7 mb-2.5"><h2>ניהול הנושא</h2></div>
+      <div className="milky-row !flex-col !items-stretch !gap-3">
+        {otherTopics.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="text-[13.5px] font-bold">איחוד עם נושא אחר</div>
+            <div className="text-[12px] text-muted leading-relaxed">כל התוכן של הנושא — דפים, שאלות, כרטיסיות והתקדמות — עובר לנושא שבוחרים, והנושא הזה נמחק. מתאים לנושא כפול.</div>
+            <div className="flex gap-2">
+              <select className="field flex-1 min-w-0" value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)} disabled={removing}>
+                <option value="">{gx('בחר נושא…', 'בחרי נושא…')}</option>
+                {otherTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button type="button" className="px-4 rounded-[16px] font-bold text-[14px]" style={{ background: 'var(--primary)', color: 'var(--on-fill)' }}
+                disabled={!mergeTarget || removing} onClick={() => setAskMerge(true)}>{gx('אחד', 'אחדי')}</button>
+            </div>
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          <div className="text-[13.5px] font-bold">מחיקת הנושא</div>
+          <div className="text-[12px] text-muted leading-relaxed">מוחק את הנושא עם הסיכומים, השאלות והכרטיסיות שלו. דף ששייך גם לנושא אחר — נשאר שם.</div>
+          <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold" disabled={removing}
+            style={{ color: 'var(--bad)', border: '1.5px solid color-mix(in srgb, var(--bad) 40%, transparent)' }} onClick={() => setAskDelete(true)}>
+            <Icon name="trash" size={16} />{removing ? 'מוחק…' : gx('מחק את הנושא', 'מחקי את הנושא')}
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog open={askMerge} icon="refresh" title="לאחד את הנושאים?"
+        text={`כל התוכן של "${name}" יעבור אל "${otherTopics.find((t) => t.id === mergeTarget)?.name || ''}", והנושא "${name}" יימחק.`}
+        confirmLabel={gx('אחד', 'אחדי')} cancelLabel="ביטול" onConfirm={mergeInto} onCancel={() => setAskMerge(false)} />
+      <ConfirmDialog open={askDelete} icon="trash" danger title={`למחוק את "${name}"?`}
+        text={`יימחקו הסיכומים, ${qCount} שאלות והכרטיסיות של הנושא. התשובות שכבר נענו נשמרות לספירת היעד היומי. אי אפשר לבטל.`}
+        confirmLabel={gx('מחק', 'מחקי')} cancelLabel="ביטול" onConfirm={deleteTopic} onCancel={() => setAskDelete(false)} />
     </div>
   )
 }
