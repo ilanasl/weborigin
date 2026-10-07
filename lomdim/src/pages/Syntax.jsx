@@ -98,8 +98,12 @@ export default function Syntax({ nav, params }) {
   }
 
   async function ensureTopic(nm) {
-    const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', nm).maybeSingle()
+    const { data: all } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
+    const ex = (all || []).find((t) => t.name === nm)
     if (ex) return ex.id
+    // יש כבר נושא תחביר במקצוע (למשל "תחביר המשפט הפשוט") — משייכים אליו, לא פותחים נושא כפול
+    const syn = (all || []).find((t) => /תחביר/.test(t.name)) || (all || []).find((t) => /משפט/.test(t.name))
+    if (syn) return syn.id
     const { data: ins } = await supabase.from('topics').insert({ subject_id: subjectId, name: nm, origin: 'השנה' }).select('id').single()
     return ins?.id
   }
