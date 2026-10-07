@@ -8,7 +8,7 @@ import { settleSession } from '../lib/coins'
 import { VARIATIONS, varKind, GRAD } from '../lib/mastery'
 import { useAuth } from '../context/AuthContext'
 import SessionEnd from '../components/SessionEnd'
-import { checkPlanDayDone } from '../lib/plan'
+import { checkPlanDayDone, daysUntil, nearestKind } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 import { buildItem, isChatCard } from '../lib/flashcardQuiz'
@@ -42,6 +42,7 @@ export default function Practice({ nav, params }) {
   const [planDay, setPlanDay] = useState(null) // היום בתוכנית הלמידה הושלם בסבב הזה → חגיגה
   const [topicNames, setTopicNames] = useState({})
   const [emptyScope, setEmptyScope] = useState(false)
+  const [focused, setFocused] = useState(false)   // סימולציה על החומר שבמיקוד (ולא על כל החומר)
 
   useEffect(() => {
     (async () => {
@@ -49,6 +50,7 @@ export default function Practice({ nav, params }) {
       setTopicNames(Object.fromEntries((tp || []).map((t) => [t.id, t.name])))
       // סימולציית מבדק: רק מהנושאים שבמיקוד (אם הוגדר); בלי מיקוד — מכל החומר
       const scopeIds = examMode && !topicId ? (tp || []).filter((t) => t.in_exam).map((t) => t.id) : []
+      setFocused(scopeIds.length > 0)
       const q = fetchAll(() => {
         let b = supabase.from('questions').select('*').eq('subject_id', subjectId)
         if (topicId) b = b.eq('topic_id', topicId)
@@ -136,10 +138,10 @@ export default function Practice({ nav, params }) {
       }
       return
     }
-    await supabase.from('attempts').insert({
-      question_id: q.id, topic_id: q.topic_id, subject_id: subjectId,
-      correct: ok, difficulty: q.difficulty,
-    })
+    const row = { question_id: q.id, topic_id: q.topic_id, subject_id: subjectId, correct: ok, difficulty: q.difficulty }
+    // סימולציה — מסומנת, כדי שבדוח ההורה תוצג בנפרד. אם העמודה עוד לא קיימת במסד — שומרים בלי הסימון (לא מאבדים תשובה)
+    const { error: atErr } = await supabase.from('attempts').insert(examMode ? { ...row, mode: 'exam' } : row)
+    if (atErr && examMode) await supabase.from('attempts').insert(row)
     // טעות → נכנס ל"לחיזוק" (streak מתאפס)
     if (!ok) {
       const { data: ex } = await supabase.from('review_items')
@@ -166,10 +168,20 @@ export default function Practice({ nav, params }) {
         .insert(ins.map((r) => ({ subject_id: subjectId, kind: varKind(seed.id), ref_id: r.id, streak: 0 })))
     } catch { /* לא חוסם את התרגול */ }
   }
+  // תוצאת הסימולציה נשמרת בנפרד — לדוח ההורה (אם הטבלה עוד לא קיימת במסד — מדלגים בשקט)
+  async function saveExamRun() {
+    try {
+      const { data: s } = await supabase.from('subjects').select('quiz_date, exam_date').eq('id', subjectId).single()
+      const qd = daysUntil(s?.quiz_date), ed = daysUntil(s?.exam_date)
+      const kind = (qd != null && qd >= 0) || (ed != null && ed >= 0) ? nearestKind(s) : null
+      await supabase.from('exam_runs').insert({ subject_id: subjectId, kind, focused, total: queue.length, correct })
+    } catch { /* */ }
+  }
   async function next() {
     if (idx >= queue.length - 1) {
       primeAudio()
       setDone(true)
+      if (examMode) saveExamRun()
       const r = await settleSession({ subjectId, topicId, correctCount: correct })
       setReward(r)
       setPlanDay(await checkPlanDayDone(subjectId))

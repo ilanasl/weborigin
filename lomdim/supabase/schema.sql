@@ -102,6 +102,21 @@ create table if not exists attempts (
   created_at timestamptz default now()
 );
 
+-- סימולציה (מצב מבחן) — התשובות מסומנות, כדי שבדוח ההורה יוצגו בנפרד ולא יתערבבו בתרגול הרגיל
+alter table attempts add column if not exists mode text;   -- null = תרגול, 'exam' = סימולציה
+
+-- תוצאת כל סימולציה (לדוח ההורה)
+create table if not exists exam_runs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  subject_id uuid references subjects on delete cascade,
+  kind text,                    -- 'מבדק' | 'מבחן מסכם' | null (בלי מבחן קרוב)
+  focused boolean default false,-- על החומר שבמיקוד (true) או על כל החומר
+  total int not null,
+  correct int not null,
+  created_at timestamptz default now()
+);
+
 -- ── כרטיסיות ──
 create table if not exists flashcards (
   id uuid primary key default gen_random_uuid(),
@@ -208,6 +223,7 @@ alter table syntax_items enable row level security;
 alter table coin_events  enable row level security;
 alter table rewards      enable row level security;
 alter table redemptions  enable row level security;
+alter table exam_runs    enable row level security;
 
 drop policy if exists own_all on profiles;
 create policy own_all on profiles     for all using (user_id = auth.uid()) with check (user_id = auth.uid());
@@ -237,6 +253,8 @@ drop policy if exists own_all on rewards;
 create policy own_all on rewards      for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists own_all on redemptions;
 create policy own_all on redemptions  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists own_all on exam_runs;
+create policy own_all on exam_runs    for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── אחסון תמונות ──
 insert into storage.buckets (id, name, public)
