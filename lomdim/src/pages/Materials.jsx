@@ -66,12 +66,15 @@ export default function Materials({ nav, params }) {
   async function moveMaterialTopic(m, topicId) {
     if (!topicId || topicId === m.topic_id) return
     const prev = m.topic_id
-    setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: topicId } : x))
+    const prevTitle = m.title
+    // כותרת הדף = שם הנושא שלו — מתעדכנת יחד עם השיוך
+    const title = topics.find((x) => x.id === topicId)?.name || m.title
+    setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: topicId, title } : x))
     setSavingMat(m.id); setSavedMat(null)
-    const { error } = await supabase.from('materials').update({ topic_id: topicId }).eq('id', m.id)
+    const { error } = await supabase.from('materials').update({ topic_id: topicId, title }).eq('id', m.id)
     if (error) {
       // שחזור הבחירה הקודמת אם השמירה נכשלה — בלי לקפוץ מהמסך
-      setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: prev } : x))
+      setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: prev, title: prevTitle } : x))
       setSavingMat(null)
       return
     }
@@ -180,7 +183,7 @@ export default function Materials({ nav, params }) {
     const topicIds = [...new Set(siblings.map((x) => x.topic_id).filter(Boolean))]
     const willEmpty = topicIds.filter((tid) => !materials.some((x) => x.topic_id === tid && !siblings.includes(x)))
     const emptyNames = topics.filter((t) => willEmpty.includes(t.id)).map((t) => `"${t.name}"`)
-    const msg = `למחוק את "${m.title || 'החומר'}" ואת כל השאלות שנוצרו ממנו?` +
+    const msg = `למחוק את "${topics.find((t) => t.id === m.topic_id)?.name || m.title || 'החומר'}" ואת כל השאלות שנוצרו ממנו?` +
       (emptyNames.length ? `\n\nלא יישאר חומר בנושא ${emptyNames.join(', ')} — הנושא יימחק כולו (שאלות, כרטיסיות וסיכום).` : '') +
       '\n\nאי אפשר לבטל.'
     if (!window.confirm(msg)) return
@@ -240,7 +243,7 @@ export default function Materials({ nav, params }) {
                 <div className="flex items-start gap-2.5">
                   <span className="up-thumb"><Icon name={m.kind === 'image' ? 'image' : m.kind === 'text' ? 'text' : 'file'} /></span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-bold text-[14.5px] leading-snug">{m.title || 'חומר'}</div>
+                    <div className="font-bold text-[14.5px] leading-snug">{topics.find((t) => t.id === m.topic_id)?.name || m.title || 'חומר'}</div>
                     <div className="text-[12px] text-muted">
                       {new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}
                     </div>
