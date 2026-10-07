@@ -209,7 +209,7 @@ export default function Planner({ nav, params }) {
                 </span>
               )
               if (p.review) return (
-                <button key={i} type="button" className={`milky-row plan-row ${p.done ? 'plan-done' : ''}`} onClick={() => nav.go('reinforce', { subjectId, subjectName })}>
+                <button key={i} type="button" className={`milky-row plan-row ${p.done ? 'plan-done' : ''} ${today && !p.done ? 'plan-today' : ''}`} onClick={() => nav.go('reinforce', { subjectId, subjectName })}>
                   {tile}
                   <span className="flex-1 text-start text-[14.5px] font-semibold plan-txt">חזרה כללית + לחיזוק</span>
                   <Chev />
