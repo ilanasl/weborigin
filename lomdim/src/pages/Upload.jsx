@@ -41,6 +41,11 @@ export default function Upload({ nav, params }) {
   const [results, setResults] = useState(null) // מקביל ל-files: [{ source_text, topics, error }]
   const [topicsList, setTopicsList] = useState([])
   const [chosen, setChosen] = useState([])     // [{ fileIdx, name, summary_md, questions, flashcards }]
+  // "הדף כולל גם נושא נוסף" — ניתוח נוסף של אותו דף, ממוקד בנושא שבחרו (לפני השמירה)
+  const [addFor, setAddFor] = useState(null)   // אינדקס הקובץ שפתוחה לו הוספה
+  const [addName, setAddName] = useState('')
+  const [addBusy, setAddBusy] = useState(null)
+  const [addErr, setAddErr] = useState('')
   const [err, setErr] = useState('')
   // ניקוי אם עוזבים את המסך (אחרי אישור) + שמירה מסגירת הלשונית ומנעילת מסך בזמן ניתוח
   const left = useRef(false)   // יצאו מהמסך באמצע — לא ממשיכים לנתח (ולא מבזבזים קריאות)
@@ -154,6 +159,28 @@ export default function Upload({ nav, params }) {
     } catch (e) {
       setErr(aiErrorText('הניתוח נכשל.', e))
     } finally { setBusy(false); setLeaveGuard(null); keepAwake(false) }
+  }
+
+  async function addTopicToFile(fi) {
+    const name = addName.trim()
+    if (!name) return
+    setAddErr(''); setAddBusy(fi); keepAwake(true)
+    try {
+      const { file } = files[fi]
+      const input = isText(file) ? { text: await readText(file) } : await toAIInput(file)
+      const out = await analyzeMaterial({
+        ...input, subjectName, knownTopics: [name], learner: profile, noSummary: onlyPractice, focusTopic: name,
+      })
+      const t = out.topics?.[0]
+      if (!t || (!t.summary_md && !(t.questions || []).length)) throw new Error('empty')
+      setChosen((arr) => [...arr, {
+        fileIdx: fi, name, summary_md: t.summary_md || '', questions: t.questions || [], flashcards: t.flashcards || [],
+      }])
+      if (!topicsList.includes(name)) setTopicsList((l) => [...l, name])
+      setAddFor(null); setAddName('')
+    } catch (e) {
+      setAddErr(String(e?.message) === 'empty' ? 'לא נמצא בדף חלק שעוסק בנושא הזה' : aiErrorText('הניתוח נכשל.', e))
+    } finally { setAddBusy(null); keepAwake(false) }
   }
 
   async function ensureTopic(name, origin) {
@@ -372,11 +399,43 @@ export default function Upload({ nav, params }) {
                     )}
                   </div>
                 ))}
+                {!r?.skipped && !r?.error && (addFor === fi ? (
+                  <div className="milky-row !flex-col !items-stretch !gap-2">
+                    <div className="text-[13px] font-bold">לאיזה נושא נוסף שייך הדף?</div>
+                    <div className="text-[12px] text-muted leading-relaxed">המערכת תקרא את הדף שוב ותכין לנושא הזה סיכום, שאלות וכרטיסיות רק מהחלק הרלוונטי.</div>
+                    <input className="field" value={addName} onChange={(e) => setAddName(e.target.value)} disabled={addBusy === fi}
+                      placeholder={g('שם הנושא — או בחר מהקיימים למטה', 'שם הנושא — או בחרי מהקיימים למטה')} />
+                    {topicsList.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11.5px] text-muted">קיימים:</span>
+                        {topicsList.filter((t) => !rows.some((x) => x.c.name === t)).map((t) => (
+                          <button key={t} type="button" onClick={() => setAddName(t)} disabled={addBusy === fi}
+                            className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${addName === t ? 'bg-primary text-[color:var(--on-fill)] border-primary font-semibold' : 'border-line text-muted'}`}>
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {addErr && <div className="text-[12.5px] font-semibold" style={{ color: 'var(--bad)' }}>{addErr}</div>}
+                    <div className="flex gap-2">
+                      <button type="button" className="ts-practice !h-[44px] !rounded-[22px] !text-[15px] flex-1" disabled={addBusy === fi || !addName.trim()} onClick={() => addTopicToFile(fi)}>
+                        {addBusy === fi ? 'מנתח את הדף…' : g('נתח לנושא הזה', 'נתחי לנושא הזה')}
+                      </button>
+                      <button type="button" className="px-4 rounded-[22px] border border-line text-[14px] font-semibold text-muted" disabled={addBusy === fi}
+                        onClick={() => { setAddFor(null); setAddName(''); setAddErr('') }}>ביטול</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line text-[13px] font-semibold text-primary"
+                    disabled={addBusy != null} onClick={() => { setAddFor(fi); setAddName(''); setAddErr('') }}>
+                    <Icon name="plus" size={14} stroke={2.6} />הדף כולל גם נושא נוסף
+                  </button>
+                ))}
               </div>
             )
           })}
 
-          <button type="button" className="ts-practice !h-[56px] !rounded-[28px] !text-[17px]" onClick={save} disabled={busy || !chosen.some((c) => c.name.trim())}>
+          <button type="button" className="ts-practice !h-[56px] !rounded-[28px] !text-[17px]" onClick={save} disabled={busy || addBusy != null || !chosen.some((c) => c.name.trim())}>
             {busy ? 'שומר…' : 'שמור למקצוע'}
           </button>
         </div>
