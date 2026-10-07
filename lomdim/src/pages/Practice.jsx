@@ -43,6 +43,7 @@ export default function Practice({ nav, params }) {
   const [topicNames, setTopicNames] = useState({})
   const [emptyScope, setEmptyScope] = useState(false)
   const [focused, setFocused] = useState(false)   // סימולציה על החומר שבמיקוד (ולא על כל החומר)
+  const [examKind, setExamKind] = useState(null)  // מבדק / מבחן מסכם — לכותרת מסך הסיום של הסימולציה
 
   useEffect(() => {
     (async () => {
@@ -103,8 +104,19 @@ export default function Practice({ nav, params }) {
 
   if (done) {
     const pct = Math.round(correct / queue.length * 100)
+    // סימולציה: פירוק לפי נושאים — כמה טעויות בכל נושא (החלשים קודם)
+    const exam = examMode ? {
+      kind: examKind, focused,
+      byTopic: Object.values(queue.reduce((acc, item, i) => {
+        const tid = item.topic_id || 'none'
+        const r = (acc[tid] ||= { id: item.topic_id, name: topicNames[item.topic_id] || 'כללי', n: 0, wrong: 0 })
+        r.n++; if (results[i] === false) r.wrong++
+        return acc
+      }, {})).sort((a, b) => b.wrong - a.wrong || b.n - a.n),
+      onTopic: (t) => { nav.back(); nav.go('practice', { subjectId, subjectName, topicId: t.id, topicName: t.name, mode: 'practice' }) },
+    } : null
     return (
-      <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay}
+      <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay} exam={exam}
         tag={[subjectName, topicName].filter(Boolean).join(' · ')}
         title={pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור ולנסות שוב'}
         subtitle={pct >= 80 ? 'ממשיכים ככה.' : 'עוד קצת תרגול, וזה אצלך.'}
@@ -174,6 +186,7 @@ export default function Practice({ nav, params }) {
       const { data: s } = await supabase.from('subjects').select('quiz_date, exam_date').eq('id', subjectId).single()
       const qd = daysUntil(s?.quiz_date), ed = daysUntil(s?.exam_date)
       const kind = (qd != null && qd >= 0) || (ed != null && ed >= 0) ? nearestKind(s) : null
+      setExamKind(kind)
       await supabase.from('exam_runs').insert({ subject_id: subjectId, kind, focused, total: queue.length, correct })
     } catch { /* */ }
   }

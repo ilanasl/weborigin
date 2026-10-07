@@ -6,7 +6,8 @@ import { playDing, isMuted, setMuted } from '../lib/celebrate'
 const CONFETTI_COLORS = ['#D4F46A', '#B7A5FF', '#FFB28A', '#7FDCCB', '#FFA3C4', '#F5F4EF']
 
 // מסך סיום סבב — רגיל, או חגיגה כשהסבב השלים את משימת היום
-export default function SessionEnd({ correct, total, title, subtitle, tag, reward, planDay, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
+// exam — סימולציה: { kind, focused, byTopic: [{ id, name, n, wrong }], onTopic } → הציון במרכז, פירוק לפי נושאים
+export default function SessionEnd({ exam, correct, total, title, subtitle, tag, reward, planDay, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
   // חגיגה: משימת היום הושלמה עכשיו, או היום בתוכנית הלמידה למבחן הושלם עכשיו
   const celebrate = !!reward?.events?.some((e) => e.reason === 'daily_goal')
   const party = celebrate || !!planDay
@@ -61,7 +62,14 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
         </button>
       </div>
 
-      {celebrate ? (
+      {exam ? (
+        <div className="end-hero">
+          <div className="end-kicker">סימולציית {exam.kind || 'מבחן'}{exam.focused ? ' · החומר שבמיקוד' : ' · כל החומר'}</div>
+          <div className="end-big tnum" dir="ltr">{Math.round(pct * 100)}<span>%</span></div>
+          <div className="end-title">{pct >= 0.9 ? 'מוכנות מצוינת!' : pct >= 0.75 ? 'מוכנות טובה' : pct >= 0.55 ? 'בדרך — כדאי לחזק כמה נושאים' : 'כדאי לחזור על החומר'}</div>
+          <div className="end-sub">{correct} מתוך {total} נכונות</div>
+        </div>
+      ) : celebrate ? (
         <div className="end-hero">
           <div className="end-kicker">משימת היום</div>
           <div className="end-big tnum" dir="ltr">{DAILY_GOAL}<span>/{DAILY_GOAL}</span></div>
@@ -83,6 +91,31 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
           </div>
           <div className="end-title">{title}</div>
           {subtitle && <div className="end-sub">{subtitle}</div>}
+        </div>
+      )}
+
+      {/* סימולציה: באיזה נושא היו הטעויות — לחיצה פותחת תרגול של הנושא */}
+      {exam && exam.byTopic.some((t) => t.wrong > 0) && (
+        <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
+          <div className="text-[13px] font-bold text-muted pt-2 pb-1">איפה היו הטעויות</div>
+          {exam.byTopic.filter((t) => t.wrong > 0).map((t, i) => (
+            <button key={t.id || i} type="button" disabled={!t.id} onClick={() => exam.onTopic(t)}
+              className="flex items-center gap-2.5 py-2.5 text-start" style={{ borderTop: '1px solid rgba(255,255,255,.08)' }}>
+              <span className="flex-1 min-w-0 text-[14px] font-semibold truncate">{t.name}</span>
+              <span className="text-[13px] font-bold flex-none" style={{ color: 'var(--accent)' }}>{t.wrong === 1 ? 'טעות אחת' : `${t.wrong} טעויות`}</span>
+              <span className="text-[12px] text-muted flex-none">מתוך {t.n}</span>
+              {t.id && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* סימולציה שגם השלימה את משימת היום — שורה קטנה במקום הכותרת הגדולה */}
+      {exam && celebrate && (
+        <div className="milky-row">
+          <Icon name="check" size={18} />
+          <span className="flex-1 text-[14px] font-bold">משימת היום הושלמה</span>
+          <span className="font-disp font-extrabold text-[14.5px] tnum" dir="ltr">{DAILY_GOAL}/{DAILY_GOAL}</span>
         </div>
       )}
 
@@ -126,7 +159,7 @@ export default function SessionEnd({ correct, total, title, subtitle, tag, rewar
       )}
 
       <div className="end-actions">
-        {onAgain && <button type="button" className="end-again" onClick={onAgain}>סבב נוסף</button>}
+        {onAgain && <button type="button" className="end-again" onClick={onAgain}>{exam ? 'סימולציה נוספת' : 'סבב נוסף'}</button>}
         <button type="button" className="btn" onClick={onBack}>{backLabel}</button>
       </div>
     </div>
