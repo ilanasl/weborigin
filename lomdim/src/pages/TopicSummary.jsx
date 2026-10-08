@@ -148,9 +148,11 @@ export default function TopicSummary({ nav, params }) {
     setCompleting(true); setErr(''); setRestTopic(null); setCompleteNote('בודק מה חסר במחברת…')
     try {
       // השלמה ישנה (סיכום של כל הפרק בתוך הנושא הזה) — השאלות שלה מתחלקות: מה שעל ההמשך עובר לנושא החדש
-      const { data: oldSum } = await supabase.from('materials').select('id, summary_md').eq('topic_id', topicId).eq('kind', 'summary')
-      const old = (oldSum || []).filter((m) => /השלמה — לא מהמחברת/.test(m.summary_md || ''))
-      const { data: oldQs } = old.length ? await supabase.from('questions').select('id, q').in('material_id', old.map((m) => m.id)) : { data: [] }
+      // (מזהים אותה לפי התגית "השלמה", או לפי שאלות שמקושרות לסיכום — סיכום מאוחד רגיל לא יוצר שאלות)
+      const { data: sums } = await supabase.from('materials').select('id, summary_md').eq('topic_id', topicId).eq('kind', 'summary')
+      const { data: linked } = (sums || []).length ? await supabase.from('questions').select('id, q, material_id').in('material_id', sums.map((m) => m.id)) : { data: [] }
+      const old = (sums || []).filter((m) => /השלמה/.test(m.summary_md || '') || (linked || []).some((q) => q.material_id === m.id))
+      const oldQs = (linked || []).filter((q) => old.some((m) => m.id === q.material_id))
       const split = await splitSource({ notebook, fullText: sourceText, questions: (oldQs || []).map((q) => ({ id: q.id, q: q.q })) })
       const restText = String(split?.rest_text || '').trim()
       if (!restText) { setCompleteNote('✓ נראה שהמחברת כבר מכסה את כל הטקסט — אין מה להשלים.'); return }
