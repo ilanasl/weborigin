@@ -261,7 +261,6 @@ export default function Subject({ nav, params }) {
                 <span className="font-bold text-[15.5px]">{t.name}</span>
                 {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>במיקוד</span>}
                 {t.m.due && <span className="tp-badge" style={{ background: '#B7A5FF' }}>לרענון</span>}
-                {t.origin === 'חזרה' && <span className="tp-badge tp-badge-muted">משנה שעברה</span>}
               </span>
               {t.m.pct == null ? (
                 <span className="text-[12.5px] text-muted">עוד לא תורגל{t.m.n ? ` · ${t.m.n} מתוך 5 תשובות` : ''}</span>
