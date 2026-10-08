@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness } from '../lib/mastery'
-import { expirePastExams, daysUntil, dailyTarget } from '../lib/plan'
+import { expirePastExams, daysUntil, dailyTarget, parseDay } from '../lib/plan'
 import { coinBalance, DAILY_GOAL } from '../lib/coins'
 import { useAuth } from '../context/AuthContext'
 import { TONES, withTone } from '../lib/tone'
@@ -116,6 +116,8 @@ export default function Home({ nav }) {
   const cardMeta = (s) => {
     const ex = s.exams[0]
     if (ex && ex.days <= 14) return ex.days === 0 ? `${ex.kind} היום` : `${ex.kind} בעוד ${ex.days} ימים`
+    // מבחן רחוק יותר משבועיים — מציגים את התאריך (ולא מסתירים אותו)
+    if (ex) { const d = parseDay(ex.kind === 'מבדק' ? s.quiz_date : s.exam_date); return `${ex.kind} ב-${d.getDate()}.${d.getMonth() + 1}` }
     // מספר החומרים (צילומים) לא אומר הרבה — מציגים רק כמה נושאים יש
     return s.nTopics ? `${s.nTopics} ${s.nTopics === 1 ? 'נושא' : 'נושאים'}` : 'עוד אין חומר'
   }
