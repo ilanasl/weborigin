@@ -451,9 +451,12 @@ export const renikudQuestions = async (items) => deepClean(await call({ task: 'r
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
-export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich }) => {
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, coverAll }) => {
   const hasSource = sourceMaterials && sourceMaterials.trim()
-  const faith = enrich
+  // coverAll — המחברת מכסה רק חלק מהטקסט המלא (למשל עד פסוק י'): משלימים את כל השאר ברמת הכיתה
+  const faith = coverAll
+    ? `החומרים כוללים את הטקסט המלא (למשל כל פסוקי הפרק), אבל סיכומי המחברת מכסים רק חלק ממנו. הסיכום חייב לכסות את כל הטקסט המלא, לפי הסדר: את החלקים שבמחברת — לפי המחברת; ואת החלקים שאין עליהם חומר — הסבר/י בעצמך ברמת כיתה ${gradeOf(learner)} (תוכן, פירוש מילים קשות, רעיונות מרכזיים, דמויות ומשמעות), כמו שמורה היה מלמד. הוסף/י בסוף כל חלק כזה את התגית "(השלמה — לא מהמחברת)". אל תמציא/י פרשנויות חריגות — רק הפירוש המקובל.`
+    : enrich
     ? `בסס/י את הסיכום על החומר שהועלה, ומותר להשלים ולהעשיר מהידע הכללי במקומות שחסרים או לא ברורים.`
     : `הסתמך/י אך ורק על החומר שהועלה — אל תוסיף/י מידע, מושגים או דוגמאות שאינם מופיעים בו.`
   const intro = hasSource
