@@ -252,6 +252,19 @@ function buildParts(payload) {
       `ה-tokens בסדר הופעתן במשפט, וצירופן ברווחים = המשפט המלא. ` + HEB_RULE + ' ' + TONE_RULE + ' ' + nikudRule(subjectName) + learnerRule(learner) })
     return { parts, wantJson: true }
   }
+  if (task === 'split_source') {
+    // המחברת מכסה רק חלק מהטקסט המלא: מה כבר נלמד, ומה נשאר (מילה-במילה מהטקסט המלא)
+    const { notebook = '', fullText = '', questions = [] } = payload
+    parts.push({ text:
+      `לפניך (1) סיכומי מחברת של תלמיד/ה ו-(2) הטקסט המלא (למשל פרק בתנ"ך עם מספרי פסוקים). ` +
+      `קבע/י איזה חלק מהטקסט המלא המחברת מכסה, ואיזה חלק לא נלמד בה בכלל (בדרך כלל ההמשך — למשל פסוקים י"א עד סוף הפרק). ` +
+      `החזר/י JSON בלבד: {"covered_label":"למשל: פסוקים א-י","rest_label":"למשל: פסוקים י\"א-כ\"ה (תווית קצרה, בלי שם הספר)","rest_text":"החלק שלא נלמד — מילה-במילה מהטקסט המלא, בשורות המקוריות, בלי שינוי","rest_question_ids":["id של שאלה מהרשימה שעוסקת בעיקר בחלק שלא נלמד"]}. ` +
+      `אם המחברת מכסה כבר את כל הטקסט — rest_text ריק. ` + HEB_RULE +
+      `\n\nסיכומי המחברת:\n"""${String(notebook).slice(0, 8000)}"""` +
+      `\n\nהטקסט המלא:\n"""${String(fullText).slice(0, 12000)}"""` +
+      (questions.length ? `\n\nשאלות קיימות (id + שאלה):\n${JSON.stringify(questions)}` : '') })
+    return { parts, wantJson: true }
+  }
   if (task === 'match_scope') {
     const { subjectName, scopeText, knownTopics = [] } = payload
     parts.push({ text:
@@ -440,6 +453,7 @@ export const checkExercise = async (p) => deepClean(await call({ task: 'check_ex
 export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
+export const splitSource = async (p) => deepClean(await call({ task: 'split_source', ...p }))
 // זיהוי הנושא שאליו שייך טקסט (לשמירת סיכום מהצ'אט לנושא הנכון)
 export const classifyTopic = async (p) => deepClean(await call({ task: 'classify_topic', ...p }))
 // הכנת סיכום נקי מהצ'אט: מזהה נושא, יוצר כותרת קצרה, ומנקה פנייה אישית/צ'אט
@@ -451,11 +465,11 @@ export const renikudQuestions = async (items) => deepClean(await call({ task: 'r
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
-export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, coverAll }) => {
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, fromText }) => {
   const hasSource = sourceMaterials && sourceMaterials.trim()
-  // coverAll — המחברת מכסה רק חלק מהטקסט המלא (למשל עד פסוק י'): משלימים את כל השאר ברמת הכיתה
-  const faith = coverAll
-    ? `החומרים כוללים את הטקסט המלא (למשל כל פסוקי הפרק), אבל סיכומי המחברת מכסים רק חלק ממנו. הסיכום חייב לכסות את כל הטקסט המלא, לפי הסדר: את החלקים שבמחברת — לפי המחברת; ואת החלקים שאין עליהם חומר — הסבר/י בעצמך ברמת כיתה ${gradeOf(learner)} (תוכן, פירוש מילים קשות, רעיונות מרכזיים, דמויות ומשמעות), כמו שמורה היה מלמד. הוסף/י בסוף כל חלק כזה את התגית "(השלמה — לא מהמחברת)". אל תמציא/י פרשנויות חריגות — רק הפירוש המקובל.`
+  // fromText — אין מחברת, רק הטקסט עצמו (למשל פסוקים שלא נלמדו בכיתה): מסבירים אותו ברמת הכיתה, כמו מורה
+  const faith = fromText
+    ? `החומר הוא הטקסט עצמו (למשל פסוקים), בלי מחברת. הסבר/י אותו ברמת כיתה ${gradeOf(learner)} כמו שמורה היה מלמד: תוכן לפי הסדר, פירוש מילים קשות, רעיונות מרכזיים, דמויות ומשמעות. רק הפירוש המקובל — בלי פרשנויות חריגות.`
     : enrich
     ? `בסס/י את הסיכום על החומר שהועלה, ומותר להשלים ולהעשיר מהידע הכללי במקומות שחסרים או לא ברורים.`
     : `הסתמך/י אך ורק על החומר שהועלה — אל תוסיף/י מידע, מושגים או דוגמאות שאינם מופיעים בו.`

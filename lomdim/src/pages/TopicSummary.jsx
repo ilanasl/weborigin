@@ -3,7 +3,7 @@ import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
-import { topicSummary, fetchSourceText, stripNotebookWarnings, generateQuestions } from '../lib/gemini'
+import { topicSummary, fetchSourceText, stripNotebookWarnings, generateQuestions, splitSource } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -32,6 +32,8 @@ export default function TopicSummary({ nav, params }) {
   const [removing, setRemoving] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [completeNote, setCompleteNote] = useState('')
+  const [restTopic, setRestTopic] = useState(null)   // הנושא החדש שנוצר מההמשך
+  const [notebook, setNotebook] = useState('')        // סיכומי הדפים מהמחברת בלבד
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -97,6 +99,7 @@ export default function TopicSummary({ nav, params }) {
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
     // בלי שורות "⚠️ במחברת כתוב…" מסיכומי הדפים — אלה הערות של ה-AI, לא תוכן המחברת (אחרת הן מתגלגלות ומתרבות)
+    setNotebook(pages.map((m) => stripNotebookWarnings(m.summary_md)).filter(Boolean).join('\n\n---\n\n'))
     setAggSource(pages.map((m) => [stripNotebookWarnings(m.summary_md), m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n---\n\n'))
     setOtherTopics((tps || []).filter((t) => t.id !== topicId))
     setQCount(count || 0)
@@ -139,31 +142,62 @@ export default function TopicSummary({ nav, params }) {
     } finally { setBusy(false) }
   }
 
-  // המחברת מכסה רק חלק מהטקסט המלא (למשל עד פסוק י') — משלימים סיכום ושאלות לכל הטקסט, ברמת הכיתה
+  // המחברת מכסה רק חלק מהטקסט המלא (למשל עד פסוק י'): ההמשך נפתח כנושא חדש — כמו חומר חדש שמצלמים.
+  // הנושא הנוכחי נשאר כמו שהוא; ההתקדמות של עילאי לא נמחקת.
   async function completeFromSource() {
-    setCompleting(true); setErr(''); setCompleteNote('מכין סיכום לכל הפרק…')
+    setCompleting(true); setErr(''); setRestTopic(null); setCompleteNote('בודק מה חסר במחברת…')
     try {
-      const { summary_md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, coverAll: true })
-      await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
+      // השלמה ישנה (סיכום של כל הפרק בתוך הנושא הזה) — השאלות שלה מתחלקות: מה שעל ההמשך עובר לנושא החדש
+      const { data: oldSum } = await supabase.from('materials').select('id, summary_md').eq('topic_id', topicId).eq('kind', 'summary')
+      const old = (oldSum || []).filter((m) => /השלמה — לא מהמחברת/.test(m.summary_md || ''))
+      const { data: oldQs } = old.length ? await supabase.from('questions').select('id, q').in('material_id', old.map((m) => m.id)) : { data: [] }
+      const split = await splitSource({ notebook, fullText: sourceText, questions: (oldQs || []).map((q) => ({ id: q.id, q: q.q })) })
+      const restText = String(split?.rest_text || '').trim()
+      if (!restText) { setCompleteNote('✓ נראה שהמחברת כבר מכסה את כל הטקסט — אין מה להשלים.'); return }
+
+      const base = name.replace(/\s*[-–—]\s*פסוקים.*$/, '').trim() || name
+      const newName = `${base} - ${String(split.rest_label || 'המשך').trim()}`
+      setCompleteNote(`פותח נושא חדש: ${newName}…`)
+      const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', newName).maybeSingle()
+      let newId = ex?.id
+      if (!newId) {
+        const { data: ins, error } = await supabase.from('topics').insert({ subject_id: subjectId, name: newName, origin: 'השנה' }).select('id').single()
+        if (error || !ins) throw new Error('topic')
+        newId = ins.id
+      }
+
+      setCompleteNote('מכין סיכום להמשך…')
+      const { summary_md } = await topicSummary({ subjectName, topicName: newName, learner: profile, sourceMaterials: restText, fromText: true })
       const { data: mat } = await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
+        subject_id: subjectId, topic_id: newId, title: newName, kind: 'text', summary_md, source_text: restText,
       }).select('id').single()
-      setCompleteNote('מכין שאלות על כל הפרק…')
-      // השאלות הקיימות — כדי לא לחזור עליהן ולהתמקד בחלקים שעוד אין עליהם שאלות
-      const { data: ex } = await supabase.from('questions').select('q').eq('topic_id', topicId).limit(60)
+
+      // שאלות מההשלמה הקודמת שעוסקות בהמשך — עוברות לנושא החדש, יחד עם התשובות שעילאי כבר ענה עליהן
+      const moveIds = (split.rest_question_ids || []).map(String).filter((id) => (oldQs || []).some((q) => q.id === id))
+      if (moveIds.length) {
+        await supabase.from('questions').update({ topic_id: newId, material_id: mat?.id || null }).in('id', moveIds)
+        await supabase.from('attempts').update({ topic_id: newId }).in('question_id', moveIds)
+      }
+      // הסיכום של כל הפרק יוצא מהנושא הזה — חוזרים לסיכומי המחברת (שאר השאלות שלו נשארות כאן)
+      if (old.length) await supabase.from('materials').delete().in('id', old.map((m) => m.id))
+
+      setCompleteNote('מכין שאלות על ההמשך…')
+      const { data: moved } = moveIds.length ? await supabase.from('questions').select('q').in('id', moveIds) : { data: [] }
       const { questions } = await generateQuestions({
-        subjectName, topic: name, count: 10, learner: profile,
-        sourceText: `הטקסט המלא:\n${sourceText}\n\nהסיכום:\n${summary_md}\n\n` +
-          `השאלות צריכות לכסות את כל הטקסט — ובעיקר את החלקים שעוד אין עליהם שאלות. אל תחזור/י על השאלות הקיימות:\n${(ex || []).map((x) => `- ${x.q}`).join('\n')}`,
+        subjectName, topic: newName, count: Math.max(5, 10 - moveIds.length), learner: profile,
+        sourceText: `הטקסט המלא:\n${restText}\n\nהסיכום:\n${summary_md}` +
+          ((moved || []).length ? `\n\nאל תחזור/י על השאלות האלה:\n${moved.map((x) => `- ${x.q}`).join('\n')}` : ''),
       })
       const rows = (questions || []).filter((q) => q?.q && Array.isArray(q.choices)).map((q) => ({
-        subject_id: subjectId, topic_id: topicId, material_id: mat?.id || null,
+        subject_id: subjectId, topic_id: newId, material_id: mat?.id || null,
         q: q.q, choices: q.choices, answer: q.answer,
         difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
       }))
       if (rows.length) await supabase.from('questions').insert(rows)
+      forget(`subject:${subjectId}`)
       await load()
-      setCompleteNote(`✓ נוסף סיכום לכל הפרק ו-${rows.length} שאלות חדשות.`)
+      setRestTopic({ id: newId, name: newName })
+      setCompleteNote(`✓ נפתח נושא חדש עם סיכום ו-${rows.length + moveIds.length} שאלות.`)
     } catch (e) {
       setCompleteNote(''); setErr(aiErrorText('ההשלמה נכשלה.', e))
     } finally { setCompleting(false) }
@@ -268,12 +302,16 @@ export default function TopicSummary({ nav, params }) {
           <div className="milky-row !flex-col !items-stretch !gap-2 mb-3">
             <div className="text-[13.5px] font-bold">חסר חומר על חלק מה{isBible ? 'פרק' : 'טקסט'}?</div>
             <div className="text-[12px] text-muted leading-relaxed">
-              {isBible ? 'למשל: במחברת יש עד פסוק י\', והמבדק על כל הפרק. ' : ''}המערכת תכין סיכום שמכסה את כל הטקסט המלא — מה שבמחברת לפי המחברת, והשאר ברמת הכיתה (מסומן "השלמה") — ועוד שאלות על החלקים החסרים.
+              {isBible ? 'למשל: במחברת יש עד פסוק י\', והמבדק על כל הפרק. ' : ''}המערכת תמצא מה לא נלמד במחברת ותפתח לו נושא חדש — עם סיכום ברמת הכיתה ושאלות, כמו חומר חדש שמצלמים. הנושא הזה נשאר כמו שהוא.
             </div>
             {completeNote && <div className="text-[12.5px] font-semibold" style={{ color: completing ? 'var(--primary)' : 'var(--good)' }}>{completeNote}</div>}
+            {restTopic && (
+              <button type="button" className="self-start text-[13px] font-bold text-primary underline"
+                onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: restTopic.id, topicName: restTopic.name })}>לנושא החדש ›</button>
+            )}
             <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold"
               style={{ background: 'var(--primary)', color: 'var(--on-fill)' }} disabled={completing || busy} onClick={completeFromSource}>
-              <Icon name="sparkle" size={16} />{completing ? 'מכין…' : `השלם לכל ה${isBible ? 'פרק' : 'טקסט'}`}
+              <Icon name="sparkle" size={16} />{completing ? 'מכין…' : `השלם את המשך ה${isBible ? 'פרק' : 'טקסט'}`}
             </button>
           </div>
           {showSource && (
