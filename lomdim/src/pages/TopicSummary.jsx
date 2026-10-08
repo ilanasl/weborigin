@@ -3,7 +3,7 @@ import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
-import { topicSummary, fetchSourceText, stripNotebookWarnings } from '../lib/gemini'
+import { topicSummary, fetchSourceText, stripNotebookWarnings, generateQuestions } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -30,6 +30,8 @@ export default function TopicSummary({ nav, params }) {
   const [askMerge, setAskMerge] = useState(false)
   const [askDelete, setAskDelete] = useState(false)
   const [removing, setRemoving] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [completeNote, setCompleteNote] = useState('')
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -137,6 +139,36 @@ export default function TopicSummary({ nav, params }) {
     } finally { setBusy(false) }
   }
 
+  // המחברת מכסה רק חלק מהטקסט המלא (למשל עד פסוק י') — משלימים סיכום ושאלות לכל הטקסט, ברמת הכיתה
+  async function completeFromSource() {
+    setCompleting(true); setErr(''); setCompleteNote('מכין סיכום לכל הפרק…')
+    try {
+      const { summary_md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, coverAll: true })
+      await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
+      const { data: mat } = await supabase.from('materials').insert({
+        subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
+      }).select('id').single()
+      setCompleteNote('מכין שאלות על כל הפרק…')
+      // השאלות הקיימות — כדי לא לחזור עליהן ולהתמקד בחלקים שעוד אין עליהם שאלות
+      const { data: ex } = await supabase.from('questions').select('q').eq('topic_id', topicId).limit(60)
+      const { questions } = await generateQuestions({
+        subjectName, topic: name, count: 10, learner: profile,
+        sourceText: `הטקסט המלא:\n${sourceText}\n\nהסיכום:\n${summary_md}\n\n` +
+          `השאלות צריכות לכסות את כל הטקסט — ובעיקר את החלקים שעוד אין עליהם שאלות. אל תחזור/י על השאלות הקיימות:\n${(ex || []).map((x) => `- ${x.q}`).join('\n')}`,
+      })
+      const rows = (questions || []).filter((q) => q?.q && Array.isArray(q.choices)).map((q) => ({
+        subject_id: subjectId, topic_id: topicId, material_id: mat?.id || null,
+        q: q.q, choices: q.choices, answer: q.answer,
+        difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
+      }))
+      if (rows.length) await supabase.from('questions').insert(rows)
+      await load()
+      setCompleteNote(`✓ נוסף סיכום לכל הפרק ו-${rows.length} שאלות חדשות.`)
+    } catch (e) {
+      setCompleteNote(''); setErr(aiErrorText('ההשלמה נכשלה.', e))
+    } finally { setCompleting(false) }
+  }
+
   async function renameTopic() {
     const nm = renameVal.trim()
     if (!nm || nm === name) { setEditName(false); setRenameVal(name); return }
@@ -232,6 +264,18 @@ export default function TopicSummary({ nav, params }) {
             <span className="flex-1 text-start font-bold text-[14.5px]">הטקסט המלא</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: showSource ? 'rotate(180deg)' : 'none', transition: '.2s' }}><path d="M6 9l6 6 6-6" /></svg>
           </button>
+          {/* המחברת מכסה רק חלק מהטקסט — השלמה לכל הפרק */}
+          <div className="milky-row !flex-col !items-stretch !gap-2 mb-3">
+            <div className="text-[13.5px] font-bold">חסר חומר על חלק מה{isBible ? 'פרק' : 'טקסט'}?</div>
+            <div className="text-[12px] text-muted leading-relaxed">
+              {isBible ? 'למשל: במחברת יש עד פסוק י\', והמבדק על כל הפרק. ' : ''}המערכת תכין סיכום שמכסה את כל הטקסט המלא — מה שבמחברת לפי המחברת, והשאר ברמת הכיתה (מסומן "השלמה") — ועוד שאלות על החלקים החסרים.
+            </div>
+            {completeNote && <div className="text-[12.5px] font-semibold" style={{ color: completing ? 'var(--primary)' : 'var(--good)' }}>{completeNote}</div>}
+            <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold"
+              style={{ background: 'var(--primary)', color: 'var(--on-fill)' }} disabled={completing || busy} onClick={completeFromSource}>
+              <Icon name="sparkle" size={16} />{completing ? 'מכין…' : `השלם לכל ה${isBible ? 'פרק' : 'טקסט'}`}
+            </button>
+          </div>
           {showSource && (
             <div className="card mb-3">
               <div className="whitespace-pre-line text-[14.5px] leading-relaxed">{sourceText}</div>
