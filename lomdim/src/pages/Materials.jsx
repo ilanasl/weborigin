@@ -247,6 +247,7 @@ export default function Materials({ nav, params }) {
                     <div className="text-[12px] text-muted">
                       {new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}
                     </div>
+                    {m.origin === 'חזרה' && <span className="tp-badge tp-badge-muted inline-block mt-1">משנה שעברה</span>}
                   </div>
                   {m.storage_path && (
                     <button type="button" className="up-x" aria-label="צפה בקובץ" onClick={() => openMaterial(m)}><Icon name="eye" size={16} /></button>
