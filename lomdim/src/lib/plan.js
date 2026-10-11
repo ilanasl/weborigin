@@ -34,14 +34,18 @@ export async function expirePastExams(subjects) {
   for (const s of subjects || []) {
     const patch = {}
     let passedKind = null
-    if (s.quiz_date && daysUntil(s.quiz_date) < 0) { patch.quiz_date = null; patch.quiz_scope_text = null; passedKind = 'מבדק' }
-    if (s.exam_date && daysUntil(s.exam_date) < 0) { patch.exam_date = null; patch.exam_scope_text = null; passedKind = passedKind || 'מבחן מסכם' }
+    let passedDate = null   // תאריך המבחן שעבר — כדי שבמסך "מבחנים שעברו" לא יצטרכו להזין אותו שוב
+    if (s.quiz_date && daysUntil(s.quiz_date) < 0) { patch.quiz_date = null; patch.quiz_scope_text = null; passedKind = 'מבדק'; passedDate = s.quiz_date }
+    if (s.exam_date && daysUntil(s.exam_date) < 0) {
+      patch.exam_date = null; patch.exam_scope_text = null
+      if (!passedDate || s.exam_date > passedDate) { passedKind = 'מבחן מסכם'; passedDate = s.exam_date }
+    }
     if (!passedKind) { out.push(s); continue }
     const next = { ...s, ...patch }
     try {
       await supabase.from('subjects').update(patch).eq('id', s.id)
       await refreshScopeTopics(next)
-      try { localStorage.setItem(PASSED_KEY(s.id), JSON.stringify({ kind: passedKind, ts: Date.now() })) } catch { /* */ }
+      try { localStorage.setItem(PASSED_KEY(s.id), JSON.stringify({ kind: passedKind, date: passedDate, ts: Date.now() })) } catch { /* */ }
     } catch { /* ננסה בפעם הבאה */ }
     out.push(next)
   }
