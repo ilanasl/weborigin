@@ -5,6 +5,7 @@ import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { subjectStyle } from '../lib/examStyle'
 import { analyzeMaterial, fileHash } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
@@ -119,6 +120,8 @@ export default function Upload({ nav, params }) {
           if (n && m.source_text && !(fullTextByTopic[n] || '').includes(m.source_text)) fullTextByTopic[n] = [fullTextByTopic[n], m.source_text].filter(Boolean).join('\n\n')
         }
       } catch { /* בלי טקסט מלא — ממשיכים כרגיל */ }
+      // סגנון שאלות המבחן של המורה (ממבחנים קודמים) — כמה שאלות בסגנון הזה בנוסף לרגילות
+      const style = await subjectStyle(subjectId)
       setTopicsList([...knownTopics])
       const res = []
       const flat = []
@@ -131,10 +134,10 @@ export default function Upload({ nav, params }) {
         try {
           let out
           if (isText(file)) {
-            out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, fullTextByTopic, learner: profile, noSummary: onlyPractice })
+            out = await analyzeMaterial({ text: await readText(file), subjectName, knownTopics, fullTextByTopic, style, learner: profile, noSummary: onlyPractice })
           } else {
             out = await analyzeMaterial({
-              ...(await toAIInput(file)), subjectName, knownTopics, fullTextByTopic, learner: profile, noSummary: onlyPractice,
+              ...(await toAIInput(file)), subjectName, knownTopics, fullTextByTopic, style, learner: profile, noSummary: onlyPractice,
             })
           }
           res[fi] = { source_text: out.source_text || null, topics: out.topics || [], error: null }

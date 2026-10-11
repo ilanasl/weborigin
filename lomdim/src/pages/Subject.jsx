@@ -107,7 +107,7 @@ export default function Subject({ nav, params }) {
   const openExplain = async () => {
     let context
     try {
-      const { data } = await supabase.from('materials').select('summary_md').eq('subject_id', id)
+      const { data } = await supabase.from('materials').select('summary_md').eq('subject_id', id).neq('kind', 'style')
         .not('summary_md', 'is', null).order('created_at', { ascending: false }).limit(1).maybeSingle()
       context = data?.summary_md || undefined
     } catch { /* בלי הקשר */ }

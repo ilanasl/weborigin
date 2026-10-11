@@ -33,6 +33,11 @@ const isWarnLine = (l) => {
 export const stripNotebookWarnings = (md) => String(md || '').split('\n').filter((l) => !isWarnLine(l)).join('\n')
 // רמת הפירוט של נושא: פרק שלם, לא כלל בודד
 const TOPIC_LEVEL_RULE = 'רמת נושא: נושא הוא פרק לימודי שלם (למשל "חוקי חזקות", "שם המספר", "חוק הפילוג המורחב") — לא כלל בודד, מקרה פרטי או סוג תרגיל בתוך הפרק (למשל לא "חוקי חזקות – כפל וחילוק" בנפרד מ"חוקי חזקות"). אם הדף עוסק בחלק מפרק שכבר קיים ברשימת הנושאים הקיימים — החזר/י את שם הנושא הקיים בדיוק, גם אם הכותרת בדף שונה.'
+// סגנון שאלות המבחן של המורה (נלמד מצילומי מבחנים קודמים) — מוסיפים כמה שאלות באותו סגנון
+const styleRule = (style) => (style
+  ? `\n\nסגנון שאלות המבחן של המורה במקצוע (מתוך מבחנים קודמים):\n"""${String(style).slice(0, 3000)}"""\n` +
+    `בנוסף לשאלות הרגילות, נסח/י עוד 2–3 שאלות בסגנון הזה (אותו סוג שאלה, ניסוח ורמה) — כשאלות אמריקאיות, על החומר הנוכחי בלבד. `
+  : '')
 // שאלה שמפנה לפסוק/שורה/קטע — חייבת להביא אותו (רק את החלק הרלוונטי), כי התלמיד/ה עונה בלי ספר פתוח
 const QUOTE_RULE = 'חשוב מאוד — שאלה עומדת בפני עצמה: התלמיד/ה עונה בלי ספר או מחברת פתוחים. לכן שאלה שעוסקת בפסוק, שורה, בית או קטע מסוים חייבת לצטט אותו בתוך השאלה עצמה, במירכאות — אסור להסתפק בהפניה כמו "בפסוק א\'" או "בשורה 3" בלי הציטוט. מצטטים רק את המילים שהשאלה עוסקת בהן (עד כ-15 מילים), ומשמיטים את השאר עם "…"; אם צריך הקשר רחב יותר — מסכמים אותו במילים בחצי משפט ("משה פונה לפרעה ואומר: "…""). מאיפה מצטטים: אם צורף "הטקסט המלא" של הנושא והפסוק/השורה מופיעים בו — זה הנוסח הנכון: מעתיקים משם מילה-במילה, בלי לשנות ובלי להשלים מהזיכרון. אחרת מהחומר עצמו; בטקסט מוכר כמו פסוק מהתנ"ך מותר לצטט גם אם רק ההפניה מופיעה בחומר — אבל רק אם בטוח/ה בנוסח המדויק. אם לא בטוח/ה בנוסח — נסח/י את השאלה כך שלא תהיה תלויה בציטוט.'
 const PLAUSIBLE_RULE = 'חשוב מאוד — מסיחים (התשובות השגויות) חייבים להיות סבירים ומפתים: מאותו תחום ובאותה "שפה" של התשובה הנכונה, כך שתלמיד/ה שהבין/ה רק חלקית עלול/ה לבחור בהם. בנה/י אותם מטעויות נפוצות, מבלבול בין מושגים קרובים, מחצי-אמת או ממה שנכון במקרה אחר. אסור בהחלט מסיחים מופרכים, מצחיקים, מחוץ לנושא או כאלה שכל אחד/ת פוסל/ת מיד (למשל בשאלה על מטרת המילים בשיר — לא "ללמד לבנות מטריה" או "להציג סטטיסטיקה"). בדיקה לפני סיום: אם אפשר לנחש את התשובה רק כי שלוש האפשרויות האחרות "לא קשורות" — החלף/י אותן במסיחים קשורים ומבלבלים.'
@@ -106,7 +111,7 @@ function buildParts(payload) {
   const img = (b64, mt) => ({ inlineData: { mimeType: mt || 'image/jpeg', data: b64 } })
 
   if (task === 'analyze_material') {
-    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner, noSummary, focusTopic } = payload
+    const { text, imageBase64, mimeType, subjectName, knownTopics = [], learner, noSummary, focusTopic, style } = payload
     parts.push({ text:
       `אתה עוזר לימוד לתלמיד/ה בכיתה ${gradeOf(learner)} במקצוע "${subjectName}". לפניך חומר לימוד. ` +
       (focusTopic
@@ -125,18 +130,18 @@ function buildParts(payload) {
       `כמות השאלות והכרטיסיות תלויה בכמות התוכן בפועל, לא מספר קבוע: דף עשיר → יותר. לכל נושא בין 5 ל-12 שאלות אמריקאיות (4 אפשרויות בכל אחת), ובין 3 ל-6 כרטיסיות למושגי המפתח בלבד (מושג↔הגדרה קצרה וברורה שראוי לזכור בעל-פה) — לא לכל דבר, בלי להמציא ובלי לחזור על אותה נקודה. כללי כרטיסייה: front = שם המושג בלבד (למשל "נשוא מורחב") — לא שאלה ("מהו…?"), לא שאלת כן/לא ("האם…?"). back = הגדרה עניינית במשפט אחד, שלא פותחת ב"לא"/"כן"/"נכון" ובלי כוכביות או סימוני Markdown. כל מושג — כרטיסייה אחת בלבד, גם אם יש לו שם נוסף (כתוב/י את השם הנוסף בסוגריים באותה כרטיסייה). ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + nikudRule(subjectName) + subjectRule(subjectName) + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + ` ` + LENGTH_RULE + ` ` + PLAUSIBLE_RULE + ` ` + QUOTE_RULE + learnerRule(learner) +
       (noSummary ? '' : ` ${summaryLangRule(learner)}${litRule(subjectName)}`) +
-      ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו.` })
+      ` אם החומר הוא תחביר / ניתוח משפט — כלול שאלות שבהן נתון משפט והתלמיד/ה בוחר/ת מה התפקיד התחבירי של מילה מסוימת בו.` + styleRule(style) })
     if (text) parts.push({ text: `\nהטקסט:\n${text}` })
     if (imageBase64) parts.push(img(imageBase64, mimeType))
     return { parts, wantJson: true }
   }
   if (task === 'generate_questions') {
-    const { subjectName, topic, sourceText, count = 5, difficulty, learner } = payload
+    const { subjectName, topic, sourceText, count = 5, difficulty, learner, style } = payload
     parts.push({ text:
       `צור ${count} שאלות אמריקאיות למקצוע "${subjectName}"${topic ? `, נושא "${topic}"` : ''}${difficulty ? `, קושי ${difficulty}` : ''}. ` +
       `החזר JSON: {"questions":[{"q":"","choices":["","","",""],"answer":0,"difficulty":"","explain":"","hint":""}]}. ` +
       HEB_RULE + ` ` + TONE_RULE + ` ` + nikudRule(subjectName) + subjectRule(subjectName) + ` ` + BLOOM_RULE + ` ` + VERIFY_RULE + ` ` + VARY_RULE + ` ` + LENGTH_RULE + ` ` + PLAUSIBLE_RULE + ` ` + QUOTE_RULE + learnerRule(learner) + ` ` +
-      (sourceText ? `לפי החומר:\n${sourceText}` : '') })
+      (sourceText ? `לפי החומר:\n${sourceText}` : '') + styleRule(style) })
     return { parts, wantJson: true }
   }
   if (task === 'review_questions') {
@@ -166,6 +171,19 @@ function buildParts(payload) {
       ` אם התלמיד/ה עונה תשובה לשאלה ששאלת: תן/י קודם משוב קצר — נכון או לא, ולמה. אם ענה/תה משהו שאינו אחת האפשרויות שנתת — אמור/י בעדינות "זו לא אחת האפשרויות" והסבר/י מה כן. אם היו עוד סעיפים פתוחים ששאלת — המשך/י אליהם ואל תשאיר/י אותם באוויר. ` +
       (context ? `הקשר החומר: ${context}\n` : '') + `הודעת התלמיד/ה: ${question}` })
     return { parts, wantJson: false }
+  }
+  if (task === 'exam_questions') {
+    // מבחן מתוקן: השאלות שהיו בו → שאלות אמריקאיות לתרגול, וסגנון השאלות של המורה
+    const { imageBase64, mimeType, subjectName, knownTopics = [], learner } = payload
+    parts.push({ text:
+      `צילום של מבחן מתוקן במקצוע "${subjectName}". ` +
+      `(1) עבור/י על כל שאלה במבחן (לא על התשובות של התלמיד/ה) והפוך/י אותה לשאלה אמריקאית לתרגול: אותו תוכן ואותו ניסוח ככל האפשר, 4 אפשרויות ותשובה נכונה אחת לפי הידע המקובל (אם המורה סימנה את התשובה הנכונה — לפיה). שאלה פתוחה — הפוך/י לשאלה אמריקאית על העיקר שלה. ` +
+      `לכל שאלה topic: הנושא המתאים מהרשימה בדיוק כפי שנכתב (${knownTopics.map((t) => `"${t}"`).join(', ') || 'אין'}), ואם אף אחד לא מתאים — "". ` +
+      `(2) style: תיאור קצר של סגנון השאלות של המורה (סוגי שאלות, ניסוח, רמה) + examples: 3–6 ניסוחים של שאלות מהמבחן, מילה-במילה. ` +
+      `אל תכלול/י פרטים אישיים (שם התלמיד/ה, ציון). ` + HEB_RULE + ' ' + QUOTE_RULE + ' ' + LENGTH_RULE + ' ' + PLAUSIBLE_RULE + learnerRule(learner) + ' ' +
+      `החזר/י JSON: {"style":"","examples":[""],"questions":[{"topic":"","q":"","choices":["","","",""],"answer":0,"difficulty":"בינוני","explain":""}]}` })
+    parts.push(img(imageBase64, mimeType))
+    return { parts, wantJson: true }
   }
   if (task === 'check_exercise') {
     const { imageBase64, mimeType, subjectName, learner } = payload
@@ -454,6 +472,11 @@ export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope',
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
 export const splitSource = async (p) => deepClean(await call({ task: 'split_source', ...p }))
+// מבחן מתוקן → שאלות לתרגול (עם בדיקת איכות) + סגנון שאלות המורה
+export const examQuestions = async (p) => {
+  const out = deepClean(await call({ task: 'exam_questions', ...p }))
+  return { ...out, questions: shuffleQuestions(await reviewQuestions(out.questions || [], { subjectName: p.subjectName, learner: p.learner })) }
+}
 // זיהוי הנושא שאליו שייך טקסט (לשמירת סיכום מהצ'אט לנושא הנכון)
 export const classifyTopic = async (p) => deepClean(await call({ task: 'classify_topic', ...p }))
 // הכנת סיכום נקי מהצ'אט: מזהה נושא, יוצר כותרת קצרה, ומנקה פנייה אישית/צ'אט
