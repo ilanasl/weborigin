@@ -18,6 +18,11 @@ export default function PastExams({ params }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [err, setErr] = useState('')
+  // עריכת מבחן שכבר נרשם — ציון, והוספת צילום (אם לא צורף בהתחלה)
+  const [editId, setEditId] = useState(null)
+  const [editGrade, setEditGrade] = useState('')
+  const [editFile, setEditFile] = useState(null)
+  const [editBusy, setEditBusy] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -35,7 +40,7 @@ export default function PastExams({ params }) {
   }
   useEffect(() => { load() }, [subjectId])
 
-  async function analyzeToReinforce() {
+  async function analyzeToReinforce(file) {
     // ניתוח צילום המבחן → מוצא טעויות → מייצר תרגולים → לחיזוק
     const out = await checkExercise({ ...(await toAIInput(file)), subjectName, learner: profile })
     const hasMistake = out.correct === false || (Array.isArray(out.steps) && out.steps.some((s) => s.ok === false)) || out.feedback
@@ -68,7 +73,7 @@ export default function PastExams({ params }) {
         await supabase.storage.from('materials').upload(storagePath, file).catch(() => {})
       }
       let analyzed = false
-      if (file) { try { analyzed = await analyzeToReinforce() } catch { /* לא חוסם */ } }
+      if (file) { try { analyzed = await analyzeToReinforce(file) } catch { /* לא חוסם */ } }
       await supabase.from('past_exams').insert({
         subject_id: subjectId, kind, exam_date: date, grade: grade ? parseInt(grade, 10) : null,
         storage_path: storagePath, analyzed,
@@ -79,6 +84,45 @@ export default function PastExams({ params }) {
     } catch (e) {
       setErr('שמירה נכשלה: ' + String(e))
     } finally { setBusy(false) }
+  }
+
+  async function uploadPhoto(f) {
+    const { data: userData } = await supabase.auth.getUser()
+    const uid = userData.user?.id
+    if (!f || !uid) return null
+    const path = `${uid}/exam-${Date.now()}`
+    try { await supabase.storage.from('materials').upload(path, f) } catch { return null }
+    return path
+  }
+
+  function openEdit(e) {
+    if (editId === e.id) { setEditId(null); return }
+    setEditId(e.id); setEditGrade(e.grade != null ? String(e.grade) : ''); setEditFile(null); setNote(''); setErr('')
+  }
+
+  async function saveEdit(e) {
+    setEditBusy(true); setErr(''); setNote('')
+    try {
+      const patch = { grade: editGrade ? parseInt(editGrade, 10) : null }
+      if (editFile) {
+        const path = await uploadPhoto(editFile)
+        if (path) patch.storage_path = path
+        let analyzed = false
+        try { analyzed = await analyzeToReinforce(editFile) } catch { /* לא חוסם */ }
+        if (analyzed) patch.analyzed = true
+        if (analyzed) setNote('הטעויות מהמבחן נותחו ונוספו ל"לחיזוק" ✓')
+      }
+      await supabase.from('past_exams').update(patch).eq('id', e.id)
+      setEditId(null)
+      await load()
+    } catch (x) {
+      setErr('שמירה נכשלה: ' + String(x))
+    } finally { setEditBusy(false) }
+  }
+
+  async function viewPhoto(e) {
+    const { data } = await supabase.storage.from('materials').createSignedUrl(e.storage_path, 120)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
   }
 
   const gradeColor = (g) => g == null ? '' : g >= 85 ? 'text-good bg-good-soft' : g < 60 ? 'text-bad bg-bad-soft' : 'text-accent bg-accent-soft'
@@ -126,16 +170,39 @@ export default function PastExams({ params }) {
         {loading ? <div className="text-muted text-sm">טוען…</div>
           : exams.length === 0 ? <div className="text-muted text-sm">עדיין לא נוספו מבחנים.</div>
           : exams.map((e) => (
-            <div key={e.id} className="flex items-center gap-3 py-3 border-b border-line last:border-0">
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[14.5px]">{e.kind || 'מבחן'}</div>
-                <div className="text-[12.5px] text-muted">
-                  {e.exam_date ? new Date(e.exam_date).toLocaleDateString('he-IL') : ''}
-                  {e.analyzed ? ' · נותח ✓' : ''}
+            <div key={e.id} className="py-3 border-b border-line last:border-0">
+              {/* לחיצה על השורה — עריכה: ציון והוספת צילום */}
+              <button type="button" className="w-full flex items-center gap-3 text-start" onClick={() => openEdit(e)}>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-[14.5px]">{e.kind || 'מבחן'}</div>
+                  <div className="text-[12.5px] text-muted">
+                    {e.exam_date ? new Date(e.exam_date).toLocaleDateString('he-IL') : ''}
+                    {e.storage_path ? ' · יש צילום' : ''}
+                    {e.analyzed ? ' · נותח ✓' : ''}
+                  </div>
                 </div>
-              </div>
-              {e.grade != null && (
-                <span className={`text-[15px] font-black rounded-[10px] px-2.5 py-1 tnum ${gradeColor(e.grade)}`}>{e.grade}</span>
+                {e.grade != null && (
+                  <span className={`text-[15px] font-black rounded-[10px] px-2.5 py-1 tnum ${gradeColor(e.grade)}`}>{e.grade}</span>
+                )}
+                <span className="text-[12.5px] font-semibold text-primary flex-none">{editId === e.id ? 'סגור' : 'עריכה'}</span>
+              </button>
+              {editId === e.id && (
+                <div className="flex flex-col gap-3 mt-3">
+                  <div className="w-[110px]">
+                    <label className="block text-[13px] font-bold text-muted mb-1.5">ציון</label>
+                    <input type="number" className="field" value={editGrade} onChange={(x) => setEditGrade(x.target.value)} placeholder="—" />
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-bold text-muted mb-1.5">{e.storage_path ? 'החלפת צילום' : 'הוספת צילום של המבחן המתוקן'}</label>
+                    <input type="file" accept="image/*" onChange={(x) => setEditFile(x.target.files?.[0] || null)} className="text-[13px]" />
+                    {e.storage_path && (
+                      <button type="button" className="block mt-1.5 text-[12.5px] font-semibold text-primary underline" onClick={() => viewPhoto(e)}>צפה בצילום הקיים</button>
+                    )}
+                  </div>
+                  <button className="btn btn-primary btn-wide" onClick={() => saveEdit(e)} disabled={editBusy}>
+                    {editBusy ? (editFile ? 'שומר ומנתח…' : 'שומר…') : 'שמור'}
+                  </button>
+                </div>
               )}
             </div>
           ))}
