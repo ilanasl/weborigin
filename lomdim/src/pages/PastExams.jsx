@@ -3,6 +3,7 @@ import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
 import { checkExercise, generateQuestions } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
+import { PASSED_KEY } from '../lib/plan'
 
 
 export default function PastExams({ params }) {
@@ -23,6 +24,14 @@ export default function PastExams({ params }) {
     const { data } = await supabase.from('past_exams').select('*')
       .eq('subject_id', subjectId).order('exam_date', { ascending: false })
     setExams(data || []); setLoading(false)
+    // המבחן/מבדק האחרון שעבר — ממלאים מראש את הסוג והתאריך (אם עוד לא נרשם)
+    try {
+      const p = JSON.parse(localStorage.getItem(PASSED_KEY(subjectId)) || 'null')
+      if (p && !(data || []).some((e) => p.date && e.exam_date === p.date)) {
+        if (p.kind) setKind(p.kind)
+        if (p.date) setDate(p.date)
+      }
+    } catch { /* בלי אחסון — ממלאים ידנית */ }
   }
   useEffect(() => { load() }, [subjectId])
 
