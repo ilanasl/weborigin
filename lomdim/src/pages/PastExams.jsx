@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
-import { checkExercise, generateQuestions } from '../lib/gemini'
+import { checkExercise, generateQuestions, examQuestions } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import { PASSED_KEY } from '../lib/plan'
 
@@ -40,6 +40,39 @@ export default function PastExams({ params }) {
   }
   useEffect(() => { load() }, [subjectId])
 
+  // השאלות שהיו במבחן → שאלות תרגול בנושאים המתאימים (נכנסות לתרגול ולסימולציה), וסגנון השאלות של המורה נשמר
+  async function learnFromExam(file, label) {
+    const { data: tps } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
+    const out = await examQuestions({ ...(await toAIInput(file)), subjectName, knownTopics: (tps || []).map((t) => t.name), learner: profile })
+    const qs = (out.questions || []).filter((q) => q?.q && Array.isArray(q.choices))
+    let fallbackId = null
+    const topicIdOf = async (name) => {
+      const t = (tps || []).find((x) => x.name === name)
+      if (t) return t.id
+      if (fallbackId) return fallbackId
+      const { data: ex } = await supabase.from('topics').select('id').eq('subject_id', subjectId).eq('name', 'מבחנים שעברו').maybeSingle()
+      if (ex) fallbackId = ex.id
+      else { const { data: ins } = await supabase.from('topics').insert({ subject_id: subjectId, name: 'מבחנים שעברו', origin: 'השנה' }).select('id').single(); fallbackId = ins?.id }
+      return fallbackId
+    }
+    const rows = []
+    for (const q of qs) {
+      rows.push({
+        subject_id: subjectId, topic_id: await topicIdOf(q.topic), q: q.q, choices: q.choices, answer: q.answer,
+        difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: '',
+      })
+    }
+    if (rows.length) await supabase.from('questions').insert(rows)
+    const examples = (out.examples || []).filter(Boolean).map((x) => `- ${x}`).join('\n')
+    if (out.style || examples) {
+      await supabase.from('materials').insert({
+        subject_id: subjectId, kind: 'style', title: `סגנון המורה · ${label}`,
+        summary_md: [out.style, examples].filter(Boolean).join('\n'),
+      })
+    }
+    return rows.length
+  }
+
   async function analyzeToReinforce(file) {
     // ניתוח צילום המבחן → מוצא טעויות → מייצר תרגולים → לחיזוק
     const out = await checkExercise({ ...(await toAIInput(file)), subjectName, learner: profile })
@@ -72,13 +105,16 @@ export default function PastExams({ params }) {
         storagePath = `${uid}/exam-${Date.now()}`
         await supabase.storage.from('materials').upload(storagePath, file).catch(() => {})
       }
-      let analyzed = false
-      if (file) { try { analyzed = await analyzeToReinforce(file) } catch { /* לא חוסם */ } }
+      let analyzed = false, learned = 0
+      if (file) {
+        try { analyzed = await analyzeToReinforce(file) } catch { /* לא חוסם */ }
+        try { learned = await learnFromExam(file, `${kind} ${date}`) } catch { /* לא חוסם */ }
+      }
       await supabase.from('past_exams').insert({
         subject_id: subjectId, kind, exam_date: date, grade: grade ? parseInt(grade, 10) : null,
         storage_path: storagePath, analyzed,
       })
-      if (analyzed) setNote('הטעויות מהמבחן נותחו ונוספו ל"לחיזוק" ✓')
+      setNote([analyzed && 'הטעויות נוספו ל"לחיזוק" ✓', learned && `${learned} שאלות מהמבחן נוספו לתרגול, והמערכת למדה את סגנון השאלות ✓`].filter(Boolean).join(' · '))
       setDate(''); setGrade(''); setFile(null)
       await load()
     } catch (e) {
@@ -107,10 +143,11 @@ export default function PastExams({ params }) {
       if (editFile) {
         const path = await uploadPhoto(editFile)
         if (path) patch.storage_path = path
-        let analyzed = false
+        let analyzed = false, learned = 0
         try { analyzed = await analyzeToReinforce(editFile) } catch { /* לא חוסם */ }
-        if (analyzed) patch.analyzed = true
-        if (analyzed) setNote('הטעויות מהמבחן נותחו ונוספו ל"לחיזוק" ✓')
+        try { learned = await learnFromExam(editFile, `${e.kind || 'מבחן'} ${e.exam_date || ''}`) } catch { /* לא חוסם */ }
+        if (analyzed || learned) patch.analyzed = true
+        setNote([analyzed && 'הטעויות נוספו ל"לחיזוק" ✓', learned && `${learned} שאלות מהמבחן נוספו לתרגול, והמערכת למדה את סגנון השאלות ✓`].filter(Boolean).join(' · '))
       }
       await supabase.from('past_exams').update(patch).eq('id', e.id)
       setEditId(null)

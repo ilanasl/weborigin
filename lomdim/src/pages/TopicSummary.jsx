@@ -3,6 +3,7 @@ import { useG } from '../lib/gender'
 import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
+import { subjectStyle } from '../lib/examStyle'
 import { topicSummary, fetchSourceText, stripNotebookWarnings, generateQuestions, splitSource } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
@@ -186,7 +187,7 @@ export default function TopicSummary({ nav, params }) {
       setCompleteNote('מכין שאלות על ההמשך…')
       const { data: moved } = moveIds.length ? await supabase.from('questions').select('q').in('id', moveIds) : { data: [] }
       const { questions } = await generateQuestions({
-        subjectName, topic: newName, count: Math.max(5, 10 - moveIds.length), learner: profile,
+        subjectName, topic: newName, count: Math.max(5, 10 - moveIds.length), learner: profile, style: await subjectStyle(subjectId),
         sourceText: `הטקסט המלא:\n${restText}\n\nהסיכום:\n${summary_md}` +
           ((moved || []).length ? `\n\nאל תחזור/י על השאלות האלה:\n${moved.map((x) => `- ${x.q}`).join('\n')}` : ''),
       })
