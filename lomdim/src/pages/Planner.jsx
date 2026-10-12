@@ -6,7 +6,8 @@ import { mastery } from '../lib/mastery'
 import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
-import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams, isAllScope } from '../lib/plan'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams, isAllScope, orderPlanTopics } from '../lib/plan'
 
 const Chev = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.55, flex: 'none' }}><path d="M15 6l-6 6 6 6" /></svg>
@@ -28,6 +29,7 @@ export default function Planner({ nav, params }) {
   const [scanErr, setScanErr] = useState('')
   const [matchNote, setMatchNote] = useState('')
   const [busy, setBusy] = useState(false)
+  const [lockMsg, setLockMsg] = useState(null)   // נושא נעול בתוכנית — הודעה + מעבר לנושא הנוכחי
   const [loading, setLoading] = useState(true)
   const [allTs, setAllTs] = useState([])   // זמני כל התשובות במקצוע — לסימון יום חזרה שבוצע
 
@@ -93,6 +95,8 @@ export default function Planner({ nav, params }) {
         else if (set?.size) setMatchNote(`זוהו ${set.size} נושאים במיקוד — התוכנית והמבדק יתמקדו בהם: ${[...set].join(', ')}`)
         else if (scope.trim()) setMatchNote(`המיקוד שכתבת לא תואם אף נושא שהועלה — אולי צריך להעלות את החומר או לכתוב את שמות הנושאים. בינתיים ${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר.`)
       } catch { /* לא חוסם את שמירת התוכנית */ }
+      // סדר לימוד הגיוני לתוכנית (מה שצריך לדעת קודם — קודם)
+      await orderPlanTopics(updated)
     } else if (scope.trim()) {
       setMatchNote(`נשמר. המיקוד הזה ייכנס לתוקף אחרי ה${kind === 'מבדק' ? 'מבחן' : 'מבדק'} הקרוב.`)
     }
@@ -120,9 +124,9 @@ export default function Planner({ nav, params }) {
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
   const examDays = daysUntil(date)
-  // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. חלשים קודם.
+  // אם זוהו נושאים במבחן (מהמיקוד) — מתמקדים בהם; אחרת בכל הנושאים. לפי סדר הלימוד, נעול לפי הסדר.
   // תוכנית: חלון קבוע לפי תאריך המבחן, חלשים קודם, יום לפני = חזרה כללית, ימים שהושלמו מסומנים (lib/plan)
-  const { days: plan, startsInDays } = buildStudyPlan({ examDays, leadDays, topics, allTs })
+  const { days: plan, startsInDays, current, ordered } = buildStudyPlan({ examDays, leadDays, topics, allTs })
 
   return (
     <div className="pt-1">
@@ -193,7 +197,7 @@ export default function Planner({ nav, params }) {
         <>
           <div className="home-h2 mt-6 mb-2.5">
             <h2>תוכנית הלמידה</h2>
-            <span>חלשים קודם</span>
+            <span>{ordered ? 'לפי סדר הלימוד' : 'חלשים קודם'}</span>
           </div>
           <div className="flex flex-col gap-2">
             {plan.filter((p) => !p.exam).map((p, i) => {
@@ -221,13 +225,15 @@ export default function Planner({ nav, params }) {
                   {tile}
                   <div className="flex-1 min-w-0 flex flex-col">
                     {p.topics.map((t) => (
-                      <button key={t.id} type="button" className={`plan-topic ${t.done ? 'plan-topic-done' : ''}`}
-                        onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })}>
+                      <button key={t.id} type="button" className={`plan-topic ${t.done ? 'plan-topic-done' : ''} ${t.locked ? 'plan-topic-locked' : ''}`}
+                        onClick={() => (t.locked
+                          ? setLockMsg(current)
+                          : nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name }))}>
                         <span className="flex-1 min-w-0 plan-txt">{t.name}</span>
                         {t.carriedFrom && !t.done && <span className="tp-badge tp-badge-muted flex-none">{t.carriedOff === -1 ? 'מאתמול' : `מיום ${DOW[t.carriedFrom.getDay()]}`}</span>}
                         {t.movedToToday && <span className="tp-badge tp-badge-muted flex-none">הועבר להיום</span>}
                         {t.done && !p.done && <span className="text-good font-bold" aria-label="בוצע">✓</span>}
-                        <Chev />
+                        {t.locked ? <Icon name="lock" size={17} className="text-muted" /> : <Chev />}
                       </button>
                     ))}
                   </div>
@@ -262,6 +268,12 @@ export default function Planner({ nav, params }) {
         </span>
         <Icon name="chevron" size={18} />
       </button>
+      <ConfirmDialog open={!!lockMsg} icon="lock"
+        title={lockMsg ? `קודם: ${lockMsg.name}` : ''}
+        text="הנושאים בתוכנית נפתחים לפי הסדר. אחרי סבב של 10 שאלות על הנושא הזה — הנושא הבא ייפתח."
+        confirmLabel="לתרגל עכשיו" cancelLabel="סגירה"
+        onCancel={() => setLockMsg(null)}
+        onConfirm={() => { const t = lockMsg; setLockMsg(null); nav.go('practice', { subjectId, subjectName, topicId: t.id, topicName: t.name, mode: 'practice' }) }} />
     </div>
   )
 }

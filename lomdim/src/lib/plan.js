@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { fetchAll } from './fetchAll'
 import { mastery, STRONG } from './mastery'
-import { matchScopeTopics } from './gemini'
+import { matchScopeTopics, orderTopics } from './gemini'
 
 // ── תוכנית הלמידה למבחן (משותף למתכנן ולבדיקת "סיימת את היום בתוכנית") ──
 
@@ -9,6 +9,7 @@ import { matchScopeTopics } from './gemini'
 export const LEAD_DEFAULT = { 'מבדק': 4, 'מבחן מסכם': 8 }
 
 const DAY = 86400000
+const ROUND = 10 // סבב שאלות על נושא — פותח את הנושא הבא בתוכנית
 // תאריך "2026-10-08" נקרא כחצות לפי שעון ישראל (ולא UTC — שאחרת יוצא 03:00 ומעגל ליום נוסף)
 export const parseDay = (d) => {
   if (!d) return null
@@ -78,17 +79,40 @@ export async function refreshScopeTopics(subject) {
   return set
 }
 
+// סדר לימוד הגיוני לנושאי המקצוע (לתוכנית לפי ימים) — נשמר ב-topics.plan_order.
+// נכשל בשקט (למשל אם העמודה עוד לא נוספה במסד) — ואז התוכנית נשארת "חלשים קודם".
+export async function orderPlanTopics(subject) {
+  try {
+    const [{ data: topics }, { data: mats }] = await Promise.all([
+      supabase.from('topics').select('id, name').eq('subject_id', subject.id),
+      supabase.from('materials').select('topic_id, kind, summary_md').eq('subject_id', subject.id).not('summary_md', 'is', null),
+    ])
+    if (!topics || topics.length < 2) return false
+    const sum = {}
+    for (const m of mats || []) {
+      if (!m.topic_id || m.kind === 'style') continue
+      if (m.kind === 'summary' || !sum[m.topic_id]) sum[m.topic_id] = m.summary_md
+    }
+    const { order } = await orderTopics({ subjectName: subject.name, topics: topics.map((t) => ({ name: t.name, summary: sum[t.id] })) })
+    if (!Array.isArray(order) || !order.length) return false
+    const rank = new Map(order.map((n, i) => [String(n).trim(), i]))
+    const res = await Promise.all(topics.map((t) => supabase.from('topics').update({ plan_order: rank.get(t.name.trim()) ?? order.length }).eq('id', t.id)))
+    return !res.some((r) => r.error)
+  } catch { return false }
+}
+
 // topics: [{ id, name, in_exam, att: [{ correct, difficulty, ts }] }] · allTs: זמני כל התשובות במקצוע
 export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
   if (examDays == null || examDays < 1) return { days: [], startsInDays: null }
   // חלון הלמידה קבוע לפי תאריך המבחן (גם ימים שכבר עברו נשארים בתוכנית, מסומנים)
   const startOffset = examDays - leadDays
   const startMs = addDays(startOffset).getTime()
-  // סדר "חלשים קודם" לפי השליטה כפי שהייתה בתחילת החלון — כך התוכנית לא מתערבבת תוך כדי תרגול
+  // סדר הלימוד: לפי plan_order (המערכת קובעת סדר הגיוני בשמירת התוכנית); נושא בלי סדר — בסוף, חלשים קודם
+  // (לפי השליטה בתחילת החלון — כך התוכנית לא מתערבבת תוך כדי תרגול)
   const inExam = topics.filter((t) => t.in_exam)
   const ordered = [...(inExam.length ? inExam : topics)]
     .map((t) => ({ ...t, m0: mastery(t.att.filter((a) => a.ts < startMs)) }))
-    .sort((a, b) => (a.m0.pct ?? 50) - (b.m0.pct ?? 50))
+    .sort((a, b) => (a.plan_order ?? 1e9) - (b.plan_order ?? 1e9) || (a.m0.pct ?? 50) - (b.m0.pct ?? 50))
 
   // נושא "בוצע": לפי התרגול מאז תחילת החלון, הנושא ברמת "חזק" (לפחות 5 תשובות, 80%+ נכונות)
   const topicDone = (t) => (mastery(t.att.filter((a) => a.ts >= startMs)).pct ?? 0) >= STRONG
@@ -126,17 +150,27 @@ export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
     todayDay.topics = [...carried, ...todayDay.topics]
     todayDay.done = todayDay.topics.length > 0 && todayDay.topics.every((t) => t.done)
   }
+  // נעילה לפי הסדר: נושא בתוכנית נפתח רק אחרי שעבר את כל הנושאים שלפניו
+  // ("עבר" = חזק, או סבב של ROUND שאלות לפחות מאז תחילת החלון — כדי לא להיתקע בנושא קשה).
+  // רק בתוכנית — התרגול החופשי פתוח תמיד.
+  const passed = (t) => t.done || t.att.filter((a) => a.ts >= startMs).length >= ROUND
+  const seq = []
+  { const seen = new Set(); for (const d of days) for (const t of d.topics) if (!t.movedToToday && !seen.has(t.id)) { seen.add(t.id); seq.push(t) } }
+  const unlocked = new Set()
+  let current = null
+  for (const t of seq) { unlocked.add(t.id); if (!passed(t)) { current = { id: t.id, name: t.name }; break } }
+  for (const d of days) for (const t of d.topics) { t.passed = passed(t); t.locked = !unlocked.has(t.id) }
   // יום חזרה — היום שלפני המבחן. נשאר בתוכנית גם כשהוא היום עצמו (יום לפני המבחן)
   { const dt = addDays(examDays - 1); days.push({ dt, off: examDays - 1, review: true, done: reviewDone(dt) }) }
   days.push({ dt: addDays(examDays), off: examDays, exam: true })
-  return { days, startsInDays: startOffset > 1 ? startOffset : null }
+  return { days, startsInDays: startOffset > 1 ? startOffset : null, current, ordered: ordered.some((t) => t.plan_order != null) }
 }
 
 // היום של היום בתוכנית הלמידה של מקצוע (או null): { s, kind, examDays, today }
 export async function planToday(subjectId) {
   const [{ data: s }, { data: tp }, { data: at }] = await Promise.all([
     supabase.from('subjects').select('*').eq('id', subjectId).single(),
-    supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId),
+    supabase.from('topics').select('*').eq('subject_id', subjectId),
     fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', subjectId)),
   ])
   if (!s) return null
@@ -182,7 +216,9 @@ export async function dailyTarget() {
     const day = p?.today
     if (!day) continue
     if (day.review) return { subjectId: s.id, subjectName: s.name }
-    const t = day.topics.find((x) => !x.done) || day.topics[0]
+    // הנושא הפתוח הראשון שעוד לא עבר (לפי הסדר — כולל מה שפוספס), אחריו — פתוח שעוד לא חזק
+    const open = day.topics.filter((x) => !x.locked)
+    const t = open.find((x) => !x.passed) || open.find((x) => !x.done) || open[0] || day.topics[0]
     if (t) return { subjectId: s.id, subjectName: s.name, topicId: t.id, topicName: t.name }
   }
   // בלי תוכנית להיום — מקצוע שתורגל הכי מעט + נושא חלש
