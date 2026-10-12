@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { fetchAll } from './fetchAll'
 import { mastery, STRONG } from './mastery'
-import { matchScopeTopics, orderTopics } from './gemini'
+import { matchScopeTopics, orderTopics, scopeGaps, topicSummary, generateQuestions } from './gemini'
 
 // ── תוכנית הלמידה למבחן (משותף למתכנן ולבדיקת "סיימת את היום בתוכנית") ──
 
@@ -77,6 +77,90 @@ export async function refreshScopeTopics(subject) {
   }
   await Promise.all(topics.map((t) => supabase.from('topics').update({ in_exam: set.has(t.name) }).eq('id', t.id)))
   return set
+}
+
+// ── מה מהמיקוד עוד אין עליו חומר ──
+// נשמר ב-subjects.scope_gaps (וגם במכשיר, למקרה שהעמודה עוד לא נוספה): { kind, scope, ts, covered:[{part,topic}], missing:[{name,part}] }
+export const GEN_MARK = '🌐 נכתב מהידע הכללי'
+const GAPS_KEY = (id) => `lomdim-scope-gaps:${id}`
+
+function scopeOf(subject) {
+  const kind = nearestKind(subject)
+  return { kind, scope: String((kind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim() }
+}
+
+async function saveGaps(subjectId, g) {
+  try { localStorage.setItem(GAPS_KEY(subjectId), JSON.stringify(g)) } catch { /* */ }
+  try { await supabase.from('subjects').update({ scope_gaps: g }).eq('id', subjectId) } catch { /* העמודה עוד לא נוספה */ }
+}
+
+// הבדיקה האחרונה — רק אם היא עדיין על אותו מיקוד של המבחן הקרוב
+export function readGaps(subject) {
+  if (!subject) return null
+  let local = null
+  try { local = JSON.parse(localStorage.getItem(GAPS_KEY(subject.id)) || 'null') } catch { /* */ }
+  const db = subject.scope_gaps || null
+  // הגרסה העדכנית מבין השתיים (המסד משותף למכשירים; המכשיר — אם העמודה עוד לא נוספה)
+  const g = !db ? local : !local ? db : (local.ts > db.ts ? local : db)
+  const { kind, scope } = scopeOf(subject)
+  if (!g || !scope || g.kind !== kind || g.scope !== scope) return null
+  return g
+}
+
+// נוסף נושא אחרי הבדיקה האחרונה → כדאי לבדוק שוב (אולי הוא מכסה חלק חסר)
+export const gapsStale = (g, topics = []) => !!g && topics.some((t) => new Date(t.created_at).getTime() > g.ts)
+
+export async function checkScopeGaps(subject) {
+  const { kind, scope } = scopeOf(subject)
+  const date = kind === 'מבדק' ? subject.quiz_date : subject.exam_date
+  if (!scope || isAllScope(scope) || !date || daysUntil(date) < 0) { await saveGaps(subject.id, null); return null }
+  const [{ data: topics }, { data: mats }] = await Promise.all([
+    supabase.from('topics').select('id, name').eq('subject_id', subject.id),
+    supabase.from('materials').select('topic_id, kind, summary_md').eq('subject_id', subject.id).not('summary_md', 'is', null),
+  ])
+  const sum = {}
+  for (const m of mats || []) {
+    if (!m.topic_id || m.kind === 'style') continue
+    if (m.kind === 'summary' || !sum[m.topic_id]) sum[m.topic_id] = m.summary_md
+  }
+  const out = await scopeGaps({ subjectName: subject.name, scopeText: scope, topics: (topics || []).map((t) => ({ name: t.name, summary: sum[t.id] })) })
+  const names = new Set((topics || []).map((t) => t.name.trim()))
+  const g = {
+    kind, scope, ts: Date.now(),
+    covered: (out.covered || []).filter((c) => c?.part && names.has(String(c.topic || '').trim())),
+    missing: (out.missing || []).filter((m) => m?.name && !names.has(String(m.name).trim())),
+  }
+  await saveGaps(subject.id, g)
+  return g
+}
+
+// נושא חדש מהידע הכללי לחלק חסר במיקוד: סיכום (עם תגית) + שאלות תרגול, במיקוד
+export async function createTopicFromGeneral({ subject, item, learner }) {
+  const name = String(item.name).trim()
+  const { data: tp, error } = await supabase.from('topics').insert({ subject_id: subject.id, name, origin: 'השנה', in_exam: true }).select('*').single()
+  if (error || !tp) throw new Error('topic')
+  const { summary_md } = await topicSummary({ subjectName: subject.name, topicName: name, learner, focus: item.part })
+  const { data: mat } = await supabase.from('materials').insert({
+    subject_id: subject.id, topic_id: tp.id, title: 'נכתב מהידע הכללי', kind: 'summary', summary_md: `${GEN_MARK}\n\n${summary_md}`,
+  }).select('id').single()
+  const { questions = [] } = await generateQuestions({ subjectName: subject.name, topic: name, sourceText: summary_md, count: 10, learner })
+  if (questions.length) {
+    await supabase.from('questions').insert(questions.map((q) => ({
+      subject_id: subject.id, topic_id: tp.id, material_id: mat?.id,
+      q: q.q, choices: q.choices, answer: q.answer,
+      difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
+    })))
+  }
+  // החלק עבר מ"חסר" ל"יש"
+  const g = readGaps(subject)
+  if (g) {
+    await saveGaps(subject.id, {
+      ...g, ts: Date.now(),
+      missing: g.missing.filter((m) => m.name !== item.name),
+      covered: [...g.covered, { part: item.part, topic: name }],
+    })
+  }
+  return { topic: tp, qCount: questions.length }
 }
 
 // סדר לימוד הגיוני לנושאי המקצוע (לתוכנית לפי ימים) — נשמר ב-topics.plan_order.

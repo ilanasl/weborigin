@@ -42,6 +42,8 @@ create table if not exists subjects (
 );
 -- אם הטבלה כבר קיימת — מוסיף עמודות מבדק בלי לשבור כלום:
 alter table subjects add column if not exists quiz_date date;
+-- מה מהמיקוד עוד אין עליו חומר (נבדק ב"שמור ובנה תוכנית"):
+alter table subjects add column if not exists scope_gaps jsonb;
 alter table subjects add column if not exists quiz_scope_text text;
 
 -- ── נושאים (המערכת מזהה אותם מהחומר) ──

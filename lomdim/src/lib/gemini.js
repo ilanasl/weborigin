@@ -285,6 +285,18 @@ function buildParts(payload) {
       (questions.length ? `\n\nשאלות קיימות (id + שאלה):\n${JSON.stringify(questions)}` : '') })
     return { parts, wantJson: true }
   }
+  if (task === 'scope_gaps') {
+    const { subjectName, scopeText, topics = [] } = payload
+    parts.push({ text:
+      `במקצוע "${subjectName}" — לפניך מיקוד החומר למבחן, ורשימת הנושאים שכבר הועלה עליהם חומר (שם + תחילת הסיכום). ` +
+      `חלק/י את המיקוד לחלקים, ולכל חלק קבע/י אם הוא כבר מכוסה באחד הנושאים (לפי התוכן, לא רק לפי השם) או שחסר עליו חומר. ` +
+      `החזר/י JSON בלבד: {"covered":[{"part":"החלק מהמיקוד, קצר","topic":"<שם נושא מהרשימה, בדיוק כפי שנכתב>"}],` +
+      `"missing":[{"name":"שם קצר לנושא חדש (2–4 מילים)","part":"מה בדיוק מהמיקוד הוא צריך לכסות"}]}. ` +
+      `אחד/י חלקים חסרים קרובים לנושא חסר אחד (למשל "ציר הזמן" לתקופות + קביעת אלף ומאה). אל תמציא/י חלקים שלא במיקוד. בספק — נחשב מכוסה. ` + HEB_RULE +
+      `\n\nהמיקוד:\n"""${String(scopeText).slice(0, 3000)}"""` +
+      `\n\nהנושאים שהועלו:\n` + (topics.length ? topics.map((t) => `- ${t.name}: ${String(t.summary || '').slice(0, 500).replace(/\s+/g, ' ')}`).join('\n') : '(אין)') })
+    return { parts, wantJson: true }
+  }
   if (task === 'order_topics') {
     const { subjectName, topics = [] } = payload
     parts.push({ text:
@@ -483,6 +495,7 @@ export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope',
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
 export const orderTopics = async (p) => deepClean(await call({ task: 'order_topics', ...p }))
+export const scopeGaps = async (p) => deepClean(await call({ task: 'scope_gaps', ...p }))
 export const splitSource = async (p) => deepClean(await call({ task: 'split_source', ...p }))
 // מבחן מתוקן → שאלות לתרגול (עם בדיקת איכות) + סגנון שאלות המורה
 export const examQuestions = async (p) => {
@@ -500,7 +513,7 @@ export const renikudQuestions = async (items) => deepClean(await call({ task: 'r
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
-export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, fromText }) => {
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, fromText, focus }) => {
   const hasSource = sourceMaterials && sourceMaterials.trim()
   // fromText — אין מחברת, רק הטקסט עצמו (למשל פסוקים שלא נלמדו בכיתה): מסבירים אותו ברמת הכיתה, כמו מורה
   const faith = fromText
@@ -510,7 +523,8 @@ export const topicSummary = async ({ subjectName, topicName, learner, sourceMate
     : `הסתמך/י אך ורק על החומר שהועלה — אל תוסיף/י מידע, מושגים או דוגמאות שאינם מופיעים בו.`
   const intro = hasSource
     ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום אחד מסודר ומקיף — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. ${faith} ${CONSOLIDATE_RULE}\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 12000)}"""\n\n`
-    : `כתוב סיכום מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ${gradeOf(learner)}. `
+    : `כתוב סיכום מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ${gradeOf(learner)}. ` +
+      (focus ? `הסיכום צריך לכסות בדיוק את מה שמופיע במיקוד המבחן: "${focus}" — לפי הידע המקובל בתוכנית הלימודים. ` : '')
   const question = intro +
     `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא. (2) לכל מושג מרכזי — מה זה, על איזו שאלה הוא עונה, ודוגמה. ` +
     `(3) דגשים וטעויות נפוצות למבחן. (4) כשמתאים — השתמש בטבלת Markdown להשוואה, עם עמודות שמתאימות לנושא: לרוב "מושג | מה זה | על איזו שאלה עונה | דוגמה", ובנושאים כמו שם המספר "מספר | זכר | נקבה". ` +
