@@ -45,6 +45,13 @@ export default function Summaries({ nav, params }) {
       <span className="end-tag inline-block mb-3">{subjectName}</span>
       <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">חוברת סיכומים</h1>
       <div className="text-[13.5px] text-muted mt-1.5 mb-4">כל הסיכומים של המקצוע, אחד אחרי השני. נוח לקריאה לפני מבחן.</div>
+      {items.some((t) => t.summary) && (
+        <button type="button" className="milky-row mb-4" onClick={() => window.print()}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M7 14h10v7H7z" /></svg>
+          <span className="flex-1 text-start font-bold text-[14.5px]">הדפסת החוברת</span>
+          <span className="text-[12px] text-muted">או שמירה כ-PDF</span>
+        </button>
+      )}
 
       {items.length === 0 ? (
         <div className="milky-row text-muted text-sm">עדיין אין נושאים — העלו חומר כדי שייווצרו סיכומים.</div>
@@ -64,25 +71,27 @@ export default function Summaries({ nav, params }) {
             ))}
           </div>
 
+          <div className="print-area">
+          <div className="hidden print:block font-disp font-extrabold text-[22px] mb-3">חוברת סיכומים · {subjectName}</div>
           {items.map((t, i) => (
-            <section key={t.id} id={`sm-${t.id}`} className="mb-6" style={{ scrollMarginTop: 90 }}>
+            <section key={t.id} id={`sm-${t.id}`} className={`mb-6 ${t.summary ? '' : 'no-print'}`} style={{ scrollMarginTop: 90 }}>
               <div className="flex items-baseline gap-2 mb-2.5">
                 <span className="font-disp font-extrabold text-[15px] text-muted tnum">{i + 1}.</span>
                 {/* כותרת הנושא — מובילה למסך הסיכום הרגיל של הנושא */}
                 <button type="button" onClick={() => openTopic(t)} className="flex-1 text-start flex items-center gap-1.5">
                   <h2 className="font-disp font-extrabold text-[20px] leading-tight">{t.name}</h2>
-                  <Icon name="chevron" size={18} />
+                  <span className="no-print"><Icon name="chevron" size={18} /></span>
                 </button>
               </div>
               {t.source && (
                 <>
-                  <button type="button" className="milky-row mb-3" onClick={() => setOpenSrc((s) => ({ ...s, [t.id]: !s[t.id] }))} aria-expanded={!!openSrc[t.id]}>
+                  <button type="button" className="milky-row mb-3 no-print" onClick={() => setOpenSrc((s) => ({ ...s, [t.id]: !s[t.id] }))} aria-expanded={!!openSrc[t.id]}>
                     <Icon name="text" />
                     <span className="flex-1 text-start font-bold text-[14.5px]">הטקסט המלא</span>
                     <Icon name="down" size={18} style={{ transform: openSrc[t.id] ? 'rotate(180deg)' : 'none', transition: '.2s' }} />
                   </button>
                   {openSrc[t.id] && (
-                    <div className="card mb-3"><div className="whitespace-pre-line text-[14.5px] leading-relaxed">{t.source}</div></div>
+                    <div className="card mb-3 no-print"><div className="whitespace-pre-line text-[14.5px] leading-relaxed">{t.source}</div></div>
                   )}
                 </>
               )}
@@ -90,7 +99,7 @@ export default function Summaries({ nav, params }) {
                 {t.summary ? <Markdown text={t.summary} examBox /> : (
                   <div className="text-[14px]" style={{ color: '#3E3E45' }}>עדיין אין סיכום לנושא הזה.</div>
                 )}
-                <div className="flex flex-wrap gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-4 no-print">
                   <button type="button" className="paper-btn"
                     onClick={() => nav.go('practice', { subjectId, subjectName, topicId: t.id, topicName: t.name, mode: 'practice' })}>
                     <Icon name="target" size={17} />לתרגול הנושא
@@ -104,6 +113,7 @@ export default function Summaries({ nav, params }) {
               </div>
             </section>
           ))}
+          </div>
 
           <button type="button" className="btn btn-wide mb-4" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             ↑ חזרה לתוכן העניינים

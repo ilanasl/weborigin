@@ -486,3 +486,19 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .exam-days{ display:flex; flex-direction:column; align-items:center; min-width:52px; line-height:1 }
 .exam-days b{ font-family:var(--disp); font-weight:900; font-size:40px; letter-spacing:-1px }
 .exam-days small{ font-size:12px; font-weight:700 }
+
+/* "💡 הידעת?" בסיכום — יוצא מן הכלל / העשרה */
+.md-tip{ margin:10px 0; padding:10px 12px; border-radius:12px; background:rgba(212,244,106,.28); border:1px solid rgba(94,122,0,.25); font-size:13.5px; line-height:1.55 }
+
+/* הדפסת סיכומים — מדפיסים רק את אזור הסיכום, על רקע לבן */
+@media print {
+  body * { visibility: hidden !important }
+  .print-area, .print-area * { visibility: visible !important }
+  .print-area { position: absolute; inset: 0 auto auto 0; width: 100%; background: #fff !important; color: #111 !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important }
+  .print-area .no-print { display: none !important }
+  .print-area * { color: #111 !important; border-color: #ccc !important }
+  .print-area .md-tip { background: #f3f7e0 !important }
+  html, body { background: #fff !important }
+  .print-area .paper { background: #fff !important; box-shadow: none !important; break-inside: auto }
+  .print-area h2, .print-area .md > div { break-after: avoid }
+}

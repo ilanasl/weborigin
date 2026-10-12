@@ -49,6 +49,10 @@ export default function Markdown({ text, className = '', examBox = false }) {
     // קו מפריד (---) — קו דק במקום שלושה מקפים
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); blocks.push({ type: 'hr' }); continue }
 
+    // "💡 הידעת?" — יוצא מן הכלל / העשרה, בתיבה נפרדת
+    const tip = line.match(/^\s*>?\s*(?:[-*•]\s*)?💡\s*\**\s*הידעת\??\s*\**\s*[:?]?\s*(.*)$/)
+    if (tip) { flush(); blocks.push({ type: 'tip', text: tip[1] }); continue }
+
     const h = line.match(/^(#{1,4})\s+(.*)$/)
     if (h) { flush(); blocks.push({ type: 'h', level: h[1].length, text: h[2] }); continue }
 
@@ -67,6 +71,9 @@ export default function Markdown({ text, className = '', examBox = false }) {
   flush()
 
   const render = (b, i) => {
+        if (b.type === 'tip') return (
+          <div key={i} className="md-tip"><b>💡 הידעת?</b> <Inline text={b.text} /></div>
+        )
         if (b.type === 'hr') return <hr key={i} className="my-4 border-0 h-px" style={{ background: 'currentColor', opacity: 0.15 }} />
         if (b.type === 'h') {
           const size = b.level === 1 ? 'text-[16px]' : b.level === 2 ? 'text-[15px]' : 'text-[14px]'
