@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Icon from '../components/Icon'
+import { useG } from '../lib/gender'
 import { DAILY_GOAL, DAILY_BONUS } from '../lib/coins'
 import { playDing, isMuted, setMuted } from '../lib/celebrate'
 
@@ -7,11 +8,13 @@ const CONFETTI_COLORS = ['#D4F46A', '#B7A5FF', '#FFB28A', '#7FDCCB', '#FFA3C4', 
 
 // מסך סיום סבב — רגיל, או חגיגה כשהסבב השלים את משימת היום
 // exam — סימולציה: { kind, focused, byTopic: [{ id, name, n, wrong }], onTopic } → הציון במרכז, פירוק לפי נושאים
-export default function SessionEnd({ exam, correct, total, title, subtitle, tag, reward, planDay, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
+// onSimulate — סיום התוכנית למבחן: כפתור לסימולציה. reinforceCount — אחרי סימולציה: כמה מחכות ב"לחיזוק"
+export default function SessionEnd({ exam, onSimulate, reinforceCount = 0, correct, total, title, subtitle, tag, reward, planDay, wrongCount = 0, onAgain, onBack, onReinforce, backLabel = 'חזרה למקצוע' }) {
   // חגיגה: משימת היום הושלמה עכשיו, או היום בתוכנית הלמידה למבחן הושלם עכשיו
   const celebrate = !!reward?.events?.some((e) => e.reason === 'daily_goal')
   const party = celebrate || !!planDay
   const [muted, setMute] = useState(isMuted())
+  const g = useG()
   useEffect(() => { if (party) playDing() }, [party])
 
   const pct = total ? correct / total : 0
@@ -119,7 +122,25 @@ export default function SessionEnd({ exam, correct, total, title, subtitle, tag,
         </div>
       )}
 
-      {planDay && (
+      {/* סיום כל התוכנית למבחן — עכשיו סימולציה */}
+      {planDay?.planComplete && onSimulate && !exam && (
+        <div className="plan-win !flex-col !items-stretch">
+          <div className="flex items-center gap-3">
+            <span className="plan-win-check" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            </span>
+            <span className="flex flex-col gap-0.5 min-w-0">
+              <span className="font-disp font-extrabold text-[18px] leading-tight">כל הכבוד! סיימת לתרגל לפי התוכנית</span>
+              <span className="text-[13px] font-semibold opacity-75">עכשיו הזמן לסימולציית {planDay.kind} — לבדוק {g('איפה אתה עומד', 'איפה את עומדת', 'מה המצב')}</span>
+            </span>
+          </div>
+          <button type="button" className="mt-3 h-[48px] rounded-[24px] font-disp font-extrabold text-[16px]" style={{ background: 'var(--on-fill)', color: 'var(--good)' }} onClick={onSimulate}>
+            לסימולציית ה{planDay.kind} ›
+          </button>
+        </div>
+      )}
+
+      {planDay && !(planDay.planComplete && onSimulate && !exam) && (
         <div className="plan-win">
           <span className="plan-win-check" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
@@ -149,6 +170,18 @@ export default function SessionEnd({ exam, correct, total, title, subtitle, tag,
           </div>
           <span className="text-[12.5px] text-muted">עוד {DAILY_GOAL - today} שאלות לבונוס של {DAILY_BONUS} מטבעות</span>
         </div>
+      )}
+
+      {/* אחרי סימולציה: הטעויות מחכות ב"לחיזוק" — הצעה לתרגל אותן עכשיו */}
+      {exam && reinforceCount > 0 && onReinforce && (
+        <button type="button" className="milky-row" onClick={onReinforce}>
+          <span className="w-9 h-9 rounded-[11px] grid place-items-center flex-none" style={{ background: '#B7A5FF', color: 'var(--on-fill)' }}><Icon name="book" size={18} /></span>
+          <span className="flex-1 min-w-0 flex flex-col text-start">
+            <span className="font-bold text-[14.5px]">לתרגל את מה שכדאי לחזק</span>
+            <span className="text-[12.5px] text-muted">{reinforceCount === 1 ? 'שאלה אחת מחכה' : `${reinforceCount} שאלות מחכות`} ב„לחיזוק”</span>
+          </span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+        </button>
       )}
 
       {wrongCount > 0 && onReinforce && (

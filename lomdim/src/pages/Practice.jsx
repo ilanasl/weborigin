@@ -44,6 +44,7 @@ export default function Practice({ nav, params }) {
   const [emptyScope, setEmptyScope] = useState(false)
   const [focused, setFocused] = useState(false)   // סימולציה על החומר שבמיקוד (ולא על כל החומר)
   const [examKind, setExamKind] = useState(null)  // מבדק / מבחן מסכם — לכותרת מסך הסיום של הסימולציה
+  const [rvLeft, setRvLeft] = useState(0)         // אחרי סימולציה: כמה פריטים מחכים ב"לחיזוק"
 
   useEffect(() => {
     (async () => {
@@ -117,6 +118,8 @@ export default function Practice({ nav, params }) {
     } : null
     return (
       <SessionEnd correct={correct} total={queue.length} reward={reward} planDay={planDay} exam={exam}
+        reinforceCount={rvLeft}
+        onSimulate={() => { nav.back(); nav.go('practice', { subjectId, subjectName, mode: 'exam' }) }}
         tag={[subjectName, topicName].filter(Boolean).join(' · ')}
         title={pct >= 80 ? 'שליטה מצוינת!' : pct >= 50 ? 'בכיוון הנכון!' : 'שווה לחזור ולנסות שוב'}
         subtitle={pct >= 80 ? 'ממשיכים ככה.' : 'עוד קצת תרגול, וזה אצלך.'}
@@ -194,7 +197,16 @@ export default function Practice({ nav, params }) {
     if (idx >= queue.length - 1) {
       primeAudio()
       setDone(true)
-      if (examMode) saveExamRun()
+      if (examMode) {
+        saveExamRun()
+        // הטעויות בסימולציה נכנסות ל"לחיזוק" — סופרים כדי להציע לתרגל אותן מיד
+        setTimeout(async () => {
+          try {
+            const { count } = await supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('subject_id', subjectId)
+            setRvLeft(count || 0)
+          } catch { /* */ }
+        }, 600)
+      }
       const r = await settleSession({ subjectId, topicId, correctCount: correct })
       setReward(r)
       setPlanDay(await checkPlanDayDone(subjectId))
