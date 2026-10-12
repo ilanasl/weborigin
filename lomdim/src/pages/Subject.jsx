@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
-import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope, scopeIncludesAll, nearestKind, readGaps, gapsStale, checkScopeGaps, refreshScopeTopics } from '../lib/plan'
+import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope, scopeIncludesAll, nearestKind, examTag, readGaps, gapsStale, checkScopeGaps, refreshScopeTopics } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { withTone } from '../lib/tone'
@@ -335,7 +335,7 @@ export default function Subject({ nav, params }) {
               onClick={() => nav.go('topicSummary', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name })}>
               <span className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-bold text-[15.5px]">{t.name}</span>
-                {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>במיקוד</span>}
+                {t.in_exam && <span className="tp-badge" style={{ background: 'var(--primary)' }}>{examTag(subject)}</span>}
                 {t.m.due && <span className="tp-badge" style={{ background: '#B7A5FF' }}>לרענון</span>}
               </span>
               {t.m.pct == null ? (
