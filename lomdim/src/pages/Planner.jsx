@@ -7,7 +7,7 @@ import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
 import ConfirmDialog from '../components/ConfirmDialog'
-import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams, isAllScope, orderPlanTopics,
+import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams, isAllScope, scopeIncludesAll, orderPlanTopics,
   readGaps, gapsStale, checkScopeGaps, createTopicFromGeneral } from '../lib/plan'
 import { forget } from '../lib/screenCache'
 import { useAuth } from '../context/AuthContext'
@@ -106,7 +106,7 @@ export default function Planner({ nav, params }) {
     if (nearestKind(updated) === kind) {
       try {
         const set = await refreshScopeTopics(updated)
-        if (isAllScope(scope)) setMatchNote(`${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר — כל הנושאים, כולל מה שיועלה בהמשך.`)
+        if (scopeIncludesAll(scope)) setMatchNote(`${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר — כל הנושאים, כולל מה שיועלה בהמשך.`)
         else if (set?.size) setMatchNote(`זוהו ${set.size} נושאים במיקוד — התוכנית והמבדק יתמקדו בהם: ${[...set].join(', ')}`)
         else if (scope.trim()) setMatchNote(`המיקוד שכתבת לא תואם אף נושא שהועלה — אולי צריך להעלות את החומר או לכתוב את שמות הנושאים. בינתיים ${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר.`)
       } catch { /* לא חוסם את שמירת התוכנית */ }
