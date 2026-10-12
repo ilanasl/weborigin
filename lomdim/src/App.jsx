@@ -9,7 +9,6 @@ import Subject from './pages/Subject'
 import Upload from './pages/Upload'
 import Practice from './pages/Practice'
 import PracticePicker from './pages/PracticePicker'
-import TopicSummary from './pages/TopicSummary'
 import Reinforce from './pages/Reinforce'
 import Planner from './pages/Planner'
 import ExamBoard from './pages/ExamBoard'
@@ -105,9 +104,12 @@ function FloatingNav({ route, go, reset }) {
 
 let seq = 0 // מזהה לכל מסך במחסנית — כדי ש"סבב נוסף" יתחיל מאפס
 
+// כניסה לנושא (מהרשימה, מהמתכנן וכו') — נפתחת מחברת הסיכומים ישר בלשונית של הנושא
+const TopicInNotebook = (props) => <Summaries {...props} />
+
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
-  practicePicker: PracticePicker, topicSummary: TopicSummary, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
+  practicePicker: PracticePicker, topicSummary: TopicInNotebook, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
   explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax,
   parentReport: ParentReport, store: Store, soon: Soon,
   settings: Settings, parent: Parent, summaries: Summaries, materials: Materials,

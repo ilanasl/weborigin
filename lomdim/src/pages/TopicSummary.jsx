@@ -11,7 +11,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { fetchAll } from '../lib/fetchAll'
 import { forget } from '../lib/screenCache'
 
-export default function TopicSummary({ nav, params }) {
+// הנושא בתוך "מחברת הסיכומים" (לשונית של נושא). onChanged — כשהשם השתנה, כדי לעדכן את הלשוניות
+export default function TopicSummary({ nav, params, onChanged }) {
   const gx = useG()
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
@@ -23,7 +24,7 @@ export default function TopicSummary({ nav, params }) {
   const [qCount, setQCount] = useState(0)
   // ניהול נושא
   const [otherTopics, setOtherTopics] = useState([])
-  const [showManage, setShowManage] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)   // חלונית "כלים לנושא"
   const [renameVal, setRenameVal] = useState(topicName || '')
   const [name, setName] = useState(topicName || '')   // שם הנושא (אפשר לשנות במקום)
   const [editName, setEditName] = useState(false)
@@ -215,6 +216,7 @@ export default function TopicSummary({ nav, params }) {
       const { error } = await supabase.from('topics').update({ name: nm }).eq('id', topicId)
       if (error) throw error
       setName(nm)
+      onChanged?.()
     } catch { setRenameVal(name) }
     setEditName(false)
   }
@@ -268,34 +270,108 @@ export default function TopicSummary({ nav, params }) {
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
+  // כפתור בחלונית הכלים
+  const ToolRow = ({ icon, label, sub, onClick, disabled, danger }) => (
+    <button type="button" className="nb-tool" onClick={onClick} disabled={disabled} style={danger ? { color: 'var(--bad)' } : undefined}>
+      <span className="nb-tool-ic"><Icon name={icon} size={17} /></span>
+      <span className="flex-1 min-w-0 flex flex-col text-start"><span>{label}</span>{sub && <small>{sub}</small>}</span>
+    </button>
+  )
+
   return (
-    <div className="pt-1">
-      <span className="end-tag inline-block mb-3">{subjectName}</span>
-      {editName ? (
-        <div className="flex items-center gap-2">
-          <input className="field flex-1 min-w-0 !text-[18px] font-bold" value={renameVal} autoFocus
-            onChange={(e) => setRenameVal(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') renameTopic(); if (e.key === 'Escape') { setEditName(false); setRenameVal(name) } }} />
-          <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="שמור שם" onClick={renameTopic}><Icon name="check" size={19} /></button>
-          <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="ביטול" onClick={() => { setEditName(false); setRenameVal(name) }}><Icon name="x" size={18} /></button>
-        </div>
-      ) : (
-        <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">
-          {name}
-          <button type="button" className="inline-grid place-items-center align-middle ms-2 w-8 h-8 rounded-full text-muted" style={{ background: 'rgba(255,255,255,.08)' }}
-            aria-label="שינוי שם הנושא" onClick={() => { setRenameVal(name); setEditName(true) }}><Icon name="pencil" size={15} /></button>
-        </h1>
-      )}
-      <div className="text-[13.5px] text-muted mt-1.5 mb-4">
+    <div>
+      {/* שם הנושא + מה יש בו */}
+      <h2 className="font-disp font-black text-[24px] leading-[1.15] tracking-tight">{name}</h2>
+      <div className="text-[13px] text-muted mt-1 mb-3">
         {summary ? 'סיכום' : 'אין עדיין סיכום'} · {qCount} שאלות{notes.length ? ` · ${notes.length} סיכומים שהוספתי` : ''}
       </div>
+
+      {/* שתי פעולות בלבד: תרגול, וכל השאר מאחורי "כלים לנושא" */}
       <button type="button" className="ts-practice" disabled={qCount === 0}
         onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
         <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
         {qCount > 0 && <span className="ts-count tnum">{qCount}</span>}
       </button>
+      <button type="button" className="nb-tools-btn" onClick={() => setToolsOpen(true)}>
+        <Icon name="settings" size={18} />{gx('כלים לנושא', 'כלים לנושא')}
+      </button>
 
+      {/* הסיכום — "דף" בהיר ונוח לקריאה */}
+      <div className="paper print-area mt-3">
+        {summary && <div className="hidden print:block font-disp font-extrabold text-[20px] mb-2">{name} · {subjectName}</div>}
+        {summary ? (
+          <div style={busy ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
+        ) : (
+          <div className="text-center py-6">
+            <div className="flex justify-center mb-2" style={{ color: '#5E7A00' }}><Icon name="book" size={36} /></div>
+            <div className="font-disp font-extrabold text-[17px]">עדיין אין סיכום לנושא הזה</div>
+            <div className="text-[14px] mt-1" style={{ color: '#3E3E45' }}>ב„כלים לנושא” אפשר לבקש מהמערכת להכין אחד.</div>
+          </div>
+        )}
+        <div className="no-print">
+          {err && !toolsOpen && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
+          {busy && (
+            <div className="flex items-start gap-2.5 mt-4 p-3 rounded-[14px] text-[13.5px] font-semibold" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
+              <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
+              <span>מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
+      {notes.length > 0 && (
+        <>
+          <div className="home-h2 mt-6 mb-2.5"><h2>סיכומים שהוספתי</h2><span>{notes.length}</span></div>
+          {notes.map((n) => (
+            <div key={n.id} className="paper mb-3">
+              <div className="flex items-start gap-2 mb-1">
+                <div className="flex-1 font-disp font-extrabold text-[16px] flex items-center gap-1.5"><Icon name="note" size={18} />{n.title || 'סיכום'}</div>
+                <button type="button" onClick={() => deleteNote(n.id)} title="הסר סיכום" aria-label="הסר סיכום"
+                  className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#B8501C', border: '1.5px solid rgba(184,80,28,.35)' }}>הסר</button>
+              </div>
+              <Markdown text={n.summary_md} />
+            </div>
+          ))}
+        </>
+      )}
+
+
+      {/* חלונית "כלים לנושא" — כל מה שהיה פזור במסך הנושא, במקום אחד */}
+      {toolsOpen && (
+        <div className="nb-veil" onClick={() => setToolsOpen(false)}>
+          <div className="nb-sheet" role="dialog" aria-label="כלים לנושא" onClick={(e) => e.stopPropagation()}>
+            <div className="nb-grab" />
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex-1 min-w-0 font-disp font-extrabold text-[17px] truncate">כלים · {name}</div>
+              <button type="button" className="hbtn !px-0 w-10 flex-none" aria-label="סגירה" onClick={() => setToolsOpen(false)}><Icon name="x" size={18} /></button>
+            </div>
+
+            <ToolRow icon="refresh" disabled={busy}
+              label={busy ? 'מכין סיכום…' : aggSource ? 'בנה סיכום אחד מכל הדפים' : summary ? 'סכם מחדש' : 'צור סיכום'}
+              sub={aggSource ? 'מחבר את כל הדפים שהעלית לסיכום אחד מסודר, בלי חזרות' : 'סיכום ברמת הכיתה'}
+              onClick={() => { setToolsOpen(false); generate() }} />
+            {aggSource && (
+              <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer ps-11 pb-2">
+                <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[18px] h-[18px]" style={{ accentColor: 'var(--primary)' }} />
+                להשלים גם מהידע הכללי
+              </label>
+            )}
+            {summary && <ToolRow icon="file" label="הדפסת הנושא" sub="או שמירה כ-PDF" onClick={() => { setToolsOpen(false); setTimeout(() => window.print(), 150) }} />}
+            {editName ? (
+              <div className="flex items-center gap-2 py-2">
+                <input className="field flex-1 min-w-0 font-bold" value={renameVal} autoFocus
+                  onChange={(e) => setRenameVal(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') renameTopic(); if (e.key === 'Escape') { setEditName(false); setRenameVal(name) } }} />
+                <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="שמור שם" onClick={renameTopic}><Icon name="check" size={19} /></button>
+                <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="ביטול" onClick={() => { setEditName(false); setRenameVal(name) }}><Icon name="x" size={18} /></button>
+              </div>
+            ) : (
+              <ToolRow icon="pencil" label="שינוי שם הנושא" onClick={() => { setRenameVal(name); setEditName(true) }} />
+            )}
+
+            <div className="nb-sheet-h">הטקסט המלא</div>
       {sourceText && !pasteMode ? (
         <>
           <button type="button" className="milky-row mb-3" onClick={() => setShowSource((v) => !v)}>
@@ -394,75 +470,9 @@ export default function TopicSummary({ nav, params }) {
         </div>
       )}
 
-      {/* הסיכום — "דף" בהיר ונוח לקריאה */}
-      <div className="paper print-area">
-        {summary && <div className="hidden print:block font-disp font-extrabold text-[20px] mb-2">{name} · {subjectName}</div>}
-        {summary ? (
-          <div style={busy ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
-        ) : (
-          <div className="text-center py-6">
-            <div className="flex justify-center mb-2" style={{ color: '#5E7A00' }}><Icon name="book" size={36} /></div>
-            <div className="font-disp font-extrabold text-[17px]">עדיין אין סיכום לנושא הזה</div>
-            <div className="text-[14px] mt-1" style={{ color: '#3E3E45' }}>לחצו למטה כדי שהמערכת תכין אחד מסודר.</div>
-          </div>
-        )}
 
-        <div className="no-print">
-        {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
-
-        {busy && (
-          <div className="flex items-start gap-2.5 mt-4 p-3 rounded-[14px] text-[13.5px] font-semibold" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
-            <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
-            <span>מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.</span>
-          </div>
-        )}
-        <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
-          onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
-          <Icon name="target" size={19} />
-          <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
-        </button>
-        <div className="paper-actions">
-          {summary && (
-            <button type="button" className="paper-btn" onClick={() => window.print()}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M7 14h10v7H7z" /></svg>
-              הדפסה
-            </button>
-          )}
-          <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
-            {busy ? 'מכין…' : aggSource ? 'בנה סיכום אחד מכל הדפים' : summary ? 'סכם מחדש' : 'צור סיכום'}
-          </button>
-          {aggSource && (
-            <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer" style={{ color: '#3E3E45' }}>
-              <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[18px] h-[18px]" style={{ accentColor: '#5E7A00' }} />
-              להשלים גם מהידע הכללי
-            </label>
-          )}
-        </div>
-        {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>קורא את כל הדפים שהעלית לנושא ומחבר אותם לסיכום אחד מסודר, בלי חזרות. שימושי אחרי שמעלים דף חדש.</div>}
-        </div>
-      </div>
-
-      {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
-      {notes.length > 0 && (
-        <>
-          <div className="home-h2 mt-6 mb-2.5"><h2>סיכומים שהוספתי</h2><span>{notes.length}</span></div>
-          {notes.map((n) => (
-            <div key={n.id} className="paper mb-3">
-              <div className="flex items-start gap-2 mb-1">
-                <div className="flex-1 font-disp font-extrabold text-[16px] flex items-center gap-1.5"><Icon name="note" size={18} />{n.title || 'סיכום'}</div>
-                <button type="button" onClick={() => deleteNote(n.id)} title="הסר סיכום" aria-label="הסר סיכום"
-                  className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#B8501C', border: '1.5px solid rgba(184,80,28,.35)' }}>הסר</button>
-              </div>
-              <Markdown text={n.summary_md} />
-            </div>
-          ))}
-        </>
-      )}
-
-      {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
-      <div className="home-h2 mt-7 mb-2.5"><h2>ניהול הנושא</h2></div>
-      <div className="milky-row !flex-col !items-stretch !gap-3">
+            <div className="nb-sheet-h">ניהול הנושא</div>
+            <div className="milky-row !flex-col !items-stretch !gap-3">
         {otherTopics.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="text-[13.5px] font-bold">איחוד עם נושא אחר</div>
@@ -485,7 +495,10 @@ export default function TopicSummary({ nav, params }) {
             <Icon name="trash" size={16} />{removing ? 'מוחק…' : gx('מחק את הנושא', 'מחקי את הנושא')}
           </button>
         </div>
-      </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog open={askMerge} icon="refresh" title="לאחד את הנושאים?"
         text={`כל התוכן של "${name}" יעבור אל "${otherTopics.find((t) => t.id === mergeTarget)?.name || ''}", והנושא "${name}" יימחק.`}
