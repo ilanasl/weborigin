@@ -22,18 +22,21 @@ export default function Subject({ nav, params }) {
   const [materials, setMaterials] = useState(snap?.materials || [])
   const [qCount, setQCount] = useState(snap?.qCount || 0)
   const [rvCount, setRvCount] = useState(snap?.rvCount || 0)
+  const [lastRun, setLastRun] = useState(snap?.lastRun || null)   // הסימולציה האחרונה במקצוע
   const [loading, setLoading] = useState(!snap)
 
   async function load() {
     // הכול במקביל; מהחומרים — רק מה שהמסך מציג (בלי טקסט הסיכומים, שיכול להיות כבד)
     const topicsQ = () => supabase.from('topics').select('*').eq('subject_id', id).order('created_at')
-    const [{ data: s0 }, { data: tp0 }, { data: mt }, { data: at }, { count: qc }, { count: rc }] = await Promise.all([
+    const [{ data: s0 }, { data: tp0 }, { data: mt }, { data: at }, { count: qc }, { count: rc }, { data: runs }] = await Promise.all([
       supabase.from('subjects').select('*').eq('id', id).single(),
       topicsQ(),
       supabase.from('materials').select('id, created_at, storage_path, content_hash').eq('subject_id', id).order('created_at', { ascending: false }),
       fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').eq('subject_id', id)),
       supabase.from('questions').select('id', { count: 'exact', head: true }).eq('subject_id', id),
       supabase.from('review_items').select('id', { count: 'exact', head: true }).eq('subject_id', id),
+      supabase.from('exam_runs').select('kind, total, correct, created_at').eq('subject_id', id)
+        .order('created_at', { ascending: false }).limit(1).then((r) => (r.error ? { data: [] } : r)),
     ])
     // מבחן/מבדק שעבר — מתאפס; רק אז סימון הנושאים השתנה וצריך לטעון אותם שוב
     const [s] = await expirePastExams(s0 ? [s0] : [])
@@ -50,10 +53,10 @@ export default function Subject({ nav, params }) {
       topics: (tp || []).map((t) => ({ ...t, m: mastery(byTopic[t.id] || []) })),
       // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
       materials: (mt || []).filter((m) => m.storage_path || m.content_hash),
-      qCount: qc || 0, rvCount: rc || 0,
+      qCount: qc || 0, rvCount: rc || 0, lastRun: runs?.[0] || null,
     }
     setSubject(next.subject); setTopics(next.topics); setMaterials(next.materials)
-    setQCount(next.qCount); setRvCount(next.rvCount)
+    setQCount(next.qCount); setRvCount(next.rvCount); setLastRun(next.lastRun)
     setLoading(false)
     remember(`subject:${id}`, next)
   }
@@ -90,6 +93,11 @@ export default function Subject({ nav, params }) {
   ].slice(0, 2)
   // מבחן קרוב אך עדיין לא הוגדר/הועלה חומר עבורו (אין נושאים מסומנים "במבחן")
   const hasExam = examDays != null && examDays >= 0
+  // רגע לפני מבחן (עד 3 ימים) ויש סימולציה מהיומיים האחרונים — הכרטיס מציג את התוצאה שלה, בטון מעודד
+  const runAgeDays = lastRun ? (Date.now() - new Date(lastRun.created_at).getTime()) / 86400000 : null
+  const simHero = hasExam && examDays <= 3 && lastRun?.total > 0 && runAgeDays != null && runAgeDays <= 2
+    ? { ...lastRun, pct: Math.round((lastRun.correct / lastRun.total) * 100), today: new Date(lastRun.created_at).toDateString() === new Date().toDateString() }
+    : null
   const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
   // מבחן שעבר (התאפס אוטומטית) — מבקשים חומר חדש עד שמעלים משהו אחרי מועד האיפוס
   const passed = (() => {
@@ -149,7 +157,48 @@ export default function Subject({ nav, params }) {
           </button>
         </div>
       ) : (<>
-      {/* כרטיס מוכנות — בצבע המקצוע */}
+      {/* רגע לפני מבחן, אחרי סימולציה — הציון שלה בגדול, ופרגון */}
+      {simHero ? (
+        <div className="ready-hero" style={{ background: subject.bg }}>
+          <div className="text-[14px] font-semibold">סימולציית ה{examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · {simHero.today ? 'היום' : 'אתמול'}</div>
+          <div className="ready-hero-num tnum" dir="ltr">{simHero.pct}%</div>
+          <div className="text-[15px] font-bold -mt-1">{simHero.correct} מתוך {simHero.total} נכונות</div>
+          <div className="font-disp font-extrabold text-[19px] leading-snug mt-1">
+            {simHero.pct >= 85
+              ? (examDays === 0 ? g('בהצלחה היום! הנתונים מראים שאתה מוכן 💪', 'בהצלחה היום! הנתונים מראים שאת מוכנה 💪') : g('אתה מוכן! בהצלחה במבדק 💪', 'את מוכנה! בהצלחה במבדק 💪'))
+              : simHero.pct >= 70 ? g('מוכנות טובה — עוד חזרה קצרה ואתה שם', 'מוכנות טובה — עוד חזרה קצרה ואת שם')
+              : 'עוד סבב חזרה אחד יעשה הבדל — יש זמן'}
+          </div>
+          {ready != null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>מוכנות לפי התרגול: {ready}%</div>}
+          {/* רק אם הסימולציה לא הייתה גבוהה — הצעה עדינה, בלי סימן קריאה */}
+          {simHero.pct < 85 && focus.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[12.5px] font-bold" style={{ color: 'rgba(19,19,22,.7)' }}>אפשר לחזק עוד</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {focus.map((t) => (
+                  <button key={t.id} type="button" className="ready-chip" aria-label={`לתרגל את ${t.name}`}
+                    onClick={() => nav.go('practice', { subjectId: id, subjectName: name, topicId: t.id, topicName: t.name, mode: 'practice' })}>
+                    {t.name}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ opacity: 0.5 }}><path d="M15 6l-6 6 6 6" /></svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex gap-2 mt-0.5">
+            <button type="button" className="ready-btn" style={{ background: 'var(--on-fill)', color: subject.bg }} disabled={qCount === 0} onClick={() => goPractice('exam')}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5" /><path d="M9 8h6M9 12h6M9 16h3" /></svg>
+              <span className="ready-lbl" style={{ color: '#fff' }}><span>סימולציה חוזרת</span><small>{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}{examDate ? ` · ${examDate}` : ''}</small></span>
+            </button>
+            <button type="button" className="ready-btn" style={{ background: '#fff', color: 'var(--on-fill)' }} disabled={qCount === 0}
+              onClick={() => nav.go('practicePicker', { subjectId: id, subjectName: name, mode: 'practice' })}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
+              <span className="ready-lbl"><span>תרגול חופשי</span><small>כל החומר</small></span>
+            </button>
+          </div>
+        </div>
+      ) : (
+      /* כרטיס מוכנות — בצבע המקצוע */
       <div className="ready-hero" style={{ background: subject.bg }}>
         {/* בלי מבחן קרוב, או מבחן שעוד לא הוגדר לו חומר — זה לא "מוכנות", אלא כמה החומר שולט */}
         <div className="text-[14px] font-semibold">{hasExam && !needsMaterial ? `מוכנות ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : 'השליטה שלי בחומר'}</div>
@@ -191,6 +240,7 @@ export default function Subject({ nav, params }) {
           </button>
         </div>
       </div>
+      )}
 
       {/* כלים */}
       {(() => {
