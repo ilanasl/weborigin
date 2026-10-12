@@ -90,7 +90,7 @@ export default function Planner({ nav, params }) {
       const text = await scanScope({ ...(await toAIInput(f)), subjectName })
       if (text) setSlot({ scope: (scope ? scope.trim() + '\n' : '') + text.trim() })
     } catch (e) {
-      setScanErr('קריאת הצילום נכשלה. אפשר לכתוב את המיקוד ידנית. ' + String(e?.message || e).slice(0, 160))
+      setScanErr('קריאת הצילום נכשלה. אפשר לכתוב ידנית מה ייכלל. ' + String(e?.message || e).slice(0, 160))
     } finally { setScanning(false) }
   }
 
@@ -107,14 +107,14 @@ export default function Planner({ nav, params }) {
       try {
         const set = await refreshScopeTopics(updated)
         if (scopeIncludesAll(scope)) setMatchNote(`${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר — כל הנושאים, כולל מה שיועלה בהמשך.`)
-        else if (set?.size) setMatchNote(`זוהו ${set.size} נושאים במיקוד — התוכנית והמבדק יתמקדו בהם: ${[...set].join(', ')}`)
-        else if (scope.trim()) setMatchNote(`המיקוד שכתבת לא תואם אף נושא שהועלה — אולי צריך להעלות את החומר או לכתוב את שמות הנושאים. בינתיים ${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר.`)
+        else if (set?.size) setMatchNote(`זוהו ${set.size} נושאים ל${kind === 'מבדק' ? 'מבדק' : 'מבחן'} — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
+        else if (scope.trim()) setMatchNote(`מה שכתבת לא תואם אף נושא שהועלה — אולי צריך להעלות את החומר או לכתוב את שמות הנושאים. בינתיים ${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר.`)
       } catch { /* לא חוסם את שמירת התוכנית */ }
       // סדר לימוד הגיוני לתוכנית (מה שצריך לדעת קודם — קודם), ובדיקה מה מהמיקוד עוד אין עליו חומר
       await Promise.all([orderPlanTopics(updated), checkScopeGaps(updated).catch(() => null)])
       setGapNote(''); setGapErr('')
     } else if (scope.trim()) {
-      setMatchNote(`נשמר. המיקוד הזה ייכנס לתוקף אחרי ה${kind === 'מבדק' ? 'מבחן' : 'מבדק'} הקרוב.`)
+      setMatchNote(`נשמר. זה ייכנס לתוקף אחרי ה${kind === 'מבדק' ? 'מבחן' : 'מבדק'} הקרוב.`)
     }
     // שמירת צילום המיקוד כחומר (כדי שיישמר וייראה ב"החומרים שהעליתי")
     if (scopeFile) {
@@ -127,7 +127,7 @@ export default function Planner({ nav, params }) {
           await supabase.storage.from('materials').upload(storagePath, scopeFile).catch(() => {})
         }
         await supabase.from('materials').insert({
-          subject_id: subjectId, title: 'מיקוד המבחן', kind: 'image',
+          subject_id: subjectId, title: `מה ייכלל ב${kind === 'מבדק' ? 'מבדק' : 'מבחן'}`, kind: 'image',
           storage_path: storagePath, origin: 'השנה', source_text: scope || null,
         })
       } catch { /* לא חוסם את שמירת התוכנית */ }
@@ -203,14 +203,14 @@ export default function Planner({ nav, params }) {
         </div>
 
         <div>
-          <label className="block text-[13.5px] font-bold text-muted mb-1.5">מיקוד החומר (חופשי)</label>
+          <label className="block text-[13.5px] font-bold text-muted mb-1.5">מה ייכלל ב{kind === 'מבדק' ? 'מבדק' : 'מבחן'} (חופשי)</label>
           <textarea className="field" style={{ minHeight: 80 }} value={scope}
             onChange={(e) => setSlot({ scope: e.target.value })}
             placeholder="מה בדיוק במבחן? אפשר להעתיק את מה שהמורה שלחה…" />
           <label className="milky-row mt-2 cursor-pointer">
             <Icon name="camera" />
             <span className="flex-1 text-[13.5px] font-semibold">
-              {scanning ? 'קורא את הצילום…' : scopeFile ? 'צילום צורף וזוהה — אפשר לערוך את הטקסט למעלה' : 'צרפו צילום של המיקוד (למשל מהלוח)'}
+              {scanning ? 'קורא את הצילום…' : scopeFile ? 'צילום צורף וזוהה — אפשר לערוך את הטקסט למעלה' : 'צרפו צילום של רשימת החומר (למשל מהלוח)'}
             </span>
             {scopeFile && !scanning && <Icon name="check" size={18} style={{ color: 'var(--good)' }} />}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => onPickPhoto(e.target.files?.[0] || null)} />
@@ -232,7 +232,7 @@ export default function Planner({ nav, params }) {
           <div className="flex flex-col gap-2.5 mb-6">
             {gaps.covered.length > 0 && (
               <div className="gap-box">
-                <div className="gap-h">מה מהמיקוד כבר יש</div>
+                <div className="gap-h">מה מהחומר ל{kind === 'מבדק' ? 'מבדק' : 'מבחן'} כבר יש</div>
                 {Object.entries(byTopic).map(([topic, parts]) => (
                   <div key={topic} className="flex gap-2 items-start">
                     <Icon name="check" size={17} style={{ color: 'var(--good)', marginTop: 2 }} />

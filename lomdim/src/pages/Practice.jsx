@@ -91,7 +91,7 @@ export default function Practice({ nav, params }) {
   if (loading) return <div className="text-muted pt-4">טוען…</div>
   if (!queue.length && emptyScope) return (
     <div className="text-center text-muted pt-10 flex flex-col items-center gap-3">
-      <span>אין עדיין שאלות על החומר שבמיקוד.<br />{g('העלה', 'העלי')} את החומר שנכנס למבחן, והשאלות ייווצרו ממנו.</span>
+      <span>אין עדיין שאלות על הנושאים ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}.<br />{g('העלה', 'העלי')} את החומר שנכנס למבחן, והשאלות ייווצרו ממנו.</span>
       <button type="button" className="ts-practice !w-auto px-6" onClick={() => nav.go('upload', { subjectId, subjectName })}>
         {g('העלה חומר', 'העלי חומר')}
       </button>

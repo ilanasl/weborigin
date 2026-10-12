@@ -153,7 +153,7 @@ export default function ParentReport({ nav }) {
           <div className="milky-row !flex-col !items-stretch !gap-0 !py-1">
             {data.runs.map((r, i) => {
               const pct = r.total ? Math.round((r.correct / r.total) * 100) : 0
-              const what = r.kind ? `${r.kind}${r.focused ? ' · מיקוד' : ' · כל החומר'}` : 'כל החומר'
+              const what = r.kind ? `${r.kind}${r.focused ? ' · הנושאים שנבחרו' : ' · כל החומר'}` : 'כל החומר'
               return (
                 <div key={r.id} className="flex items-center gap-2.5 py-2.5" style={i ? { borderTop: '1px solid rgba(255,255,255,.08)' } : undefined}>
                   <span className="w-2.5 h-2.5 rounded-full flex-none" style={{ background: r.color }} />

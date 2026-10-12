@@ -73,7 +73,7 @@ export async function settleSession({ subjectId, topicId, correctCount = 0 }) {
     const amt = focus ? correctCount * 2 : correctCount
     inserts.push({
       amount: amt, reason: 'practice',
-      label: focus ? `${correctCount} נכונות ×2 (מיקוד מבחן)` : `${correctCount} תשובות נכונות`,
+      label: focus ? `${correctCount} נכונות ×2 (חומר למבחן)` : `${correctCount} תשובות נכונות`,
     })
   }
 
