@@ -126,7 +126,7 @@ export async function planToday(subjectId) {
   const allTs = (at || []).map((a) => new Date(a.created_at).getTime())
   const { days } = buildStudyPlan({ examDays, leadDays: LEAD_DEFAULT[kind], topics, allTs })
   const today = days.find((d) => d.off === 0 && !d.exam) || null
-  return { s, kind, examDays, today }
+  return { s, kind, examDays, today, days }
 }
 
 // אחרי סבב: האם היום של היום בתוכנית הושלם עכשיו (ועוד לא חגגנו אותו)? מחזיר פרטים לחגיגה או null.
@@ -138,7 +138,9 @@ export async function checkPlanDayDone(subjectId) {
     // חוגגים כל יום פעם אחת בלבד
     const key = `lomdim-planday:${subjectId}:${today.dt.toDateString()}`
     try { if (localStorage.getItem(key)) return null; localStorage.setItem(key, '1') } catch { /* בלי אחסון — חוגגים */ }
-    return { kind: p.kind, examDays: p.examDays, subjectName: p.s.name, review: !!today.review }
+    // סיום התוכנית: יום החזרה (היום האחרון לפני המבחן) הושלם, או שכל ימי התרגול הושלמו → הזמן לסימולציה
+    const planComplete = !!today.review || (p.days || []).filter((d) => !d.exam).every((d) => d.done)
+    return { kind: p.kind, examDays: p.examDays, subjectName: p.s.name, review: !!today.review, planComplete }
   } catch { return null }
 }
 
