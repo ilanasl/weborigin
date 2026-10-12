@@ -49,6 +49,9 @@ export default function Markdown({ text, className = '', examBox = false }) {
     // קו מפריד (---) — קו דק במקום שלושה מקפים
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); blocks.push({ type: 'hr' }); continue }
 
+    // "🌐 נכתב מהידע הכללי" — סיכום שנוצר בלי חומר מהמורה: תגית קטנה במקום שורה
+    if (/^\s*🌐\s*נכתב מהידע הכללי/.test(line)) { flush(); blocks.push({ type: 'gen' }); continue }
+
     // "💡 הידעת?" — יוצא מן הכלל / העשרה, בתיבה נפרדת
     const tip = line.match(/^\s*>?\s*(?:[-*•]\s*)?💡\s*\**\s*הידעת\??\s*\**\s*[:?]?\s*(.*)$/)
     if (tip) { flush(); blocks.push({ type: 'tip', text: tip[1] }); continue }
@@ -71,6 +74,9 @@ export default function Markdown({ text, className = '', examBox = false }) {
   flush()
 
   const render = (b, i) => {
+        if (b.type === 'gen') return (
+          <div key={i} className="mb-2"><span className="tp-badge tp-badge-muted">נכתב מהידע הכללי — לא מהחומר של המורה</span></div>
+        )
         if (b.type === 'tip') return (
           <div key={i} className="md-tip"><b>💡 הידעת?</b> <Inline text={b.text} /></div>
         )

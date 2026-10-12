@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
-import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope } from '../lib/plan'
+import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope, nearestKind, readGaps, gapsStale, checkScopeGaps } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { withTone } from '../lib/tone'
@@ -67,6 +67,18 @@ export default function Subject({ nav, params }) {
     foldLegacyCheckTopic(id, subject.name).then((moved) => { if (moved) load() })
   }, [subject?.name, topics.length])
 
+  // מה חסר במיקוד: אם עוד לא נבדק, או שנוסף נושא מאז הבדיקה — בודקים ברקע (התוצאה נשמרת)
+  const [, setGapsV] = useState(0)
+  useEffect(() => {
+    if (!subject) return
+    const kind = nearestKind(subject)
+    const date = kind === 'מבדק' ? subject.quiz_date : subject.exam_date
+    const sc = String((kind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim()
+    if (!sc || isAllScope(sc) || daysUntil(date) == null || daysUntil(date) < 0) return
+    const g = readGaps(subject)
+    if (!g || gapsStale(g, topics)) checkScopeGaps(subject).then(() => setGapsV((v) => v + 1)).catch(() => {})
+  }, [subject?.id, topics.length])
+
   if (loading || !subject) return <div className="text-muted pt-4">טוען…</div>
 
   const name = subject.name
@@ -104,6 +116,8 @@ export default function Subject({ nav, params }) {
   const allScope = noFocus && isAllScope(scopeText)
   const needsMaterial = noFocus && !scopeText
   const scopeNoMatch = noFocus && !!scopeText && !allScope
+  // חלקים במיקוד שעוד אין עליהם חומר (נבדק במתכנן / ברקע)
+  const missingParts = hasExam && !needsMaterial ? (readGaps(subject)?.missing || []) : []
   // מבחן שעבר (התאפס אוטומטית) — מבקשים חומר חדש עד שמעלים משהו אחרי מועד האיפוס
   const passed = (() => {
     try {
@@ -254,7 +268,7 @@ export default function Subject({ nav, params }) {
         const list = [
           topics.length > 0 && { k: 'sm', label: 'סיכומים', sub: 'חוברת כל הנושאים', icon: 'note', go: () => nav.go('summaries', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
-          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : scopeNoMatch ? 'המיקוד לא תואם נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : missingParts.length ? 'חסר חומר במיקוד' : scopeNoMatch ? 'המיקוד לא תואם נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch || missingParts.length > 0, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
@@ -292,13 +306,15 @@ export default function Subject({ nav, params }) {
         </button>
       )}
 
-      {(needsMaterial || scopeNoMatch) && (
+      {(needsMaterial || scopeNoMatch || missingParts.length > 0) && (
         <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
           style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
           <Icon name="upload" size={19} />
           {needsMaterial
             ? <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו</span>
+            : missingParts.length
+            ? <span><b>במיקוד יש {missingParts.length > 1 ? 'חלקים שעוד אין עליהם' : 'חלק שעוד אין עליו'} חומר:</b> {missingParts.map((m) => m.name).join(', ')}. להשלים ←</span>
             : <span><b>המיקוד שכתבת לא תואם אף נושא שהועלה.</b> אולי צריך להעלות את החומר, או לכתוב במתכנן את שמות הנושאים. בינתיים {examKind === 'מבדק' ? 'המבדק' : 'המבחן'} על כל החומר</span>}
         </button>
       )}
