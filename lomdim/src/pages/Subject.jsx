@@ -270,7 +270,7 @@ export default function Subject({ nav, params }) {
         const list = [
           topics.length > 0 && { k: 'sm', label: 'סיכומים', sub: 'חוברת כל הנושאים', icon: 'note', go: () => nav.go('summaries', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
-          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : missingParts.length ? 'חסר חומר במיקוד' : scopeNoMatch ? 'המיקוד לא תואם נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch || missingParts.length > 0, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : missingParts.length ? `חסר חומר ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : scopeNoMatch ? 'הרשימה לא תואמת נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch || missingParts.length > 0, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
@@ -304,7 +304,7 @@ export default function Subject({ nav, params }) {
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
           style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
           <Icon name="upload" size={19} />
-          <span><b>ה{passed.kind} עבר 🎉</b> העלו את החומר החדש שלומדים עכשיו. עד שתגדירו מיקוד למבדק הבא — המבדק יהיה על כל החומר.</span>
+          <span><b>ה{passed.kind} עבר 🎉</b> העלו את החומר החדש שלומדים עכשיו. עד שתגדירו מה ייכלל במבדק הבא — המבדק יהיה על כל החומר.</span>
         </button>
       )}
 
@@ -314,10 +314,10 @@ export default function Subject({ nav, params }) {
           style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
           <Icon name="upload" size={19} />
           {needsMaterial
-            ? <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו</span>
+            ? <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וכתבו במתכנן המבחן מה ייכלל ב{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}, כדי שהתוכנית והתרגול יתמקדו בו</span>
             : missingParts.length
-            ? <span><b>במיקוד יש {missingParts.length > 1 ? 'חלקים שעוד אין עליהם' : 'חלק שעוד אין עליו'} חומר:</b> {missingParts.map((m) => m.name).join(', ')}. להשלים ←</span>
-            : <span><b>המיקוד שכתבת לא תואם אף נושא שהועלה.</b> אולי צריך להעלות את החומר, או לכתוב במתכנן את שמות הנושאים. בינתיים {examKind === 'מבדק' ? 'המבדק' : 'המבחן'} על כל החומר</span>}
+            ? <span><b>חסר חומר ל{examKind === 'מבדק' ? 'מבדק' : 'מבחן'}:</b> {missingParts.map((m) => m.name).join(', ')}. להשלים ←</span>
+            : <span><b>מה שכתבת במתכנן לא תואם אף נושא שהועלה.</b> אולי צריך להעלות את החומר, או לכתוב במתכנן את שמות הנושאים. בינתיים {examKind === 'מבדק' ? 'המבדק' : 'המבחן'} על כל החומר</span>}
         </button>
       )}
 

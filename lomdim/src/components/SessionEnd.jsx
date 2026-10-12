@@ -67,7 +67,7 @@ export default function SessionEnd({ exam, onSimulate, reinforceCount = 0, corre
 
       {exam ? (
         <div className="end-hero">
-          <div className="end-kicker">סימולציית {exam.kind || 'מבחן'}{exam.focused ? ' · החומר שבמיקוד' : ' · כל החומר'}</div>
+          <div className="end-kicker">סימולציית {exam.kind || 'מבחן'}{exam.focused ? ` · הנושאים ל${exam.kind === 'מבדק' ? 'מבדק' : 'מבחן'}` : ' · כל החומר'}</div>
           <div className="end-big tnum" dir="ltr">{Math.round(pct * 100)}<span>%</span></div>
           <div className="end-title">{pct >= 0.9 ? 'מוכנות מצוינת!' : pct >= 0.75 ? 'מוכנות טובה' : pct >= 0.55 ? 'בדרך — כדאי לחזק כמה נושאים' : 'כדאי לחזור על החומר'}</div>
           <div className="end-sub">{correct} מתוך {total} נכונות</div>
