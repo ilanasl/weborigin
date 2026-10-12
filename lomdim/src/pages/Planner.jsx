@@ -224,6 +224,8 @@ export default function Planner({ nav, params }) {
                       <button key={t.id} type="button" className={`plan-topic ${t.done ? 'plan-topic-done' : ''}`}
                         onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })}>
                         <span className="flex-1 min-w-0 plan-txt">{t.name}</span>
+                        {t.carriedFrom && !t.done && <span className="tp-badge tp-badge-muted flex-none">{t.carriedOff === -1 ? 'מאתמול' : `מיום ${DOW[t.carriedFrom.getDay()]}`}</span>}
+                        {t.movedToToday && <span className="tp-badge tp-badge-muted flex-none">הועבר להיום</span>}
                         {t.done && !p.done && <span className="text-good font-bold" aria-label="בוצע">✓</span>}
                         <Chev />
                       </button>
