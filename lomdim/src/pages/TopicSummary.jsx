@@ -395,7 +395,8 @@ export default function TopicSummary({ nav, params }) {
       )}
 
       {/* הסיכום — "דף" בהיר ונוח לקריאה */}
-      <div className="paper">
+      <div className="paper print-area">
+        {summary && <div className="hidden print:block font-disp font-extrabold text-[20px] mb-2">{name} · {subjectName}</div>}
         {summary ? (
           <div style={busy ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
         ) : (
@@ -406,6 +407,7 @@ export default function TopicSummary({ nav, params }) {
           </div>
         )}
 
+        <div className="no-print">
         {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
 
         {busy && (
@@ -420,6 +422,12 @@ export default function TopicSummary({ nav, params }) {
           <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
         </button>
         <div className="paper-actions">
+          {summary && (
+            <button type="button" className="paper-btn" onClick={() => window.print()}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M7 14h10v7H7z" /></svg>
+              הדפסה
+            </button>
+          )}
           <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
             {busy ? 'מכין…' : aggSource ? 'בנה סיכום אחד מכל הדפים' : summary ? 'סכם מחדש' : 'צור סיכום'}
@@ -432,6 +440,7 @@ export default function TopicSummary({ nav, params }) {
           )}
         </div>
         {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>קורא את כל הדפים שהעלית לנושא ומחבר אותם לסיכום אחד מסודר, בלי חזרות. שימושי אחרי שמעלים דף חדש.</div>}
+        </div>
       </div>
 
       {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}

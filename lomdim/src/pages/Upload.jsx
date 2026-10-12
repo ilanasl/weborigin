@@ -6,6 +6,7 @@ import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { subjectStyle } from '../lib/examStyle'
+import { consolidateTopic } from '../lib/consolidate'
 import { analyzeMaterial, fileHash } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
@@ -41,6 +42,7 @@ export default function Upload({ nav, params }) {
   const [busy, setBusy] = useState(false)
   const [results, setResults] = useState(null) // מקביל ל-files: [{ source_text, topics, error }]
   const [topicsList, setTopicsList] = useState([])
+  const [saveMsg, setSaveMsg] = useState('')   // שלב בשמירה (למשל איחוד הסיכום)
   const [chosen, setChosen] = useState([])     // [{ fileIdx, name, summary_md, questions, flashcards }]
   // "הדף כולל גם נושא נוסף" — ניתוח נוסף של אותו דף, ממוקד בנושא שבחרו (לפני השמירה)
   const [addFor, setAddFor] = useState(null)   // אינדקס הקובץ שפתוחה לו הוספה
@@ -198,7 +200,7 @@ export default function Upload({ nav, params }) {
   async function save() {
     const active = chosen.filter((c) => c.name.trim())
     if (!active.length) return
-    setBusy(true); setErr('')
+    setBusy(true); setErr(''); setSaveMsg('')
     try {
       const { data: userData } = await supabase.auth.getUser()
       const uid = userData.user?.id
@@ -218,9 +220,11 @@ export default function Upload({ nav, params }) {
       // חומר לכל נושא; hash/מקור/קובץ מצורפים רק לחומר הראשון של כל קובץ.
       // נושאים בעלי אותו שם מתאחדים אוטומטית (ensureTopic מחזיר את אותו topic_id).
       const usedFirst = {}
+      const touched = {}   // הנושאים שקיבלו דף חדש בהעלאה הזו — { id: name }
       for (const ct of active) {
         const fi = ct.fileIdx
         const topicId = await ensureTopic(ct.name.trim(), origin)
+        if (topicId) touched[topicId] = ct.name.trim()
         const first = !usedFirst[fi]
         usedFirst[fi] = true
         const { data: mat } = await supabase.from('materials').insert({
@@ -242,6 +246,21 @@ export default function Upload({ nav, params }) {
           await supabase.from('flashcards').insert(ct.flashcards.map((c) => ({
             subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
           })))
+        }
+      }
+      // נושא שיש בו עכשיו כמה דפים (או סיכום מאוחד ישן) — בונים סיכום אחד מכולם, בלי חזרות
+      if (!onlyPractice) {
+        const ids = Object.keys(touched)
+        const { data: rows } = ids.length
+          ? await supabase.from('materials').select('topic_id, kind, summary_md').in('topic_id', ids)
+          : { data: [] }
+        for (const tid of ids) {
+          const mine = (rows || []).filter((m) => m.topic_id === tid)
+          const pages = mine.filter((m) => m.summary_md && !['summary', 'note', 'style', 'check'].includes(m.kind))
+          const hadMerged = mine.some((m) => m.kind === 'summary')
+          if (pages.length < 2 && !hadMerged) continue
+          setSaveMsg(`מאחד את הסיכום של "${touched[tid]}" — בלי חזרות…`)
+          try { await consolidateTopic({ subjectId, subjectName, topicId: tid, topicName: touched[tid], learner: profile }) } catch { /* הסיכומים של הדפים נשארים */ }
         }
       }
       nav.reset('subject', { id: subjectId })
@@ -439,7 +458,7 @@ export default function Upload({ nav, params }) {
           })}
 
           <button type="button" className="ts-practice !h-[56px] !rounded-[28px] !text-[17px]" onClick={save} disabled={busy || addBusy != null || !chosen.some((c) => c.name.trim())}>
-            {busy ? 'שומר…' : 'שמור למקצוע'}
+            {busy ? (saveMsg || 'שומר…') : 'שמור למקצוע'}
           </button>
         </div>
       )}
