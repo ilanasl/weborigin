@@ -1,6 +1,7 @@
 // ── מודל השליטה (אלגוריתם פנימי) ──
 // אחוז שליטה בנושא = אחוז התשובות הנכונות מתוך 20 התשובות האחרונות על הנושא.
 //  • שאלה קשה שוקלת קצת יותר (קל 1 · בינוני 1.2 · קשה 1.4)
+//  • תשובה חדשה שוקלת יותר מוותיקה (דעיכה עדינה — הוותיקה בחלון שווה בערך חצי) — האחוז משקף את המצב היום
 //  • בלי "תיקון ניחוש" — 8 מתוך 10 נכונות = 80%, מספר שילד והורה מבינים
 //  • פחות מ-5 תשובות → null ("עוד לא תורגל")
 //  • מדרגות: חזק ≥80 · בדרך 60–79 · לתרגל <60
@@ -8,6 +9,7 @@
 
 const DIFF_W = { קל: 1, בינוני: 1.2, קשה: 1.4 }
 const WINDOW = 20   // כמה תשובות אחרונות נספרות
+const RECENCY = 0.965 // משקל כל תשובה ביחס לזו שאחריה (0.965^19 ≈ 0.5)
 export const MIN_N = 5     // מתחת לזה — עוד לא תורגל מספיק
 export const STRONG = 80
 export const MID = 60
@@ -30,11 +32,11 @@ export function mastery(attempts = [], ref = Date.now()) {
   const last = recent[recent.length - 1].ts
   if (recent.length < MIN_N) return { pct: null, state: 'collecting', due: false, n: recent.length, last }
   let wsum = 0, wc = 0
-  for (const a of recent) {
-    const w = DIFF_W[a.difficulty] || 1
+  recent.forEach((a, i) => {
+    const w = (DIFF_W[a.difficulty] || 1) * RECENCY ** (recent.length - 1 - i)
     wsum += w
     if (a.correct) wc += w
-  }
+  })
   const pct = Math.round((wc / wsum) * 100)
   const interval = pct >= 90 ? 7 : pct >= STRONG ? 4 : pct >= MID ? 2 : 1
   return { pct, state: 'ok', due: (ref - last) / 86400000 >= interval, n: recent.length, last }
