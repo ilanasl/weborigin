@@ -52,6 +52,16 @@ export async function expirePastExams(subjects) {
   return out
 }
 
+// מיקוד שאומר "כל החומר" ("הכול", "כל הנושאים"...) — בלי החרגות ("חוץ מ…") ובלי פירוט של חומר מסוים.
+// נחשב כמו בלי מיקוד: אף נושא לא מסומן, וכך גם נושאים שיועלו אחר כך נכנסים אוטומטית.
+export const isAllScope = (text) => {
+  const t = String(text || '').trim()
+  if (!t || t.length > 60) return false
+  // החרגה או חומר מסוים ("כל החומר של פרק ב׳") — לא "כל החומר"
+  if (/\d|חוץ|מלבד|בלי |ללא|פרט ל|פרק|פסוק|עמ|יחיד|שיר|סיפור|עד /.test(t)) return false
+  return /כל החומר|כל הנושאים|^(על )?הכו?ל[.!]?$/.test(t)
+}
+
 // סימון "במבחן" לפי המיקוד של המבחן הקרוב; בלי מיקוד — אף נושא לא מסומן (= כל החומר)
 export async function refreshScopeTopics(subject) {
   const kind = nearestKind(subject)
@@ -60,7 +70,7 @@ export async function refreshScopeTopics(subject) {
   const { data: topics } = await supabase.from('topics').select('id, name').eq('subject_id', subject.id)
   if (!topics?.length) return null
   let set = new Set()
-  if (date && daysUntil(date) >= 0 && scope) {
+  if (date && daysUntil(date) >= 0 && scope && !isAllScope(scope)) {
     const { in_exam } = await matchScopeTopics({ subjectName: subject.name, scopeText: scope, knownTopics: topics.map((t) => t.name) })
     set = new Set(in_exam || [])
   }

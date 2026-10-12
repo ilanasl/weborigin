@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
-import { expirePastExams, PASSED_KEY, daysUntil, parseDay } from '../lib/plan'
+import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { withTone } from '../lib/tone'
@@ -98,7 +98,12 @@ export default function Subject({ nav, params }) {
   const simHero = hasExam && examDays <= 3 && lastRun?.total > 0 && runAgeDays != null && runAgeDays <= 2
     ? { ...lastRun, pct: Math.round((lastRun.correct / lastRun.total) * 100), today: new Date(lastRun.created_at).toDateString() === new Date().toDateString() }
     : null
-  const needsMaterial = hasExam && topics.filter((t) => t.in_exam).length === 0
+  // מיקוד המבחן הקרוב: "כל החומר" = תקין (אין סימונים); מיקוד שלא תאם אף נושא — הודעה נפרדת
+  const scopeText = String((examKind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim()
+  const noFocus = hasExam && !topics.some((t) => t.in_exam)
+  const allScope = noFocus && isAllScope(scopeText)
+  const needsMaterial = noFocus && !scopeText
+  const scopeNoMatch = noFocus && !!scopeText && !allScope
   // מבחן שעבר (התאפס אוטומטית) — מבקשים חומר חדש עד שמעלים משהו אחרי מועד האיפוס
   const passed = (() => {
     try {
@@ -202,7 +207,7 @@ export default function Subject({ nav, params }) {
       /* כרטיס מוכנות — בצבע המקצוע */
       <div className="ready-hero" style={{ background: subject.bg }}>
         {/* בלי מבחן קרוב, או מבחן שעוד לא הוגדר לו חומר — זה לא "מוכנות", אלא כמה החומר שולט */}
-        <div className="text-[14px] font-semibold">{hasExam && !needsMaterial ? `מוכנות ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : 'השליטה שלי בחומר'}</div>
+        <div className="text-[14px] font-semibold">{hasExam && !needsMaterial && !scopeNoMatch ? `מוכנות ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : 'השליטה שלי בחומר'}</div>
         <div className="ready-hero-num tnum" dir="ltr">{ready == null ? '—' : `${ready}%`}</div>
         <div className="hero-track !flex-none"><i style={{ width: `${ready || 0}%` }} /></div>
         {ready == null && <div className="text-[12.5px] font-semibold" style={{ color: 'rgba(19,19,22,.7)' }}>עוד לא תורגל — כמה תרגולים והמספר יופיע.</div>}
@@ -236,7 +241,7 @@ export default function Subject({ nav, params }) {
             <span className="ready-lbl">
               <span>סימולציה</span>
               {/* סימולציה על המבדק רק כשהוגדר לו חומר; אחרת — על כל החומר */}
-              <small>{examDate && !needsMaterial ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}` : 'על כל החומר'}</small>
+              <small>{examDate && !noFocus ? `${examKind === 'מבדק' ? 'מבדק' : 'מבחן'} · ${examDate}` : 'על כל החומר'}</small>
             </span>
           </button>
         </div>
@@ -249,7 +254,7 @@ export default function Subject({ nav, params }) {
         const list = [
           topics.length > 0 && { k: 'sm', label: 'סיכומים', sub: 'חוברת כל הנושאים', icon: 'note', go: () => nav.go('summaries', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
-          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
+          { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : scopeNoMatch ? 'המיקוד לא תואם נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
@@ -287,12 +292,14 @@ export default function Subject({ nav, params }) {
         </button>
       )}
 
-      {needsMaterial && (
+      {(needsMaterial || scopeNoMatch) && (
         <button onClick={() => nav.go('planner', { subjectId: id, subjectName: name })}
           className="w-full text-start rounded-[16px] p-3.5 mt-3 flex items-start gap-2.5 text-[13.5px] leading-relaxed"
           style={{ background: 'var(--accent-soft)', color: 'var(--accent)', border: '1px solid color-mix(in srgb, var(--accent) 30%, transparent)' }}>
           <Icon name="upload" size={19} />
-          <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו</span>
+          {needsMaterial
+            ? <span><b>עדיין לא הוגדר חומר ל{examKind}.</b> העלו את החומר וסמנו את המיקוד במתכנן המבחן, כדי שהתוכנית והתרגול יתמקדו בו</span>
+            : <span><b>המיקוד שכתבת לא תואם אף נושא שהועלה.</b> אולי צריך להעלות את החומר, או לכתוב במתכנן את שמות הנושאים. בינתיים {examKind === 'מבדק' ? 'המבדק' : 'המבחן'} על כל החומר</span>}
         </button>
       )}
 
