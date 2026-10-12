@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { cached, remember } from '../lib/screenCache'
 import { mastery, examReadiness, level, STRONG, LEVEL_LABEL } from '../lib/mastery'
-import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope, nearestKind, readGaps, gapsStale, checkScopeGaps } from '../lib/plan'
+import { expirePastExams, PASSED_KEY, daysUntil, parseDay, isAllScope, scopeIncludesAll, nearestKind, readGaps, gapsStale, checkScopeGaps, refreshScopeTopics } from '../lib/plan'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 import { withTone } from '../lib/tone'
@@ -75,6 +75,8 @@ export default function Subject({ nav, params }) {
     const date = kind === 'מבדק' ? subject.quiz_date : subject.exam_date
     const sc = String((kind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim()
     if (!sc || isAllScope(sc) || daysUntil(date) == null || daysUntil(date) < 0) return
+    // מיקוד "כל החומר" שנשארו בו סימונים ישנים — מנקים, כדי שכל הנושאים ייכנסו לתוכנית
+    if (scopeIncludesAll(sc) && topics.some((t) => t.in_exam)) refreshScopeTopics(subject).then(() => load()).catch(() => {})
     const g = readGaps(subject)
     if (!g || gapsStale(g, topics)) checkScopeGaps(subject).then(() => setGapsV((v) => v + 1)).catch(() => {})
   }, [subject?.id, topics.length])
@@ -113,7 +115,7 @@ export default function Subject({ nav, params }) {
   // מיקוד המבחן הקרוב: "כל החומר" = תקין (אין סימונים); מיקוד שלא תאם אף נושא — הודעה נפרדת
   const scopeText = String((examKind === 'מבדק' ? subject.quiz_scope_text : subject.exam_scope_text) || '').trim()
   const noFocus = hasExam && !topics.some((t) => t.in_exam)
-  const allScope = noFocus && isAllScope(scopeText)
+  const allScope = noFocus && scopeIncludesAll(scopeText)
   const needsMaterial = noFocus && !scopeText
   const scopeNoMatch = noFocus && !!scopeText && !allScope
   // חלקים במיקוד שעוד אין עליהם חומר (נבדק במתכנן / ברקע)

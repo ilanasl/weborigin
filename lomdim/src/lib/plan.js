@@ -63,6 +63,9 @@ export const isAllScope = (text) => {
   return /כל החומר|כל הנושאים|^(על )?הכו?ל[.!]?$/.test(t)
 }
 
+// המיקוד כולל "כל החומר" (גם אם יש בו בנוסף רשימת נושאים) — כל מה שהועלה בפנים, בלי סימונים
+export const scopeIncludesAll = (text) => String(text || '').split(/\n+/).some((l) => isAllScope(l.replace(/[*_#]/g, '')))
+
 // סימון "במבחן" לפי המיקוד של המבחן הקרוב; בלי מיקוד — אף נושא לא מסומן (= כל החומר)
 export async function refreshScopeTopics(subject) {
   const kind = nearestKind(subject)
@@ -71,7 +74,7 @@ export async function refreshScopeTopics(subject) {
   const { data: topics } = await supabase.from('topics').select('id, name').eq('subject_id', subject.id)
   if (!topics?.length) return null
   let set = new Set()
-  if (date && daysUntil(date) >= 0 && scope && !isAllScope(scope)) {
+  if (date && daysUntil(date) >= 0 && scope && !scopeIncludesAll(scope)) {
     const { in_exam } = await matchScopeTopics({ subjectName: subject.name, scopeText: scope, knownTopics: topics.map((t) => t.name) })
     set = new Set(in_exam || [])
   }
@@ -131,13 +134,20 @@ export async function checkScopeGaps(subject) {
     missing: (out.missing || []).filter((m) => m?.name && !names.has(String(m.name).trim())),
   }
   await saveGaps(subject.id, g)
+  // נושא שמכסה חלק מהמיקוד — מסומן "במיקוד" (כדי שלא יישאר מחוץ לתוכנית). ב"כל החומר" — אין סימונים.
+  if (!scopeIncludesAll(scope) && g.covered.length) {
+    const ids = (topics || []).filter((t) => g.covered.some((c) => String(c.topic).trim() === t.name.trim())).map((t) => t.id)
+    if (ids.length) await supabase.from('topics').update({ in_exam: true }).in('id', ids)
+  }
   return g
 }
 
 // נושא חדש מהידע הכללי לחלק חסר במיקוד: סיכום (עם תגית) + שאלות תרגול, במיקוד
 export async function createTopicFromGeneral({ subject, item, learner }) {
   const name = String(item.name).trim()
-  const { data: tp, error } = await supabase.from('topics').insert({ subject_id: subject.id, name, origin: 'השנה', in_exam: true }).select('*').single()
+  // "במיקוד" רק כשהמיקוד מפורט; ב"כל החומר" — בלי סימון (אחרת רק הנושא הזה ייחשב במבחן)
+  const inExam = !scopeIncludesAll(scopeOf(subject).scope)
+  const { data: tp, error } = await supabase.from('topics').insert({ subject_id: subject.id, name, origin: 'השנה', in_exam: inExam }).select('*').single()
   if (error || !tp) throw new Error('topic')
   const { summary_md } = await topicSummary({ subjectName: subject.name, topicName: name, learner, focus: item.part })
   const { data: mat } = await supabase.from('materials').insert({
