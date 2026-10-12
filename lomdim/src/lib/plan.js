@@ -124,11 +124,15 @@ export async function checkScopeGaps(subject) {
     supabase.from('topics').select('id, name').eq('subject_id', subject.id),
     supabase.from('materials').select('topic_id, kind, summary_md').eq('subject_id', subject.id).not('summary_md', 'is', null),
   ])
-  const sum = {}
+  // כל התוכן של כל נושא: הסיכום המאוחד אם יש, אחרת כל סיכומי הדפים (לא רק הראשון)
+  const merged = {}, pages = {}
   for (const m of mats || []) {
-    if (!m.topic_id || m.kind === 'style') continue
-    if (m.kind === 'summary' || !sum[m.topic_id]) sum[m.topic_id] = m.summary_md
+    if (!m.topic_id || m.kind === 'style' || m.kind === 'note') continue
+    if (m.kind === 'summary') merged[m.topic_id] = (merged[m.topic_id] ? merged[m.topic_id] + '\n\n' : '') + m.summary_md
+    else (pages[m.topic_id] ||= []).push(m.summary_md)
   }
+  const sum = {}
+  for (const t of topics || []) sum[t.id] = merged[t.id] || (pages[t.id] || []).join('\n\n')
   const out = await scopeGaps({ subjectName: subject.name, scopeText: scope, topics: (topics || []).map((t) => ({ name: t.name, summary: sum[t.id] })) })
   const names = new Set((topics || []).map((t) => t.name.trim()))
   const g = {
