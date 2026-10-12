@@ -24,8 +24,9 @@ export default function Summaries({ nav, params }) {
         // הטקסט המלא (שיר / פסוקים) — אם נשמר לנושא, מוצג כמו במסך הנושא
         const source = (mats || []).find((m) => m.topic_id === t.id && m.source_text)?.source_text || null
         const merged = own.find((m) => m.kind === 'summary')
-        const page = own.find((m) => m.kind !== 'summary' && m.kind !== 'note')
-        return { ...t, source, summary: merged ? stripNotebookWarnings(merged.summary_md) : page?.summary_md || null }
+        // בלי סיכום מאוחד — כל סיכומי הדפים לפי סדר ההעלאה (לא רק האחרון)
+        const pageSums = [...new Set(own.filter((m) => m.kind !== 'summary' && m.kind !== 'note' && m.kind !== 'style').reverse().map((m) => m.summary_md))]
+        return { ...t, source, summary: merged ? stripNotebookWarnings(merged.summary_md) : pageSums.join('\n\n---\n\n') || null }
       })
       // נושאי המיקוד ראשונים
       list.sort((a, b) => (b.in_exam ? 1 : 0) - (a.in_exam ? 1 : 0))

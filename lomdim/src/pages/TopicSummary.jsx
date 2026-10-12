@@ -95,7 +95,9 @@ export default function TopicSummary({ nav, params }) {
     const consolidated = mats.find((m) => m.kind === 'summary' && m.summary_md)
     const pages = mats.filter((m) => m.kind !== 'summary' && m.kind !== 'note')
     // סיכום מאוחד שנשמר לפני התיקון — מנקים בתצוגה את שורות "במחברת כתוב…" (בלי להריץ שוב ובלי קרדיטים)
-    setSummary((consolidated && stripNotebookWarnings(consolidated.summary_md)) || pages.find((m) => m.summary_md)?.summary_md || null)
+    // בלי סיכום מאוחד: מציגים את הסיכומים של כל הדפים, לפי סדר ההעלאה (לא רק של הדף האחרון — כדי שדף חדש לא "ידרוס" את הקודמים)
+    const pageSums = [...new Set(pages.slice().reverse().map((m) => m.summary_md).filter(Boolean))]
+    setSummary((consolidated && stripNotebookWarnings(consolidated.summary_md)) || pageSums.join('\n\n---\n\n') || null)
     setNotes(mats.filter((m) => m.kind === 'note' && m.summary_md))
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
