@@ -111,6 +111,21 @@ export function buildStudyPlan({ examDays, leadDays, topics, allTs }) {
     const topicsOfDay = day.map((t) => ({ ...t, done: topicDone(t) }))
     days.push({ dt: addDays(d), off: d, topics: topicsOfDay, done: topicsOfDay.length > 0 && topicsOfDay.every((t) => t.done) })
   })
+  // השלמה: נושאים מימים שעברו בתוכנית ולא בוצעו — עוברים להיום (לפני הנושאים של היום).
+  // הימים שפוספסו מסומנים "הועבר להיום". ביום החזרה אין העברה — הוא ממילא על כל החומר.
+  const todayDay = days.find((d) => d.off === 0)
+  if (todayDay) {
+    const have = new Set(todayDay.topics.map((t) => t.id))
+    const carried = []
+    for (const d of days.filter((x) => x.off < 0 && !x.done)) {
+      for (const t of d.topics.filter((x) => !x.done)) {
+        t.movedToToday = true
+        if (!have.has(t.id)) { have.add(t.id); carried.push({ ...t, movedToToday: false, carriedFrom: d.dt, carriedOff: d.off }) }
+      }
+    }
+    todayDay.topics = [...carried, ...todayDay.topics]
+    todayDay.done = todayDay.topics.length > 0 && todayDay.topics.every((t) => t.done)
+  }
   // יום חזרה — היום שלפני המבחן. נשאר בתוכנית גם כשהוא היום עצמו (יום לפני המבחן)
   { const dt = addDays(examDays - 1); days.push({ dt, off: examDays - 1, review: true, done: reviewDone(dt) }) }
   days.push({ dt: addDays(examDays), off: examDays, exam: true })
