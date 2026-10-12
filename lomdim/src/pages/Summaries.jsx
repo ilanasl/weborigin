@@ -3,6 +3,7 @@ import Icon from '../components/Icon'
 import Markdown from '../components/Markdown'
 import { supabase } from '../lib/supabase'
 import { stripNotebookWarnings } from '../lib/gemini'
+import { examTag } from '../lib/plan'
 
 // חוברת סיכומים: כל סיכומי המקצוע במסך אחד, עם תוכן עניינים — לקריאה רצופה לפני מבחן
 export default function Summaries({ nav, params }) {
@@ -10,14 +11,17 @@ export default function Summaries({ nav, params }) {
   const [items, setItems] = useState([])   // [{ id, name, in_exam, summary }]
   const [loading, setLoading] = useState(true)
   const [openSrc, setOpenSrc] = useState({})   // אילו "טקסט מלא" פתוחים
+  const [subj, setSubj] = useState(null)       // לתגית "למבדק/למבחן הקרוב"
 
   useEffect(() => {
     (async () => {
-      const [{ data: tp }, { data: mats }] = await Promise.all([
+      const [{ data: tp }, { data: mats }, { data: sj }] = await Promise.all([
         supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId).order('created_at'),
         supabase.from('materials').select('topic_id, kind, summary_md, source_text, created_at').eq('subject_id', subjectId)
           .order('created_at', { ascending: false }),
+        supabase.from('subjects').select('id, exam_date, quiz_date').eq('id', subjectId).maybeSingle(),
       ])
+      setSubj(sj || null)
       // אותו כלל כמו במסך הנושא: סיכום מאוחד אם יש, אחרת הסיכום העדכני מהדפים
       const list = (tp || []).map((t) => {
         const own = (mats || []).filter((m) => m.topic_id === t.id && m.summary_md)
@@ -65,7 +69,7 @@ export default function Summaries({ nav, params }) {
                 className="flex items-center gap-2.5 text-start py-1.5 text-[14.5px] font-semibold">
                 <span className="tnum text-muted w-5 flex-none">{i + 1}.</span>
                 <span className="flex-1 min-w-0 truncate">{t.name}</span>
-                {t.in_exam && <span className="tp-badge flex-none" style={{ background: 'var(--primary)' }}>במיקוד</span>}
+                {t.in_exam && <span className="tp-badge flex-none" style={{ background: 'var(--primary)' }}>{examTag(subj)}</span>}
                 {!t.summary && <span className="text-[12px] text-muted flex-none">אין סיכום</span>}
               </button>
             ))}

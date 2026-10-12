@@ -21,6 +21,9 @@ export const daysUntil = (d) => d ? Math.round((parseDay(d) - new Date(new Date(
 export const addDays = (d) => { const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + d); return dt }
 
 // הסוג הקרוב יותר מבין מבדק/מבחן שכבר הוגדר לו תאריך
+// תגית לנושא שנכנס למבחן הקרוב ("למבדק הקרוב" / "למבחן הקרוב")
+export const examTag = (subject) => (subject && nearestKind(subject) === 'מבדק' ? 'למבדק הקרוב' : 'למבחן הקרוב')
+
 export function nearestKind(subject) {
   const qd = daysUntil(subject?.quiz_date), ed = daysUntil(subject?.exam_date)
   return (qd != null && qd >= 0 && (ed == null || ed < 0 || qd <= ed)) ? 'מבדק' : 'מבחן מסכם'
