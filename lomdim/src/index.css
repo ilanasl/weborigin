@@ -502,3 +502,27 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
   .print-area .paper { background: #fff !important; box-shadow: none !important; break-inside: auto }
   .print-area h2, .print-area .md > div { break-after: avoid }
 }
+
+/* ── מחברת הסיכומים: לשוניות, כפתור לנושא, חלונית כלים ── */
+.nb-tabs{ display:flex; gap:8px; overflow-x:auto; margin:12px -16px 14px; padding:2px 16px 4px; scrollbar-width:none }
+.nb-tabs::-webkit-scrollbar{ display:none }
+.nb-tab{ flex:none; display:inline-flex; align-items:center; gap:4px; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-family:var(--disp); font-weight:700; font-size:13.5px; color:var(--ink); background:var(--milky); border:1px solid var(--milky-line);
+  border-radius:14px 14px 6px 6px; padding:9px 13px }
+.nb-tab[aria-selected="true"]{ background:var(--primary); color:var(--on-fill); border-color:transparent }
+.nb-dot{ width:7px; height:7px; border-radius:50%; background:var(--primary); flex:none; margin-inline-start:4px }
+.nb-tab[aria-selected="true"] .nb-dot{ background:var(--on-fill) }
+.nb-go{ display:flex; align-items:center; justify-content:space-between; width:100%; margin-top:16px; height:46px; padding:0 18px; border-radius:23px;
+  border:1.5px solid #1D1D21; background:transparent; color:#1D1D21; font-family:var(--disp); font-weight:700; font-size:14.5px }
+.nb-tools-btn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:46px; margin-top:8px; border-radius:23px;
+  border:1px solid var(--milky-line); background:var(--milky); color:var(--ink); font-family:var(--disp); font-weight:700; font-size:14.5px }
+.nb-veil{ position:fixed; inset:0; z-index:55; background:rgba(0,0,0,.55); display:flex; align-items:flex-end; justify-content:center; animation:cdlgFade .15s ease }
+.nb-sheet{ width:100%; max-width:560px; max-height:88vh; overflow-y:auto; background:#1E1E24; border-radius:24px 24px 0 0;
+  padding:10px 16px calc(20px + env(safe-area-inset-bottom,0px)); color:var(--ink) }
+.nb-grab{ width:42px; height:4px; border-radius:2px; background:rgba(255,255,255,.25); margin:0 auto 10px }
+.nb-sheet-h{ font-size:12.5px; font-weight:700; color:var(--muted); margin:14px 2px 8px }
+.nb-tool{ display:flex; align-items:center; gap:12px; width:100%; padding:11px 2px; background:none; border:0; border-top:1px solid rgba(255,255,255,.07);
+  color:var(--ink); font-weight:700; font-size:14.5px; text-align:start }
+.nb-tool small{ font-weight:500; font-size:12px; color:var(--muted) }
+.nb-tool:disabled{ opacity:.5 }
+.nb-tool-ic{ width:32px; height:32px; border-radius:10px; display:grid; place-items:center; background:var(--milky); flex:none }
