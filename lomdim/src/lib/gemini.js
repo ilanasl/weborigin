@@ -294,7 +294,11 @@ function buildParts(payload) {
       `"missing":[{"name":"שם קצר לנושא חדש (2–4 מילים)","part":"מה בדיוק מהמיקוד הוא צריך לכסות"}]}. ` +
       `אחד/י חלקים חסרים קרובים לנושא חסר אחד (למשל "ציר הזמן" לתקופות + קביעת אלף ומאה). אל תמציא/י חלקים שלא במיקוד. בספק — נחשב מכוסה. ` + HEB_RULE +
       `\n\nהמיקוד:\n"""${String(scopeText).slice(0, 3000)}"""` +
-      `\n\nהנושאים שהועלו:\n` + (topics.length ? topics.map((t) => `- ${t.name}: ${String(t.summary || '').slice(0, 500).replace(/\s+/g, ' ')}`).join('\n') : '(אין)') })
+      `\n\nהנושאים שהועלו (לכל נושא — כל הכותרות של הסיכום, ואחריהן הסיכום עצמו):\n` + (topics.length ? topics.map((t) => {
+        const md = String(t.summary || '')
+        const heads = md.split('\n').filter((l) => /^\s*#{1,4}\s/.test(l)).map((l) => l.replace(/^\s*#+\s*/, '').trim()).join(' | ')
+        return `### ${t.name}\nכותרות: ${heads || '—'}\n${md.slice(0, 4000)}`
+      }).join('\n\n') : '(אין)') })
     return { parts, wantJson: true }
   }
   if (task === 'order_topics') {
