@@ -285,6 +285,15 @@ function buildParts(payload) {
       (questions.length ? `\n\nשאלות קיימות (id + שאלה):\n${JSON.stringify(questions)}` : '') })
     return { parts, wantJson: true }
   }
+  if (task === 'order_topics') {
+    const { subjectName, topics = [] } = payload
+    parts.push({ text:
+      `במקצוע "${subjectName}" יש נושאים ללמידה לקראת מבחן. סדר/י אותם לפי סדר לימוד הגיוני: ` +
+      `נושא שצריך להכיר כדי להבין נושא אחר — קודם; לפי סדר הזמנים (היסטוריה), סדר הפרקים/הפסוקים (תנ"ך, ספרות) או מהבסיס למתקדם (מתמטיקה, לשון). ` +
+      `החזר/י JSON בלבד: {"order":["<כל שמות הנושאים מהרשימה, בדיוק כפי שנכתבו, בסדר הלימוד>"]}. אל תמציא/י שמות ואל תשמיט/י נושאים. ` + HEB_RULE +
+      `\n\nהנושאים (שם + תחילת הסיכום):\n` + topics.map((t) => `- ${t.name}: ${String(t.summary || '').slice(0, 300).replace(/\s+/g, ' ')}`).join('\n') })
+    return { parts, wantJson: true }
+  }
   if (task === 'match_scope') {
     const { subjectName, scopeText, knownTopics = [] } = payload
     parts.push({ text:
@@ -473,6 +482,7 @@ export const checkExercise = async (p) => deepClean(await call({ task: 'check_ex
 export const scanScope = async (p) => deepClean(await call({ task: 'scan_scope', ...p })).answer
 // התאמת מיקוד החומר לרשימת הנושאים הקיימים → אילו נושאים כלולים במבחן
 export const matchScopeTopics = async (p) => deepClean(await call({ task: 'match_scope', ...p }))
+export const orderTopics = async (p) => deepClean(await call({ task: 'order_topics', ...p }))
 export const splitSource = async (p) => deepClean(await call({ task: 'split_source', ...p }))
 // מבחן מתוקן → שאלות לתרגול (עם בדיקת איכות) + סגנון שאלות המורה
 export const examQuestions = async (p) => {

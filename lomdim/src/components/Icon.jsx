@@ -23,6 +23,7 @@ const P = {
   upload: <path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />,
   plus: <path d="M12 5v14M5 12h14" />,
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  lock: <><rect x="5" y="11" width="14" height="9.5" rx="2.2" /><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3" /></>,
   x: <path d="M6 6l12 12M18 6L6 18" />,
   chevron: <path d="M15 6l-6 6 6 6" />,
   down: <path d="M6 9l6 6 6-6" />,

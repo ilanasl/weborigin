@@ -54,6 +54,8 @@ create table if not exists topics (
   in_exam boolean default false,
   created_at timestamptz default now()
 );
+-- סדר הלימוד בתוכנית לפי ימים (נקבע אוטומטית ב"שמור ובנה תוכנית"):
+alter table topics add column if not exists plan_order int;
 
 -- ── חומרים שהועלו ──
 create table if not exists materials (
