@@ -10,7 +10,8 @@ function Inline({ text }) {
       {parts.map((p, i) =>
         p.startsWith('**') && p.endsWith('**') && p.length > 4
           ? <strong key={i}>{p.slice(2, -2)}</strong>
-          : <span key={i}>{p}</span>
+          // הדגשה בכוכבית בודדת (*מילה*) — בלי להציג את הכוכביות
+          : <span key={i}>{p.replace(/(^|[^*\w])\*([^*\n]+?)\*(?!\*)/g, '$1$2').replace(/^\*(?=\S)/, '').replace(/(\S)\*$/, '$1')}</span>
       )}
     </>
   )
