@@ -61,11 +61,12 @@ export default function Markdown({ text, className = '', examBox = false }) {
     if (h) { flush(); blocks.push({ type: 'h', level: h[1].length, text: h[2] }); continue }
 
     const ul = line.match(/^\s*[-*•]\s+(.*)$/)
-    const ol = line.match(/^\s*\d+[.)]\s+(.*)$/)
+    const ol = line.match(/^\s*(\d+)[.)]\s+(.*)$/)
     if (ul || ol) {
       const ordered = !!ol
-      if (!list || list.ordered !== ordered) { flush(); list = { type: 'list', ordered, items: [] } }
-      list.items.push(ul ? ul[1] : ol[1])
+      if (!list || list.ordered !== ordered) { flush(); list = { type: 'list', ordered, items: [], nums: [] } }
+      list.items.push(ul ? ul[1] : ol[2])
+      list.nums.push(ol ? Number(ol[1]) : null) // המספר שנכתב — כדי שרשימה שנקטעה תמשיך מ-2, 3… ולא תתחיל שוב מ-1
       continue
     }
 
@@ -90,7 +91,7 @@ export default function Markdown({ text, className = '', examBox = false }) {
           const Tag = b.ordered ? 'ol' : 'ul'
           return (
             <Tag key={i} className={`my-1.5 ps-5 space-y-[5px] ${b.ordered ? 'list-decimal' : 'list-disc'}`}>
-              {b.items.map((it, j) => <li key={j}><Inline text={it} /></li>)}
+              {b.items.map((it, j) => <li key={j} value={b.ordered ? b.nums?.[j] || undefined : undefined}><Inline text={it} /></li>)}
             </Tag>
           )
         }

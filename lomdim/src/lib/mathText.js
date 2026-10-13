@@ -6,6 +6,9 @@ const sup = (s) => ([...s].every((c) => c in SUP) ? [...s].map((c) => SUP[c]).jo
 export function mathText(s) {
   if (typeof s !== 'string' || !/[\\^]/.test(s)) return s
   return s
+    .replace(/\$\s*(\\[A-Za-z]+arrow)\s*\$/g, '$1')
+    .replace(/\\(?:leftarrow|gets)\b/g, '←').replace(/\\(?:rightarrow|to)\b/g, '→')
+    .replace(/\\Leftarrow\b/g, '⇐').replace(/\\Rightarrow\b/g, '⇒').replace(/\\leftrightarrow\b/g, '↔')
     .replace(/\\(?:cdot|times)\b/g, '·')
     .replace(/\\div\b/g, ':')
     .replace(/\\(?:le|leq)\b/g, '≤').replace(/\\(?:ge|geq)\b/g, '≥').replace(/\\(?:ne|neq)\b/g, '≠')
