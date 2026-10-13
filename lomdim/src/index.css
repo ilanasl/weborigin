@@ -517,4 +517,7 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
   html, body { background: #fff !important }
   .print-area .paper { background: #fff !important; box-shadow: none !important; break-inside: auto }
   .print-area h2, .print-area .md > div { break-after: avoid }
+  .print-area .overflow-x-auto { overflow: visible !important }
+  .print-area thead { display: table-header-group }
+  .print-area tr { break-inside: avoid }
 }
