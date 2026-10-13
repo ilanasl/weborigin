@@ -5,6 +5,13 @@ import { topicSummary, stripNotebookWarnings } from './gemini'
 
 const PAGE_KINDS_SKIP = ['summary', 'note', 'style', 'check']
 
+// נושא שיש בו 2 דפים (עם סיכום) או יותר — ואין לו עדיין סיכום מאוחד → כדאי לאחד
+export const needsConsolidation = (mats = []) =>
+  !mats.some((m) => m.kind === 'summary' && m.summary_md) &&
+  mats.filter((m) => !PAGE_KINDS_SKIP.includes(m.kind) && m.summary_md).length >= 2
+// איחוד אוטומטי — פעם אחת לנושא בכל הפעלה של האפליקציה (גם אם נכשל — לא חוזרים בלולאה)
+export const autoTried = new Set()
+
 export async function consolidateTopic({ subjectId, subjectName, topicId, topicName, learner }) {
   const { data: mats } = await supabase.from('materials').select('kind, summary_md, source_text, created_at')
     .eq('topic_id', topicId).order('created_at')

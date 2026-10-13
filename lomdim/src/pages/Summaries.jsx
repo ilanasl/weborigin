@@ -4,6 +4,8 @@ import Markdown from '../components/Markdown'
 import { supabase } from '../lib/supabase'
 import { stripNotebookWarnings } from '../lib/gemini'
 import { examTag } from '../lib/plan'
+import { consolidateTopic, needsConsolidation, autoTried } from '../lib/consolidate'
+import { useAuth } from '../context/AuthContext'
 
 // חוברת סיכומים: כל סיכומי המקצוע במסך אחד, עם תוכן עניינים — לקריאה רצופה לפני מבחן
 export default function Summaries({ nav, params }) {
@@ -12,6 +14,8 @@ export default function Summaries({ nav, params }) {
   const [loading, setLoading] = useState(true)
   const [openSrc, setOpenSrc] = useState({})   // אילו "טקסט מלא" פתוחים
   const [subj, setSubj] = useState(null)       // לתגית "למבדק/למבחן הקרוב"
+  const [merging, setMerging] = useState({})   // נושאים שמתאחדים עכשיו לסיכום אחד
+  const { profile } = useAuth()
 
   useEffect(() => {
     (async () => {
@@ -30,12 +34,25 @@ export default function Summaries({ nav, params }) {
         const merged = own.find((m) => m.kind === 'summary')
         // בלי סיכום מאוחד — כל סיכומי הדפים לפי סדר ההעלאה (לא רק האחרון)
         const pageSums = [...new Set(own.filter((m) => m.kind !== 'summary' && m.kind !== 'note' && m.kind !== 'style').reverse().map((m) => m.summary_md))]
-        return { ...t, source, summary: merged ? stripNotebookWarnings(merged.summary_md) : pageSums.join('\n\n---\n\n') || null }
+        return { ...t, source, needMerge: needsConsolidation(own), summary: merged ? stripNotebookWarnings(merged.summary_md) : pageSums.join('\n\n---\n\n') || null }
       })
       // נושאי המיקוד ראשונים
       list.sort((a, b) => (b.in_exam ? 1 : 0) - (a.in_exam ? 1 : 0))
       setItems(list)
       setLoading(false)
+      // נושא עם כמה דפים בלי סיכום מאוחד — מאחדים ברקע, אחד אחרי השני (במקום סיכומי דפים ברצף עם חזרות)
+      for (const t of list.filter((x) => x.needMerge && !autoTried.has(x.id))) {
+        autoTried.add(t.id)
+        setMerging((m) => ({ ...m, [t.id]: true }))
+        try {
+          if (await consolidateTopic({ subjectId, subjectName, topicId: t.id, topicName: t.name, learner: profile })) {
+            const { data: sm } = await supabase.from('materials').select('summary_md').eq('topic_id', t.id).eq('kind', 'summary').limit(1)
+            const md = sm?.[0]?.summary_md
+            if (md) setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, summary: stripNotebookWarnings(md) } : x)))
+          }
+        } catch { /* נשאר הסיכום מהדפים */ }
+        setMerging((m) => ({ ...m, [t.id]: false }))
+      }
     })()
   }, [subjectId])
 
@@ -100,7 +117,13 @@ export default function Summaries({ nav, params }) {
                 </>
               )}
               <div className="paper">
-                {t.summary ? <Markdown text={t.summary} examBox /> : (
+                {merging[t.id] && (
+                  <div className="flex items-start gap-2.5 mb-3 p-3 rounded-[14px] text-[13.5px] font-semibold no-print" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
+                    <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
+                    <span>מאחד את כל הדפים של הנושא לסיכום אחד קצר, בלי חזרות… כחצי דקה.</span>
+                  </div>
+                )}
+                {t.summary ? <div style={merging[t.id] ? { opacity: 0.4 } : undefined}><Markdown text={t.summary} examBox /></div> : (
                   <div className="text-[14px]" style={{ color: '#3E3E45' }}>עדיין אין סיכום לנושא הזה.</div>
                 )}
                 <div className="flex flex-wrap gap-2 mt-4 no-print">
