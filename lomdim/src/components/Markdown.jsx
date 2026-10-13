@@ -96,13 +96,16 @@ export default function Markdown({ text, className = '', examBox = false }) {
           )
         }
         if (b.type === 'table') {
+          // טבלה רחבה (5 עמודות ומעלה) — גוללים אותה הצידה במקום לשבור מילים באמצע
+          const wide = b.header.length >= 5
+          const cell = wide ? { wordBreak: 'normal', overflowWrap: 'normal', minWidth: 76 } : undefined
           return (
-            <div key={i} className="my-3">
-              <table className="w-full text-[13px] border-collapse" style={{ tableLayout: 'fixed' }}>
+            <div key={i} className={`my-3 ${wide ? 'overflow-x-auto' : ''}`}>
+              <table className="w-full text-[13px] border-collapse" style={wide ? { tableLayout: 'auto', minWidth: b.header.length * 92 } : { tableLayout: 'fixed' }}>
                 <thead>
                   <tr>
                     {b.header.map((c, j) => (
-                      <th key={j} className="border border-line bg-surface2 p-2 text-start font-bold break-words"><Inline text={c} /></th>
+                      <th key={j} className="border border-line bg-surface2 p-2 text-start font-bold break-words" style={cell}><Inline text={c} /></th>
                     ))}
                   </tr>
                 </thead>
@@ -110,7 +113,7 @@ export default function Markdown({ text, className = '', examBox = false }) {
                   {b.rows.map((r, j) => (
                     <tr key={j}>
                       {r.map((c, k) => (
-                        <td key={k} className="border border-line p-2 align-top break-words"><Inline text={c} /></td>
+                        <td key={k} className="border border-line p-2 align-top break-words" style={cell}><Inline text={c} /></td>
                       ))}
                     </tr>
                   ))}
