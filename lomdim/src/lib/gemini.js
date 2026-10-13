@@ -529,7 +529,7 @@ export const renikudQuestions = async (items) => deepClean(await call({ task: 'r
 
 // סיכום עיוני מסודר לנושא. אם מועברים sourceMaterials (החומרים שהועלו) — מאחד אותם; אחרת סיכום כללי.
 // enrich=false (ברירת מחדל): רק מהחומר שהועלה. enrich=true: מותר להשלים מהידע הכללי.
-export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, fromText, focus }) => {
+export const topicSummary = async ({ subjectName, topicName, learner, sourceMaterials, enrich, fromText, focus, otherTopics = [], handledOff = [] }) => {
   const hasSource = sourceMaterials && sourceMaterials.trim()
   // fromText — אין מחברת, רק הטקסט עצמו (למשל פסוקים שלא נלמדו בכיתה): מסבירים אותו ברמת הכיתה, כמו מורה
   const faith = fromText
@@ -541,14 +541,29 @@ export const topicSummary = async ({ subjectName, topicName, learner, sourceMate
     ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום אחד מסודר ומקיף — בלי כפילויות וסתירות. כל פרט ייחודי שמופיע בחומרים (כלל, רשימה, טבלה, דוגמה מדף העבודה, דגש) חייב להופיע בסיכום — פעם אחת; משמיטים רק את מה שחוזר. ${faith} ${CONSOLIDATE_RULE}\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 60000)}"""\n\n`
     : `כתוב סיכום מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ${gradeOf(learner)}. ` +
       (focus ? `הסיכום צריך לכסות בדיוק את מה שמופיע במיקוד המבחן: "${focus}" — לפי הידע המקובל בתוכנית הלימודים. ` : '')
-  const question = intro +
+  // גבולות בין נושאים: מה ששייך לנושא אחר במקצוע — לא כאן; חומר מתחום אחר לגמרי — מוצא החוצה בבלוק נפרד
+  const scope = hasSource
+    ? (otherTopics.length
+      ? `נושאים אחרים במקצוע (לכל אחד סיכום משלו): ${otherTopics.map((t) => `«${t}»`).join(', ')}. תוכן שהמקום הטבעי שלו הוא אחד מהנושאים האלה — לא להסביר אותו כאן (זה החריג היחיד לכלל "כל פרט ייחודי נשאר"); לכל היותר שורה אחת עם הפניה, למשל "(ראו בנושא «...»)". מה ששייך לנושא "${topicName}" עצמו — נשאר במלואו. `
+      : '') +
+      `אם בחומרים יש חלק שעוסק בתחום אחר לגמרי — שלא שייך לנושא "${topicName}" ולא לאף נושא ברשימה (למשל "רכיבי תעודת הזהות של טקסט" בתוך נושא דקדוק) — אל תכניס/י אותו לסיכום. במקום זה, בסוף התשובה אחרי הסיכום: שורה "@@OFF@@ <שם קצר לנושא>", אחריה סיכום קצר של החלק הזה ב-Markdown, ואחריו שורה "@@END@@". ` +
+      (handledOff.length ? `אל תוציא/י שוב בבלוק: ${handledOff.map((t) => `«${t}»`).join(', ')} — כבר טופלו; פשוט להשמיט מהסיכום. ` : '') +
+      `אם אין חלק כזה — בלי הבלוק. `
+    : ''
+  const question = intro + scope +
     `בנה אותו כך: (1) כלל/הגדרה קצרה של הנושא (משפט-שניים). (2) המושגים המרכזיים — כל מושג פעם אחת: כשיש כמה מושגים מקבילים — בטבלת Markdown אחת עם עמודות שמתאימות לנושא (לרוב "מושג | מה זה | דוגמה", ובנושאים כמו שם המספר "מספר | זכר | נקבה"); אחרת נקודות קצרות (מה זה + דוגמה). לא גם טבלה וגם נקודות על אותם מושגים. ` +
     `(3) דגשים וטעויות נפוצות למבחן — נקודות קצרות, כל דגש פעם אחת. ` +
     TONE_RULE + ' ' + summaryLangRule(learner) + litRule(subjectName) + ' ' + SUMMARY_STYLE_RULE + ' ' + nikudRule(subjectName) + ' ' +
-    `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות), בלי הקדמות ובלי סיומת ובלי "שלום".`
-  const { answer } = await explain({ subjectName, question, learner })
+    `החזר Markdown נקי בלבד (כותרות ##, נקודות, טבלאות; מלבד בלוק @@OFF@@ אם יש), בלי הקדמות ובלי סיומת ובלי "שלום".`
+  const { answer: raw } = await explain({ subjectName, question, learner })
+  const offtopic = []
+  const answer = String(raw || '').replace(/@@OFF@@[ \t]*([^\n]*)\n([\s\S]*?)(?:@@END@@|$)/g, (_, nm, md) => {
+    const n = nm.replace(/[<>«»"]/g, '').trim()
+    if (n && md.trim()) offtopic.push({ name: n, md: md.trim() })
+    return ''
+  }).trim()
   // באיחוד אין גישה למחברת עצמה — אזהרות "במחברת כתוב" שנשארו למרות ההוראה מוסרות כאן בוודאות
-  return { summary_md: hasSource ? stripNotebookWarnings(answer) : answer }
+  return { summary_md: hasSource ? stripNotebookWarnings(answer) : answer, offtopic }
 }
 
 // הבאת טקסט מקור מלא (שיר / פסוקים) מהרשת עם חיפוש אמיתי (grounding) + קישור למקור

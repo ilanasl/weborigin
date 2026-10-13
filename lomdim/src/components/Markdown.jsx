@@ -47,6 +47,8 @@ export default function Markdown({ text, className = '', examBox = false }) {
     }
 
     if (!line.trim()) { flush(); continue }
+    // הערות נסתרות (חומר מתחום אחר שהוצא מהסיכום) — לא מוצגות
+    if (/^<!--OFF/.test(line.trim())) continue
     // קו מפריד (---) — קו דק במקום שלושה מקפים
     if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flush(); blocks.push({ type: 'hr' }); continue }
 

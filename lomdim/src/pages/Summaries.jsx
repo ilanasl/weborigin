@@ -4,7 +4,7 @@ import Markdown from '../components/Markdown'
 import { supabase } from '../lib/supabase'
 import { stripNotebookWarnings } from '../lib/gemini'
 import { examTag } from '../lib/plan'
-import { consolidateTopic, needsConsolidation, autoTried } from '../lib/consolidate'
+import { consolidateTopic, needsConsolidation, autoTried, readOff } from '../lib/consolidate'
 import { useAuth } from '../context/AuthContext'
 
 // חוברת סיכומים: כל סיכומי המקצוע במסך אחד, עם תוכן עניינים — לקריאה רצופה לפני מבחן
@@ -34,7 +34,7 @@ export default function Summaries({ nav, params }) {
         const merged = own.find((m) => m.kind === 'summary')
         // בלי סיכום מאוחד — כל סיכומי הדפים לפי סדר ההעלאה (לא רק האחרון)
         const pageSums = [...new Set(own.filter((m) => m.kind !== 'summary' && m.kind !== 'note' && m.kind !== 'style').reverse().map((m) => m.summary_md))]
-        return { ...t, source, needMerge: needsConsolidation(own), summary: merged ? stripNotebookWarnings(merged.summary_md) : pageSums.join('\n\n---\n\n') || null }
+        return { ...t, source, needMerge: needsConsolidation(own), offs: readOff(merged?.summary_md).pending.map((o) => o.name), summary: merged ? stripNotebookWarnings(merged.summary_md) : pageSums.join('\n\n---\n\n') || null }
       })
       // נושאי המיקוד ראשונים
       list.sort((a, b) => (b.in_exam ? 1 : 0) - (a.in_exam ? 1 : 0))
@@ -48,7 +48,7 @@ export default function Summaries({ nav, params }) {
           if (await consolidateTopic({ subjectId, subjectName, topicId: t.id, topicName: t.name, learner: profile })) {
             const { data: sm } = await supabase.from('materials').select('summary_md').eq('topic_id', t.id).eq('kind', 'summary').limit(1)
             const md = sm?.[0]?.summary_md
-            if (md) setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, summary: stripNotebookWarnings(md) } : x)))
+            if (md) setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, summary: stripNotebookWarnings(md), offs: readOff(md).pending.map((o) => o.name) } : x)))
           }
         } catch { /* נשאר הסיכום מהדפים */ }
         setMerging((m) => ({ ...m, [t.id]: false }))
@@ -134,6 +134,12 @@ export default function Summaries({ nav, params }) {
                     <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
                     <span>מאחד את כל הדפים של הנושא לסיכום אחד קצר, בלי חזרות… כחצי דקה.</span>
                   </div>
+                )}
+                {t.offs?.length > 0 && (
+                  <button type="button" onClick={() => openTopic(t)} className="w-full text-start mb-3 p-3 rounded-[14px] text-[13px] font-semibold no-print"
+                    style={{ background: 'rgba(184,80,28,.08)', color: '#8A3A12' }}>
+                    בדפים של הנושא יש גם חומר על {t.offs.map((n) => `«${n}»`).join(', ')} — להעביר אותו לנושא משלו ←
+                  </button>
                 )}
                 {t.summary ? <div style={merging[t.id] ? { opacity: 0.4 } : undefined}><Markdown text={t.summary} examBox /></div> : (
                   <div className="text-[14px]" style={{ color: '#3E3E45' }}>עדיין אין סיכום לנושא הזה.</div>
