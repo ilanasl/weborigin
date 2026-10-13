@@ -526,7 +526,7 @@ export const topicSummary = async ({ subjectName, topicName, learner, sourceMate
     ? `בסס/י את הסיכום על החומר שהועלה, ומותר להשלים ולהעשיר מהידע הכללי במקומות שחסרים או לא ברורים.`
     : `הסתמך/י אך ורק על החומר שהועלה — אל תוסיף/י מידע, מושגים או דוגמאות שאינם מופיעים בו.`
   const intro = hasSource
-    ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום אחד מסודר ומקיף — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. ${faith} ${CONSOLIDATE_RULE}\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 12000)}"""\n\n`
+    ? `לפניך כל החומרים שהתלמיד/ה העלה/תה לנושא "${topicName}" (${subjectName}). אחד/י אותם לסיכום אחד מסודר ומקיף — בלי כפילויות וסתירות, ותוך שמירה על כל הדגשים החשובים. ${faith} ${CONSOLIDATE_RULE}\n\nהחומרים שהועלו:\n"""${String(sourceMaterials).slice(0, 60000)}"""\n\n`
     : `כתוב סיכום מסודר לחזרה על הנושא "${topicName}" במקצוע "${subjectName}", ברמת כיתה ${gradeOf(learner)}. ` +
       (focus ? `הסיכום צריך לכסות בדיוק את מה שמופיע במיקוד המבחן: "${focus}" — לפי הידע המקובל בתוכנית הלימודים. ` : '')
   const question = intro +
