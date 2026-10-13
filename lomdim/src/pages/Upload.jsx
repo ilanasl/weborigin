@@ -7,7 +7,7 @@ import Icon from '../components/Icon'
 import { supabase } from '../lib/supabase'
 import { subjectStyle } from '../lib/examStyle'
 import { consolidateTopic } from '../lib/consolidate'
-import { analyzeMaterial, fileHash } from '../lib/gemini'
+import { analyzeMaterial, fileHash, filterNewQuestions } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
@@ -197,6 +197,32 @@ export default function Upload({ nav, params }) {
     return ins?.id
   }
 
+  // ── סינון כפולים מול מה שכבר יש בנושא ──
+  const norm = (t) => String(t || '').replace(/[\u0591-\u05C7]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
+  const words = (t) => new Set(norm(t).split(' ').filter((w) => w.length > 1))
+  const similar = (a, b) => {
+    const A = words(a), B = words(b)
+    if (!A.size || !B.size) return false
+    let n = 0; for (const w of A) if (B.has(w)) n++
+    return n / Math.min(A.size, B.size) >= 0.8
+  }
+  async function keepNewQuestions(topicId, topicName, qs) {
+    const { data: ex } = await supabase.from('questions').select('q').eq('topic_id', topicId).limit(300)
+    const existing = (ex || []).map((r) => r.q).filter(Boolean)
+    if (!existing.length) return qs
+    setSaveMsg(`בודק אילו שאלות על "${topicName}" באמת חדשות…`)
+    try {
+      const { keep } = await filterNewQuestions({ subjectName, topicName, existing, fresh: qs.map((q, i) => ({ i: i + 1, q: q.q })) })
+      if (Array.isArray(keep)) { const set = new Set(keep.map(Number)); return qs.filter((_, i) => set.has(i + 1)) }
+    } catch { /* בלי ה-AI — לפחות בלי כפולים כמעט-זהים */ }
+    return qs.filter((q) => !existing.some((e) => similar(q.q, e)))
+  }
+  async function keepNewCards(topicId, cards) {
+    const { data: ex } = await supabase.from('flashcards').select('front').eq('topic_id', topicId).limit(500)
+    const fronts = new Set((ex || []).map((r) => norm(r.front)))
+    return cards.filter((c) => !fronts.has(norm(c.front)))
+  }
+
   async function save() {
     const active = chosen.filter((c) => c.name.trim())
     if (!active.length) return
@@ -235,15 +261,18 @@ export default function Upload({ nav, params }) {
           content_hash: files[fi].hash ? (first ? files[fi].hash : `${files[fi].hash}:${topicId}`) : null,
           source_text: first ? (results[fi]?.source_text || null) : null,
         }).select('id').single()
-        if (Array.isArray(ct.questions) && ct.questions.length) {
-          await supabase.from('questions').insert(ct.questions.map((q) => ({
+        // נושא שכבר יש בו שאלות — מוסיפים רק שאלות על משהו שעוד לא מתורגל מספיק (דף שחוזר על חומר מוכר לא מוסיף כפולות)
+        const freshQs = topicId && Array.isArray(ct.questions) && ct.questions.length ? await keepNewQuestions(topicId, ct.name.trim(), ct.questions) : (ct.questions || [])
+        const freshCards = topicId && Array.isArray(ct.flashcards) && ct.flashcards.length ? await keepNewCards(topicId, ct.flashcards) : (ct.flashcards || [])
+        if (freshQs.length) {
+          await supabase.from('questions').insert(freshQs.map((q) => ({
             subject_id: subjectId, topic_id: topicId, material_id: mat?.id,
             q: q.q, choices: q.choices, answer: q.answer,
             difficulty: q.difficulty || 'בינוני', explain: q.explain || '', hint: q.hint || '',
           })))
         }
-        if (Array.isArray(ct.flashcards) && ct.flashcards.length) {
-          await supabase.from('flashcards').insert(ct.flashcards.map((c) => ({
+        if (freshCards.length) {
+          await supabase.from('flashcards').insert(freshCards.map((c) => ({
             subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
           })))
         }
