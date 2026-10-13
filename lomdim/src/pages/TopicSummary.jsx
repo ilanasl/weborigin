@@ -10,6 +10,8 @@ import Markdown from '../components/Markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { fetchAll } from '../lib/fetchAll'
 import { forget } from '../lib/screenCache'
+import { consolidateTopic, needsConsolidation, autoTried } from '../lib/consolidate'
+import { GEN_MARK } from '../lib/plan'
 
 export default function TopicSummary({ nav, params }) {
   const gx = useG()
@@ -38,6 +40,7 @@ export default function TopicSummary({ nav, params }) {
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [autoMerging, setAutoMerging] = useState(false)   // איחוד אוטומטי של כמה דפים לסיכום אחד
   const [err, setErr] = useState('')
   const [ref, setRef] = useState('')
   const [fetching, setFetching] = useState(false)
@@ -107,6 +110,15 @@ export default function TopicSummary({ nav, params }) {
     setOtherTopics((tps || []).filter((t) => t.id !== topicId))
     setQCount(count || 0)
     setLoading(false)
+    // כמה דפים בלי סיכום מאוחד — מאחדים לבד (במקום להציג את כל סיכומי הדפים ברצף, עם חזרות)
+    if (needsConsolidation(mats) && !autoTried.has(topicId)) {
+      autoTried.add(topicId)
+      setAutoMerging(true)
+      try {
+        if (await consolidateTopic({ subjectId, subjectName, topicId, topicName: name, learner: profile })) { forget(`subject:${subjectId}`); await load() }
+      } catch { /* נשאר הסיכום מהדפים; אפשר לנסות שוב מ"ניהול הנושא" */ }
+      setAutoMerging(false)
+    }
   }
 
   async function deleteNote(id) {
@@ -134,7 +146,9 @@ export default function TopicSummary({ nav, params }) {
     setBusy(true); setErr('')
     try {
       // מאחד את כל החומרים שהועלו לנושא לסיכום אחד (אם אין — סיכום כללי)
-      const { summary_md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, enrich })
+      const { summary_md: md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, enrich })
+      // נושא שנכתב מהידע הכללי (בלי דפים) — התגית נשארת גם אחרי בנייה מחדש
+      const summary_md = !aggSource && String(summary || '').includes(GEN_MARK) ? `${GEN_MARK}\n\n${md}` : md
       await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
       await supabase.from('materials').insert({
         subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
@@ -398,7 +412,7 @@ export default function TopicSummary({ nav, params }) {
       <div className="paper print-area">
         {summary && <div className="hidden print:block font-disp font-extrabold text-[20px] mb-2">{name} · {subjectName}</div>}
         {summary ? (
-          <div style={busy ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
+          <div style={busy || autoMerging ? { opacity: 0.4, transition: 'opacity .3s' } : undefined}><Markdown text={summary} examBox /></div>
         ) : (
           <div className="text-center py-6">
             <div className="flex justify-center mb-2" style={{ color: '#5E7A00' }}><Icon name="book" size={36} /></div>
@@ -410,10 +424,10 @@ export default function TopicSummary({ nav, params }) {
         <div className="no-print">
         {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
 
-        {busy && (
+        {(busy || autoMerging) && (
           <div className="flex items-start gap-2.5 mt-4 p-3 rounded-[14px] text-[13.5px] font-semibold" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
             <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
-            <span>מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.</span>
+            <span>{autoMerging ? 'מאחד את כל הדפים של הנושא לסיכום אחד קצר, בלי חזרות… זה לוקח בערך חצי דקה.' : 'מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.'}</span>
           </div>
         )}
         <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
@@ -428,18 +442,14 @@ export default function TopicSummary({ nav, params }) {
               הדפסה
             </button>
           )}
-          <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
-            {busy ? 'מכין…' : aggSource ? 'בנה סיכום אחד מכל הדפים' : summary ? 'סכם מחדש' : 'צור סיכום'}
-          </button>
-          {aggSource && (
-            <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer" style={{ color: '#3E3E45' }}>
-              <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[18px] h-[18px]" style={{ accentColor: '#5E7A00' }} />
-              להשלים גם מהידע הכללי
-            </label>
+          {/* בלי סיכום בכלל — יוצרים כאן; בנייה מחדש של סיכום קיים — ב"ניהול הנושא" */}
+          {!summary && (
+            <button type="button" className="paper-btn" onClick={generate} disabled={busy}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
+              {busy ? 'מכין…' : 'צור סיכום'}
+            </button>
           )}
         </div>
-        {aggSource && <div className="text-[12px] mt-2" style={{ color: '#6B6B72' }}>קורא את כל הדפים שהעלית לנושא ומחבר אותם לסיכום אחד מסודר, בלי חזרות. שימושי אחרי שמעלים דף חדש.</div>}
         </div>
       </div>
 
@@ -463,6 +473,24 @@ export default function TopicSummary({ nav, params }) {
       {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
       <div className="home-h2 mt-7 mb-2.5"><h2>ניהול הנושא</h2></div>
       <div className="milky-row !flex-col !items-stretch !gap-3">
+        {summary && (
+          <div className="flex flex-col gap-2">
+            <div className="text-[13.5px] font-bold">בנייה מחדש של הסיכום</div>
+            <div className="text-[12px] text-muted leading-relaxed">כותב את הסיכום מחדש מכל הדפים של הנושא — קצר ובלי חזרות. נעשה לבד אחרי העלאת דף חדש; צריך רק אם משהו בסיכום לא טוב.</div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold" disabled={busy || autoMerging}
+                style={{ border: '1.5px solid var(--milky-line)' }} onClick={generate}>
+                <Icon name="refresh" size={16} />{busy ? 'מכין…' : gx('בנה מחדש', 'בני מחדש')}
+              </button>
+              {aggSource && (
+                <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
+                  <input type="checkbox" checked={enrich} onChange={(e) => setEnrich(e.target.checked)} className="w-[18px] h-[18px]" style={{ accentColor: 'var(--primary)' }} />
+                  להשלים גם מהידע הכללי
+                </label>
+              )}
+            </div>
+          </div>
+        )}
         {otherTopics.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="text-[13.5px] font-bold">איחוד עם נושא אחר</div>
