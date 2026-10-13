@@ -57,6 +57,18 @@ export default function Summaries({ nav, params }) {
   }, [subjectId])
 
   const jump = (id) => document.getElementById(`sm-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  // הדפסה של נושא אחד בלבד (שאר החוברת מוסתרת בזמן ההדפסה)
+  const printOne = (id) => {
+    document.body.classList.add('print-one')
+    document.getElementById(`sm-${id}`)?.classList.add('print-this')
+    const done = () => {
+      document.body.classList.remove('print-one')
+      document.querySelectorAll('.print-this').forEach((el) => el.classList.remove('print-this'))
+      window.removeEventListener('afterprint', done)
+    }
+    window.addEventListener('afterprint', done)
+    window.print()
+  }
   const openTopic = (t) => nav.go('topicSummary', { subjectId, subjectName, topicId: t.id, topicName: t.name })
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
@@ -93,7 +105,7 @@ export default function Summaries({ nav, params }) {
           </div>
 
           <div className="print-area">
-          <div className="hidden print:block font-disp font-extrabold text-[22px] mb-3">חוברת סיכומים · {subjectName}</div>
+          <div className="hidden print:block print-book-title font-disp font-extrabold text-[22px] mb-3">חוברת סיכומים · {subjectName}</div>
           {items.map((t, i) => (
             <section key={t.id} id={`sm-${t.id}`} className={`mb-6 ${t.summary ? '' : 'no-print'}`} style={{ scrollMarginTop: 90 }}>
               <div className="flex items-baseline gap-2 mb-2.5">
@@ -131,6 +143,12 @@ export default function Summaries({ nav, params }) {
                     onClick={() => nav.go('practice', { subjectId, subjectName, topicId: t.id, topicName: t.name, mode: 'practice' })}>
                     <Icon name="target" size={17} />לתרגול הנושא
                   </button>
+                  {t.summary && (
+                    <button type="button" className="paper-btn" onClick={() => printOne(t.id)}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2M7 14h10v7H7z" /></svg>
+                      הדפסה
+                    </button>
+                  )}
                   {!t.summary && (
                     <button type="button" className="paper-btn" onClick={() => openTopic(t)}>
                       <Icon name="book" size={17} />ליצירת סיכום
