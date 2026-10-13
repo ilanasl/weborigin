@@ -430,6 +430,17 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .up-thumb{ width:40px; height:40px; flex:none; border-radius:12px; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; font-size:19px; overflow:hidden }
 .up-thumb img{ width:100%; height:100%; object-fit:cover }
 .up-preview{ display:block; width:100%; max-height:220px; object-fit:contain; border-radius:12px; background:rgba(255,255,255,.06) }
+/* ── מחברת הסיכומים: לשוניות + כפתור לנושא ── */
+.nb-tabs{ display:flex; gap:8px; overflow-x:auto; margin:12px -16px 14px; padding:2px 16px 4px; scrollbar-width:none }
+.nb-tabs::-webkit-scrollbar{ display:none }
+.nb-tab{ flex:none; display:inline-flex; align-items:center; gap:4px; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-family:var(--disp); font-weight:700; font-size:13.5px; color:var(--ink); background:var(--milky); border:1px solid var(--milky-line);
+  border-radius:14px 14px 6px 6px; padding:9px 13px }
+.nb-tab[aria-selected="true"]{ background:var(--primary); color:var(--on-fill); border-color:transparent }
+.nb-dot{ width:7px; height:7px; border-radius:50%; background:var(--primary); flex:none; margin-inline-start:4px }
+.nb-tab[aria-selected="true"] .nb-dot{ background:var(--on-fill) }
+.nb-go{ display:flex; align-items:center; justify-content:space-between; width:100%; margin-top:16px; height:46px; padding:0 18px; border-radius:23px;
+  border:1.5px solid #1D1D21; background:transparent; color:#1D1D21; font-family:var(--disp); font-weight:700; font-size:14.5px }
 .work-note{ display:flex; align-items:flex-start; gap:10px; padding:12px; border-radius:14px; font-size:13px; font-weight:600; line-height:1.5;
   background:var(--primary-soft); color:var(--primary) }
 .work-sub{ display:block; font-weight:500; opacity:.8; margin-top:3px; font-size:12px }

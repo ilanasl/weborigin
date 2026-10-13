@@ -14,7 +14,8 @@ import { forget } from '../lib/screenCache'
 import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
 import { GEN_MARK } from '../lib/plan'
 
-export default function TopicSummary({ nav, params }) {
+// מוצג כלשונית של נושא בתוך מחברת הסיכומים (embedded). onChanged — רענון הלשוניות (שם/נושא חדש), onOpen — מעבר ללשונית של נושא אחר
+export default function TopicSummary({ nav, params, embedded = false, onChanged, onOpen }) {
   const gx = useG()
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
@@ -228,7 +229,7 @@ export default function TopicSummary({ nav, params }) {
       if (rows.length) await supabase.from('questions').insert(rows)
       forget(`subject:${subjectId}`)
       await load()
-      setRestTopic({ id: newId, name: newName })
+      setRestTopic({ id: newId, name: newName }); onChanged?.()
       setCompleteNote(`✓ נפתח נושא חדש עם סיכום ו-${rows.length + moveIds.length} שאלות.`)
     } catch (e) {
       setCompleteNote(''); setErr(aiErrorText('ההשלמה נכשלה.', e))
@@ -241,7 +242,7 @@ export default function TopicSummary({ nav, params }) {
     try {
       const { error } = await supabase.from('topics').update({ name: nm }).eq('id', topicId)
       if (error) throw error
-      setName(nm)
+      setName(nm); onChanged?.()
     } catch { setRenameVal(name) }
     setEditName(false)
   }
@@ -297,7 +298,7 @@ export default function TopicSummary({ nav, params }) {
 
   return (
     <div className="pt-1">
-      <span className="end-tag inline-block mb-3">{subjectName}</span>
+      {!embedded && <span className="end-tag inline-block mb-3">{subjectName}</span>}
       {editName ? (
         <div className="flex items-center gap-2">
           <input className="field flex-1 min-w-0 !text-[18px] font-bold" value={renameVal} autoFocus
@@ -307,7 +308,7 @@ export default function TopicSummary({ nav, params }) {
           <button type="button" className="hbtn !px-0 w-11 flex-none" aria-label="ביטול" onClick={() => { setEditName(false); setRenameVal(name) }}><Icon name="x" size={18} /></button>
         </div>
       ) : (
-        <h1 className="font-black text-[30px] leading-[1.1] tracking-tight">
+        <h1 className={`font-black ${embedded ? 'text-[24px]' : 'text-[30px]'} leading-[1.1] tracking-tight`}>
           {name}
           <button type="button" className="inline-grid place-items-center align-middle ms-2 w-8 h-8 rounded-full text-muted" style={{ background: 'rgba(255,255,255,.08)' }}
             aria-label="שינוי שם הנושא" onClick={() => { setRenameVal(name); setEditName(true) }}><Icon name="pencil" size={15} /></button>
@@ -339,7 +340,7 @@ export default function TopicSummary({ nav, params }) {
             {completeNote && (completing ? <WorkNote text={`${completeNote} כחצי דקה עד דקה.`} /> : <div className="text-[12.5px] font-semibold" style={{ color: 'var(--good)' }}>{completeNote}</div>)}
             {restTopic && (
               <button type="button" className="self-start text-[13px] font-bold text-primary underline"
-                onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: restTopic.id, topicName: restTopic.name })}>לנושא החדש ›</button>
+                onClick={() => (onOpen ? onOpen(restTopic.id) : nav.go('topicSummary', { subjectId, subjectName, topicId: restTopic.id, topicName: restTopic.name }))}>לנושא החדש ›</button>
             )}
             <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold"
               style={{ background: 'var(--primary)', color: 'var(--on-fill)' }} disabled={completing || busy} onClick={completeFromSource}>
@@ -475,7 +476,7 @@ export default function TopicSummary({ nav, params }) {
               setOffBusy(o.name)
               try {
                 const t = await moveOffTopic({ subjectId, subjectName, fromTopicId: topicId, item: o, learner: profile })
-                forget(`subject:${subjectId}`); setOffNote(t); await load()
+                forget(`subject:${subjectId}`); setOffNote(t); await load(); onChanged?.()
               } catch { setErr('ההעברה נכשלה. נסו שוב בעוד רגע.') }
               setOffBusy(null)
             }}>{offBusy === o.name ? 'יוצר נושא ושאלות…' : 'להעביר לנושא משלו'}</button>
@@ -486,7 +487,7 @@ export default function TopicSummary({ nav, params }) {
       ))}
       {offNote && (
         <button type="button" className="milky-row mt-3 text-[13.5px] font-semibold"
-          onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: offNote.id, topicName: offNote.name })}>
+          onClick={() => (onOpen ? onOpen(offNote.id) : nav.go('topicSummary', { subjectId, subjectName, topicId: offNote.id, topicName: offNote.name }))}>
           <Icon name="check" size={18} style={{ color: 'var(--good)' }} />
           <span className="flex-1 text-start">נוצר נושא «{offNote.name}» עם סיכום ושאלות</span>
           <Icon name="chevron" size={18} />
@@ -511,7 +512,7 @@ export default function TopicSummary({ nav, params }) {
       )}
 
       {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
-      <div className="home-h2 mt-7 mb-2.5"><h2>ניהול הנושא</h2></div>
+      <div className="home-h2 mt-7 mb-2.5"><h2>כלים לנושא</h2></div>
       <div className="milky-row !flex-col !items-stretch !gap-3">
         {summary && (
           <div className="flex flex-col gap-2">
