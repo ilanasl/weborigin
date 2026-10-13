@@ -141,7 +141,7 @@ export default function Parent({ nav }) {
     if (!window.confirm('לבדוק את השאלות הקיימות מול החומר ולתקן: תשובות שגויות או לא חד-משמעיות, תשובות ארוכות מדי, מסיחים לא סבירים, ערבוב מקצועות ושאלות שמפנות לפסוק או לשורה בלי לצטט אותם?\nשאלה שגויה שאי אפשר לתקן — תימחק.\nזה משתמש ב-AI (עלות חד-פעמית, לפי כמות השאלות).')) return
     setFxBusy(true); setFxNote('טוען שאלות…')
     const { data } = await fetchAll(() => {
-      const b = supabase.from('questions').select('id, subject_id, topic_id, material_id, q, choices, answer, explain')
+      const b = supabase.from('questions').select('id, subject_id, topic_id, material_id, q, choices, answer, explain, difficulty')
       return fxSubj !== 'all' ? b.eq('subject_id', fxSubj) : b
     })
     const done = readFixed()
@@ -173,7 +173,7 @@ export default function Parent({ nav }) {
         try {
           const { items } = await reviewBatch({
             subjectName: names[sid] || '', learner: profile, source: (mid && srcOf[mid]) || '', fullText: (tid && fullOf[tid]) || '',
-            items: batch.map((x) => ({ id: x.id, q: x.q, choices: x.choices, answer: x.answer, explain: x.explain || '' })),
+            items: batch.map((x) => ({ id: x.id, q: x.q, choices: x.choices, answer: x.answer, explain: x.explain || '', difficulty: x.difficulty || '' })),
           })
           const byId = Object.fromEntries((items || []).map((it) => [String(it.id), it]))
           const res = batch.map((orig) => ({ orig, got: byId[String(orig.id)], r: readReview(orig, byId[String(orig.id)]) }))
@@ -187,8 +187,8 @@ export default function Parent({ nav }) {
                 await supabase.from('questions').delete().eq('id', orig.id)
                 removed++
               } else if (r.kind === 'fixed') {
-                const { q: nq, choices, answer, explain } = r.q
-                await supabase.from('questions').update({ q: nq, choices, answer, explain }).eq('id', orig.id)
+                const { q: nq, choices, answer, explain, difficulty } = r.q
+                await supabase.from('questions').update({ q: nq, choices, answer, explain, ...(difficulty ? { difficulty } : {}) }).eq('id', orig.id)
                 updated++
               }
               done.add(orig.id)
