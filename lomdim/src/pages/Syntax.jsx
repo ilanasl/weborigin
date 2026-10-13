@@ -159,7 +159,9 @@ export default function Syntax({ nav, params }) {
   const effTopic = topicId ? { id: topicId, name: topicName } : item.topic_id ? { id: item.topic_id, name: modeInfo?.topic?.name } : (modeInfo?.topic || null)
   const multi = (modes || []).length > 1
   // שורת "מה עושים" מעל המשפט — בתרגול מעורב, כדי שיהיה ברור איזה סוג תרגיל זה
-  const kicker = multi && <span className="tp-badge mb-2 inline-block" style={{ background: 'var(--primary)' }}>{modeInfo?.label}</span>
+  // בקטן — "ניתוח משפט"; בגדול — סוג התרגיל, כדי שיבלוט מיד
+  const kicker = <span className="tp-badge mb-2 inline-block" style={{ background: 'var(--primary)' }}>ניתוח משפט</span>
+  const title = modeInfo?.label || 'ניתוח משפט'
   const allTagged = tokens.every((_, i) => picks[i])
   const correctCount = tokens.filter((t, i) => picks[i] === t.role).length
   // מילות חיבור: מסמנים את מילת החיבור (מילה אחת או כמה) ובוחרים את סוג הקשר
@@ -257,7 +259,7 @@ export default function Syntax({ nav, params }) {
       <div className="pt-1">
         <SegProgress total={items.length} idx={idx} results={results} />
         {kicker}
-        <h1 className="font-black text-[30px] leading-tight">{multi ? 'ניתוח משפט' : 'מילות חיבור'}</h1>
+        <h1 className="font-black text-[30px] leading-tight">{title}</h1>
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {checked ? 'בדקנו את התשובה שלך' : 'הקישו על מילת החיבור (אם היא כמה מילים — על כולן), ובחרו למטה איזה קשר היא מבטאת.'}
         </div>
@@ -319,7 +321,7 @@ export default function Syntax({ nav, params }) {
     <div className="pt-1">
       <SegProgress total={items.length} idx={idx} results={results} />
       {kicker}
-      <h1 className="font-black text-[30px] leading-tight">{mode === 'pos' && !multi ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
+      <h1 className="font-black text-[30px] leading-tight">{title}</h1>
       <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
         {checked ? 'בדקנו את הסימון שלך' : mode === 'pos'
           ? 'הקישו על מילה (או כמה) ובחרו את חלק הדיבר.'
