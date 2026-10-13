@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toAIInput } from '../lib/image'
 import { supabase } from '../lib/supabase'
+import WorkNote, { useWorking } from '../components/WorkNote'
 import { checkExercise, generateQuestions, examQuestions } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import { PASSED_KEY } from '../lib/plan'
@@ -23,6 +24,7 @@ export default function PastExams({ params }) {
   const [editGrade, setEditGrade] = useState('')
   const [editFile, setEditFile] = useState(null)
   const [editBusy, setEditBusy] = useState(false)
+  useWorking((busy && !!file) || (editBusy && !!editFile))
 
   async function load() {
     setLoading(true)
@@ -200,6 +202,7 @@ export default function PastExams({ params }) {
         <button className="btn btn-primary btn-wide" onClick={save} disabled={busy}>
           {busy ? (file ? 'שומר ומנתח…' : 'שומר…') : 'הוסף מבחן'}
         </button>
+        {busy && file && <WorkNote text="מנתח את המבחן: מוציא ממנו שאלות לתרגול ולומד את סגנון המורה… כחצי דקה עד דקה." />}
       </div>
 
       <div className="list-title">היסטוריית מבחנים</div>
@@ -239,6 +242,7 @@ export default function PastExams({ params }) {
                   <button className="btn btn-primary btn-wide" onClick={() => saveEdit(e)} disabled={editBusy}>
                     {editBusy ? (editFile ? 'שומר ומנתח…' : 'שומר…') : 'שמור'}
                   </button>
+                  {editBusy && editFile && <WorkNote className="mt-2" text="מנתח את המבחן: מוציא ממנו שאלות לתרגול ולומד את סגנון המורה… כחצי דקה עד דקה." />}
                 </div>
               )}
             </div>

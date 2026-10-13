@@ -4,6 +4,7 @@ import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
+import WorkNote from '../components/WorkNote'
 import { supabase } from '../lib/supabase'
 import { subjectStyle } from '../lib/examStyle'
 import { consolidateTopic } from '../lib/consolidate'
@@ -292,7 +293,8 @@ export default function Upload({ nav, params }) {
           try { await consolidateTopic({ subjectId, subjectName, topicId: tid, topicName: touched[tid], learner: profile }) } catch { /* הסיכומים של הדפים נשארים */ }
         }
       }
-      nav.reset('subject', { id: subjectId })
+      // יצאו מהמסך באמצע השמירה — השמירה הושלמה ברקע; לא מקפיצים חזרה למסך המקצוע
+      if (!left.current) nav.reset('subject', { id: subjectId })
     } catch (e) {
       setErr('שמירה נכשלה: ' + String(e))
     } finally { setBusy(false) }
@@ -489,6 +491,7 @@ export default function Upload({ nav, params }) {
           <button type="button" className="ts-practice !h-[56px] !rounded-[28px] !text-[17px]" onClick={save} disabled={busy || addBusy != null || !chosen.some((c) => c.name.trim())}>
             {busy ? (saveMsg || 'שומר…') : 'שמור למקצוע'}
           </button>
+          {busy && <WorkNote text={`${saveMsg || 'שומר את החומר…'} בסוף יופיע מסך המקצוע.`} />}
         </div>
       )}
     </div>

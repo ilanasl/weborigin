@@ -8,6 +8,7 @@ import { topicSummary, fetchSourceText, stripNotebookWarnings, generateQuestions
 import { useAuth } from '../context/AuthContext'
 import Markdown from '../components/Markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
+import WorkNote, { useWorking } from '../components/WorkNote'
 import { fetchAll } from '../lib/fetchAll'
 import { forget } from '../lib/screenCache'
 import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
@@ -52,6 +53,8 @@ export default function TopicSummary({ nav, params }) {
   const [showManual, setShowManual] = useState(false)
   const [fetchedSources, setFetchedSources] = useState([])
   const [wantSource, setWantSource] = useState(false)
+
+  useWorking(busy || autoMerging || completing || fetching || !!offBusy || removing)
 
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
@@ -333,7 +336,7 @@ export default function TopicSummary({ nav, params }) {
             <div className="text-[12px] text-muted leading-relaxed">
               {isBible ? 'למשל: במחברת יש עד פסוק י\', והמבדק על כל הפרק. ' : ''}המערכת תמצא מה לא נלמד במחברת ותפתח לו נושא חדש — עם סיכום ברמת הכיתה ושאלות, כמו חומר חדש שמצלמים. הנושא הזה נשאר כמו שהוא.
             </div>
-            {completeNote && <div className="text-[12.5px] font-semibold" style={{ color: completing ? 'var(--primary)' : 'var(--good)' }}>{completeNote}</div>}
+            {completeNote && (completing ? <WorkNote text={`${completeNote} כחצי דקה עד דקה.`} /> : <div className="text-[12.5px] font-semibold" style={{ color: 'var(--good)' }}>{completeNote}</div>)}
             {restTopic && (
               <button type="button" className="self-start text-[13px] font-bold text-primary underline"
                 onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: restTopic.id, topicName: restTopic.name })}>לנושא החדש ›</button>
@@ -381,6 +384,7 @@ export default function TopicSummary({ nav, params }) {
               {fetching ? 'מחפש ומביא מהרשת…' : <><Icon name="download" size={18} />הבא טקסט מלא מהרשת</>}
             </button>
           )}
+          {fetching && <WorkNote className="mt-2" text="מחפש את הנוסח המלא ברשת… כמה שניות עד חצי דקה." />}
           {err && <div className="text-bad text-[12.5px] mt-2">{err}</div>}
 
           {/* גיבוי ידני — מקורות + הדבקה */}
@@ -435,10 +439,7 @@ export default function TopicSummary({ nav, params }) {
         {err && <div className="text-[13.5px] mt-3 font-semibold" style={{ color: '#B8501C' }}>{err}</div>}
 
         {(busy || autoMerging) && (
-          <div className="flex items-start gap-2.5 mt-4 p-3 rounded-[14px] text-[13.5px] font-semibold" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
-            <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
-            <span>{autoMerging ? 'מאחד את כל הדפים של הנושא לסיכום אחד קצר, בלי חזרות… זה לוקח בערך חצי דקה.' : 'מכין סיכום חדש מכל החומרים… זה לוקח בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.'}</span>
-          </div>
+          <WorkNote light className="mt-4" text={autoMerging ? 'מאחד את כל הדפים של הנושא לסיכום אחד, בלי חזרות… בערך חצי דקה.' : 'בונה את הסיכום מחדש מכל הדפים… בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.'} />
         )}
         <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
           onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
@@ -480,6 +481,7 @@ export default function TopicSummary({ nav, params }) {
             }}>{offBusy === o.name ? 'יוצר נושא ושאלות…' : 'להעביר לנושא משלו'}</button>
             <button type="button" className="gap-btn" disabled={!!offBusy} onClick={async () => { await markOffDone(topicId, o.name); await load() }}>לא צריך</button>
           </div>
+          {offBusy === o.name && <WorkNote className="mt-2" text={`יוצר נושא «${o.name}» עם סיכום ושאלות… כחצי דקה.`} />}
         </div>
       ))}
       {offNote && (
@@ -527,12 +529,7 @@ export default function TopicSummary({ nav, params }) {
                 </label>
               )}
             </div>
-            {busy && (
-              <div className="flex items-start gap-2.5 p-3 rounded-[14px] text-[13px] font-semibold" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
-                <span className="up-spin mt-0.5" />
-                <span>בונה את הסיכום מחדש מכל הדפים… זה לוקח בערך חצי דקה עד דקה. אפשר להישאר במסך — הסיכום למעלה יתחלף כשזה יסתיים.</span>
-              </div>
-            )}
+            {busy && <WorkNote text="בונה את הסיכום מחדש מכל הדפים… בערך חצי דקה עד דקה. הסיכום למעלה יתחלף כשזה יסתיים." />}
           </div>
         )}
         {otherTopics.length > 0 && (
