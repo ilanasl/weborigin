@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
 import { aiErrorText } from '../lib/aiError'
 import Icon from '../components/Icon'
@@ -6,12 +6,14 @@ import { supabase } from '../lib/supabase'
 import { generateSentenceTags } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import { SegProgress, BottomSheet, FeedbackSheet } from '../components/QuestionUI'
+import { fetchAll } from '../lib/fetchAll'
+import { mastery } from '../lib/mastery'
 
 const ROLES = {
   syntax: ['נושא', 'נשוא', 'נשוא מורחב', 'משלים שם', 'משלים פועל'],
   pos: ['פועל', 'שם עצם', 'שם תואר', 'מילת קישור'],
 }
-// סוגי התרגול בכרטיסייה. כל סוג מופיע רק כשיש במקצוע נושא מתאים (תפקידי המילים — תמיד).
+// סוגי התרגול. כל סוג נכנס לתרגול המעורב רק כשיש במקצוע נושא מתאים (תפקידי המילים — תמיד).
 // נושא חדש שמתאים לאחת התבניות (לפי השם שלו) מצטרף אוטומטית.
 const MODES = [
   { mode: 'syntax', label: 'תפקידי המילים', match: /תחביר|ניתוח משפט/ },
@@ -34,15 +36,14 @@ export default function Syntax({ nav, params }) {
   const g = useG()
   const { subjectId, subjectName, topicId, topicName } = params
   const { profile } = useAuth()
-  const [mode, setMode] = useState(params.mode || 'syntax')
-  const [modes, setModes] = useState([])        // [{ mode, label, topic }] — סוגי התרגול הזמינים במקצוע
+  // תרגול מעורב: כל משפט הוא אחד מסוגי התרגול שיש להם חומר במקצוע (הסוג נשמר על המשפט — item.mode).
+  // הנושא החלש מקבל יותר משפטים. topicId — תרגול של נושא אחד בלבד.
+  const [modes, setModes] = useState(null)      // [{ mode, label, topic, weight }]
   const [rel, setRel] = useState('')            // מילות חיבור: סוג הקשר שנבחר
-  const roles = ROLES[mode] || ROLES.syntax
-  const modeTopic = modes.find((m) => m.mode === mode)?.topic || null
-  // הנושא שאליו נרשמות התשובות: שהועבר במפורש, או הנושא המתאים לסוג התרגול
-  const effTopic = topicId ? { id: topicId, name: topicName } : modeTopic
   const [items, setItems] = useState([])
   const [idx, setIdx] = useState(0)
+  const idxRef = useRef(0)
+  idxRef.current = idx
   const [picks, setPicks] = useState({})
   const [sel, setSel] = useState([])        // אפשר לבחור כמה מילים יחד ולתת להן תפקיד אחד
   const [results, setResults] = useState([])
@@ -51,77 +52,94 @@ export default function Syntax({ nav, params }) {
   const [generating, setGenerating] = useState(false)
   const [err, setErr] = useState('')
 
-  // מייצר מנה חדשה של משפטים ושומר אותם (לא ייעלמו)
-  async function genMore(initial) {
+  // מנה של משפטים לסוג אחד — נשמרים (לא ייעלמו)
+  async function genFor(m, count) {
+    // מילות חיבור — לפי החומר שהועלה לנושא (אותן מילים ואותן קטגוריות כמו במחברת)
+    let source = ''
+    if (m.mode === 'conn' && m.topic?.id) {
+      const { data: mats } = await supabase.from('materials').select('summary_md, source_text').eq('topic_id', m.topic.id).limit(6)
+      source = (mats || []).map((x) => [x.summary_md, x.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n')
+    }
+    const { items: got } = await generateSentenceTags({ subjectName, topicName: m.topic?.name || topicName, mode: m.mode, count, learner: profile, source })
+    let clean = (got || []).filter((it) => Array.isArray(it.tokens) && it.tokens.length)
+    if (m.mode === 'conn') {
+      // הסוג נשמר על מילות החיבור עצמן (בלי עמודה חדשה במסד); משפט בלי מילת חיבור או בלי סוג — נפסל
+      clean = clean.filter((it) => it.relation && it.tokens.some((t) => t.role === CONN))
+        .map((it) => ({ ...it, tokens: it.tokens.map((t) => (t.role === CONN ? { ...t, rel: it.relation } : { w: t.w, role: '' })) }))
+    }
+    if (!clean.length) return []
+    const rows = clean.map((it) => ({
+      subject_id: subjectId, topic_id: m.topic?.id || null, mode: m.mode,
+      sentence: it.sentence || '', tokens: it.tokens, explain: it.explain || '',
+    }))
+    const { data: ins } = await supabase.from('syntax_items').insert(rows).select('*')
+    return ins || []
+  }
+
+  // מנה מעורבת: לכל סוג — לפי המשקל שלו (חלש = יותר משפטים); only = רק הסוגים האלה
+  async function genMore(initial, only) {
     setGenerating(true); setErr('')
     try {
-      // מילות חיבור — לפי החומר שהועלה לנושא (אותן מילים ואותן קטגוריות כמו במחברת)
-      let source = ''
-      if (mode === 'conn' && effTopic?.id) {
-        const { data: mats } = await supabase.from('materials').select('summary_md, source_text').eq('topic_id', effTopic.id).limit(6)
-        source = (mats || []).map((m) => [m.summary_md, m.source_text].filter(Boolean).join('\n')).filter(Boolean).join('\n\n')
-      }
-      const { items: got } = await generateSentenceTags({ subjectName, topicName: effTopic?.name || topicName, mode, count: 6, learner: profile, source })
-      let clean = (got || []).filter((it) => Array.isArray(it.tokens) && it.tokens.length)
-      if (mode === 'conn') {
-        // הסוג נשמר על מילות החיבור עצמן (בלי עמודה חדשה במסד); משפט בלי מילת חיבור או בלי סוג — נפסל
-        clean = clean.filter((it) => it.relation && it.tokens.some((t) => t.role === CONN))
-          .map((it) => ({ ...it, tokens: it.tokens.map((t) => (t.role === CONN ? { ...t, rel: it.relation } : { w: t.w, role: '' })) }))
-      }
-      if (!clean.length) throw new Error('no_items')
-      const rows = clean.map((it) => ({
-        subject_id: subjectId, topic_id: effTopic?.id || null, mode,
-        sentence: it.sentence || '', tokens: it.tokens, explain: it.explain || '',
-      }))
-      const { data: ins } = await supabase.from('syntax_items').insert(rows).select('*')
-      const added = ins || []
+      const list = (only || modes || []).filter(Boolean)
+      const outs = await Promise.all(list.map((m) => genFor(m, m.weight + 1).catch(() => [])))
+      const added = shuffle(outs.flat())
+      if (!added.length) throw new Error('no_items')
       if (initial) { setItems(added); setIdx(0); setPicks({}); setSel([]); setRel(''); setChecked(false) }
-      else setItems((prev) => [...prev, ...added])
+      // משפטים חדשים מתערבבים במשפטים שעוד לא הגיעו אליהם (מה שכבר נענה — לא זז)
+      else setItems((prev) => { const k = Math.min(idxRef.current + 1, prev.length); return [...prev.slice(0, k), ...shuffle([...prev.slice(k), ...added])] })
     } catch (e) {
       setErr(aiErrorText('יצירת המשפטים נכשלה.', e?.message || e))
     } finally { setGenerating(false); setLoading(false) }
   }
 
-  // טוען משפטים שעדיין לא נענו — ממשיכים מאיפה שעצרנו; אם אין — מייצר
-  async function loadItems() {
-    setLoading(true); setResults([])
-    let q = supabase.from('syntax_items').select('*')
-      .eq('subject_id', subjectId).eq('mode', mode).eq('done', false)
-    if (topicId) q = q.eq('topic_id', topicId)
-    const { data } = await q.order('created_at').limit(30)
-    if (data && data.length) {
-      setItems(data); setIdx(0); setPicks({}); setSel([]); setRel(''); setChecked(false); setLoading(false)
-    } else {
-      await genMore(true)
-    }
-  }
-  // סוגי התרגול הזמינים — לפי שמות הנושאים במקצוע
+  // סוגי התרגול הזמינים — לפי שמות הנושאים במקצוע; המשקל לפי השליטה בנושא
   useEffect(() => {
     (async () => {
+      if (topicId) {
+        const m = MODES.find((x) => x.mode === params.mode) || MODES.find((x) => x.match.test(topicName || '')) || MODES[0]
+        setModes([{ ...m, topic: { id: topicId, name: topicName }, weight: 3 }])
+        return
+      }
       const { data: tps } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
       const list = MODES.map((m) => ({ ...m, topic: (tps || []).find((t) => m.match.test(t.name)) || null }))
         .filter((m) => m.mode === 'syntax' || m.topic)
-      setModes(list)
+      const ids = list.map((m) => m.topic?.id).filter(Boolean)
+      const { data: at } = ids.length
+        ? await fetchAll(() => supabase.from('attempts').select('topic_id, correct, difficulty, created_at').in('topic_id', ids))
+        : { data: [] }
+      const pctOf = (tid) => mastery((at || []).filter((a) => a.topic_id === tid)
+        .map((a) => ({ correct: a.correct, difficulty: a.difficulty, ts: new Date(a.created_at).getTime() }))).pct
+      // חלש / עוד לא תורגל = 3 · בדרך = 2 · חזק = 1
+      setModes(list.map((m) => {
+        const pct = m.topic ? pctOf(m.topic.id) : null
+        return { ...m, weight: pct == null || pct < 60 ? 3 : pct < 80 ? 2 : 1 }
+      }))
     })()
-  }, [subjectId])
-  useEffect(() => { if (modes.length || topicId) loadItems() }, [subjectId, topicId, mode, modes.length])
+  }, [subjectId, topicId])
 
-  // בחירת סוג התרגול (רק כשיש יותר מסוג אחד במקצוע)
-  const modeTabs = modes.length > 1 && !topicId && (
-    <div className="seg mb-3">
-      {modes.map((m) => (
-        <button key={m.mode} type="button" aria-pressed={mode === m.mode} disabled={generating}
-          onClick={() => { if (m.mode !== mode) { setItems([]); setLoading(true); setErr(''); setMode(m.mode) } }}>
-          <span className="font-bold text-[13.5px]">{m.label}</span>
-        </button>
-      ))}
-    </div>
-  )
+  // טוען משפטים שעדיין לא נענו (מכל הסוגים, מעורבבים); סוג שאין לו משפטים מחכים — מייצרים לו
+  useEffect(() => {
+    if (!modes) return
+    (async () => {
+      setLoading(true); setResults([])
+      let q = supabase.from('syntax_items').select('*').eq('subject_id', subjectId).eq('done', false)
+        .in('mode', modes.map((m) => m.mode))
+      if (topicId) q = q.eq('topic_id', topicId)
+      const { data } = await q.order('created_at').limit(40)
+      const pending = data || []
+      const empty = modes.filter((m) => !pending.some((it) => it.mode === m.mode))
+      if (!pending.length) { await genMore(true); return }
+      setItems(shuffle(pending)); setIdx(0); setPicks({}); setSel([]); setRel(''); setChecked(false); setLoading(false)
+      if (empty.length) {
+        // סוג בלי משפטים מחכים — מצטרף ברקע, ומתערבב בהמשך המנה
+        genMore(false, empty)
+      }
+    })()
+  }, [modes])
 
-  if (loading) return <div className="pt-1">{modeTabs}<div className="text-muted pt-4">{generating ? 'מכין משפטים לתרגול…' : 'טוען…'}</div></div>
+  if (loading) return <div className="pt-1"><div className="text-muted pt-4">{generating ? 'מכין משפטים לתרגול…' : 'טוען…'}</div></div>
   if (err && !items.length) return (
     <div className="pt-4">
-      {modeTabs}
       <div className="text-bad text-[14px] mb-3">{err}</div>
       <button className="btn btn-primary" onClick={() => genMore(true)}>נסו שוב</button>
     </div>
@@ -134,6 +152,14 @@ export default function Syntax({ nav, params }) {
 
   const item = items[idx]
   const tokens = item.tokens
+  // סוג התרגול של המשפט הזה, והנושא שאליו נרשמת התשובה
+  const mode = item.mode || 'syntax'
+  const roles = ROLES[mode] || ROLES.syntax
+  const modeInfo = (modes || []).find((m) => m.mode === mode) || MODES.find((m) => m.mode === mode)
+  const effTopic = topicId ? { id: topicId, name: topicName } : item.topic_id ? { id: item.topic_id, name: modeInfo?.topic?.name } : (modeInfo?.topic || null)
+  const multi = (modes || []).length > 1
+  // שורת "מה עושים" מעל המשפט — בתרגול מעורב, כדי שיהיה ברור איזה סוג תרגיל זה
+  const kicker = multi && <span className="tp-badge mb-2 inline-block" style={{ background: 'var(--primary)' }}>{modeInfo?.label}</span>
   const allTagged = tokens.every((_, i) => picks[i])
   const correctCount = tokens.filter((t, i) => picks[i] === t.role).length
   // מילות חיבור: מסמנים את מילת החיבור (מילה אחת או כמה) ובוחרים את סוג הקשר
@@ -189,15 +215,15 @@ export default function Syntax({ nav, params }) {
       const wrong = tokens.filter((t, i) => picks[i] !== t.role)
       const src = (wrong.length ? wrong : tokens).slice(0, 4)
       if (!src.length) return
-      const tid = topicId || await ensureTopic('ניתוח משפט')
+      const tid = effTopic?.id || await ensureTopic('ניתוח משפט')
       const rows = src.map((t) => {
         const distractors = shuffle(roles.filter((r) => r !== t.role)).slice(0, 3)
         const choices = shuffle([t.role, ...distractors])
         return {
           subject_id: subjectId, topic_id: tid,
-          q: `במשפט: "${item.sentence}" — מה התפקיד התחבירי של המילה "${t.w}"?`,
+          q: mode === 'pos' ? `במשפט: "${item.sentence}" — מהו חלק הדיבר של המילה "${t.w}"?` : `במשפט: "${item.sentence}" — מה התפקיד התחבירי של המילה "${t.w}"?`,
           choices, answer: choices.indexOf(t.role),
-          difficulty: 'בינוני', explain: `התפקיד של "${t.w}" במשפט הוא ${t.role}.`, hint: '',
+          difficulty: 'בינוני', explain: mode === 'pos' ? `"${t.w}" היא ${t.role}.` : `התפקיד של "${t.w}" במשפט הוא ${t.role}.`, hint: '',
         }
       })
       const { data: ins } = await supabase.from('questions').insert(rows).select('id')
@@ -229,9 +255,9 @@ export default function Syntax({ nav, params }) {
     const connWord = connIdx.map((i) => showW(tokens[i].w)).join(' ')
     return (
       <div className="pt-1">
-        {modeTabs}
         <SegProgress total={items.length} idx={idx} results={results} />
-        <h1 className="font-black text-[30px] leading-tight">מילות חיבור</h1>
+        {kicker}
+        <h1 className="font-black text-[30px] leading-tight">{multi ? 'ניתוח משפט' : 'מילות חיבור'}</h1>
         <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
           {checked ? 'בדקנו את התשובה שלך' : 'הקישו על מילת החיבור (אם היא כמה מילים — על כולן), ובחרו למטה איזה קשר היא מבטאת.'}
         </div>
@@ -291,10 +317,9 @@ export default function Syntax({ nav, params }) {
 
   return (
     <div className="pt-1">
-      {modeTabs}
       <SegProgress total={items.length} idx={idx} results={results} />
-
-      <h1 className="font-black text-[30px] leading-tight">{mode === 'pos' ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
+      {kicker}
+      <h1 className="font-black text-[30px] leading-tight">{mode === 'pos' && !multi ? 'זיהוי חלקי דיבר' : 'ניתוח משפט'}</h1>
       <div className="text-muted text-[13.5px] mt-1 leading-relaxed">
         {checked ? 'בדקנו את הסימון שלך' : mode === 'pos'
           ? 'הקישו על מילה (או כמה) ובחרו את חלק הדיבר.'

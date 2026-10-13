@@ -271,7 +271,7 @@ export default function Subject({ nav, params }) {
           topics.length > 0 && { k: 'sm', label: 'סיכומים', sub: 'חוברת כל הנושאים', icon: 'note', go: () => nav.go('summaries', { subjectId: id, subjectName: name }) },
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
           { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : missingParts.length ? `חסר חומר ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : scopeNoMatch ? 'הרשימה לא תואמת נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch || missingParts.length > 0, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
-          isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'תפקידי המילים', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'משפטים לתרגול', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
         const explainTile = { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: 'chat', go: openExplain }
