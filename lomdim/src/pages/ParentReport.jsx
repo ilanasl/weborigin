@@ -95,11 +95,7 @@ export default function ParentReport({ nav }) {
         activeSubjects: subjects.filter((s) => s.weekN > 0).length,
         feed,
         runs: (runs || []).map((r) => ({ ...r, name: subjName[r.subject_id] || '', color: subjColor[r.subject_id] })),
-        // מוכנות כללית בכל נקודת זמן — ממוצע המקצועות שכבר תורגלו באותה נקודה
-        overall: checkpoints.map((_, k) => {
-          const vals = subjects.map((s) => s.series[k]).filter((v) => v != null)
-          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null
-        }),
+        chartSubjects: subjects.filter((s) => s.series.some((v) => v != null)),
       })
       setLoading(false)
     })()
@@ -195,30 +191,8 @@ export default function ParentReport({ nav }) {
         </div>
       )}
 
-      {/* גרף התקדמות לאורך זמן — קו אחד: מוכנות כללית בכל המקצועות */}
-      {data.overall.some((v) => v != null) && (() => {
-        const ov = data.overall
-        const now = ov[4], prev = ov[3]
-        const diff = now != null && prev != null ? now - prev : null
-        return (
-          <div>
-            <div className="home-h2 mb-2.5"><h2>מוכנות לאורך זמן</h2><span>5 שבועות</span></div>
-            <div className="milky-row !flex-col !items-stretch !gap-2">
-              <div className="flex items-baseline gap-2.5">
-                <span className="font-disp font-black text-[30px] leading-none tnum" dir="ltr">{now == null ? '—' : `${now}%`}</span>
-                {diff != null && diff !== 0 && (
-                  <span className="text-[13px] font-bold tnum" style={{ color: diff > 0 ? 'var(--good)' : 'var(--accent)' }}>
-                    {diff > 0 ? '▲' : '▼'} {Math.abs(diff)} מהשבוע שעבר
-                  </span>
-                )}
-                {diff === 0 && <span className="text-[13px] font-semibold text-muted">כמו בשבוע שעבר</span>}
-              </div>
-              <div className="text-[12px] text-muted -mt-1">ממוצע המוכנות בכל המקצועות שתורגלו</div>
-              <ProgressChart values={ov} />
-            </div>
-          </div>
-        )
-      })()}
+      {/* גרף התקדמות לאורך זמן — קו לכל מקצוע בצבע שלו; לחיצה על מקצוע במקרא מדגישה אותו */}
+      {data.chartSubjects.length > 0 && <ProgressBlock subjects={data.chartSubjects} />}
 
       {/* לפי מקצוע */}
       <div className="flex flex-col gap-3">
@@ -272,52 +246,71 @@ export default function ParentReport({ nav }) {
   )
 }
 
-// גרף קווי — מוכנות כללית (0–100) ב-5 נקודות זמן. מימין לשמאל: הכי ישן מימין, "השבוע" משמאל.
-// לחיצה על נקודה מציגה את הערך שלה.
-function ProgressChart({ values }) {
-  const [sel, setSel] = useState(null)
-  const W = 320, H = 150, padL = 30, padR = 52, padT = 22, padB = 22
-  const N = values.length
+// מוכנות לאורך זמן: גרף + מקרא (שם, אחוז עכשיו ושינוי מהשבוע שעבר). לחיצה על מקצוע מדגישה את הקו שלו.
+function ProgressBlock({ subjects }) {
+  const [hi, setHi] = useState(null)
+  return (
+    <div>
+      <div className="home-h2 mb-2.5"><h2>מוכנות לאורך זמן</h2><span>5 שבועות</span></div>
+      <div className="milky-row !flex-col !items-stretch !gap-2.5">
+        <ProgressChart subjects={subjects} hi={hi} />
+        <div className="flex flex-col">
+          {subjects.map((s) => {
+            const now = s.series[4], prev = s.series[3]
+            const diff = now != null && prev != null ? now - prev : null
+            const on = hi === s.id
+            return (
+              <button key={s.id} type="button" onClick={() => setHi(on ? null : s.id)} aria-pressed={on}
+                className="flex items-center gap-2.5 py-2 text-start" style={{ opacity: hi && !on ? 0.45 : 1, borderTop: '1px solid rgba(255,255,255,.07)' }}>
+                <span className="w-3 h-3 rounded-full flex-none" style={{ background: s.chart }} />
+                <span className="flex-1 min-w-0 text-[14px] font-semibold truncate">{s.name}</span>
+                {diff != null && diff !== 0 && (
+                  <span className="text-[12px] font-bold tnum flex-none" style={{ color: diff > 0 ? 'var(--good)' : 'var(--accent)' }}>{diff > 0 ? '▲' : '▼'} {Math.abs(diff)}</span>
+                )}
+                <span className="font-disp font-extrabold text-[15px] tnum flex-none w-[44px] text-end" dir="ltr">{now == null ? '—' : `${now}%`}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="text-[11.5px] text-muted">לחיצה על מקצוע מדגישה את הקו שלו · החץ = שינוי מהשבוע שעבר</div>
+      </div>
+    </div>
+  )
+}
+
+// גרף קווי — מוכנות (0–100) ב-5 נקודות זמן, קו לכל מקצוע בצבע שלו.
+// מימין לשמאל: הכי ישן מימין, "השבוע" משמאל. hi — מקצוע מודגש (השאר מתעמעמים).
+function ProgressChart({ subjects, hi }) {
+  const W = 320, H = 180, padL = 30, padR = 52, padT = 12, padB = 22
+  const N = 5
   const xs = (i) => padL + ((N - 1 - i) * (W - padL - padR)) / (N - 1)
   const ys = (v) => padT + (1 - v / 100) * (H - padT - padB)
   const xLabels = ['לפני 4 שב׳', 'לפני 3', 'שבועיים', 'שבוע שעבר', 'השבוע']
-  const pts = values.map((v, i) => (v == null ? null : { i, v, x: xs(i), y: ys(v) }))
-  // שבועות בלי נתונים (לפני שהתחילו לתרגל) — מדלגים; הנקודות הקיימות מחוברות בקו אחד
-  const segs = [pts.filter(Boolean)].filter((x) => x.length)
-  const last = pts.filter(Boolean).slice(-1)[0]
-  const shown = sel != null && pts[sel] ? pts[sel] : last
+  // המודגש מצויר אחרון (מעל כולם)
+  const order = hi ? [...subjects.filter((s) => s.id !== hi), ...subjects.filter((s) => s.id === hi)] : subjects
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`מוכנות כללית: ${values.map((v, i) => `${xLabels[i]} ${v == null ? 'אין נתונים' : v + '%'}`).join(', ')}`}>
-      <defs>
-        <linearGradient id="pr-area" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="var(--primary)" stopOpacity=".22" />
-          <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img"
+      aria-label={`מוכנות לאורך זמן: ${subjects.map((s) => `${s.name} ${s.series[4] == null ? 'אין נתונים' : s.series[4] + '%'}`).join(', ')}`}>
       {[0, 50, 100].map((g) => (
         <g key={g}>
           <line x1={padL} x2={W - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(255,255,255,.1)" strokeWidth="1" />
           <text x={W - padR + 6} y={ys(g) + 3} textAnchor="start" fontSize="9" fill="var(--muted)">{g}</text>
         </g>
       ))}
-      {segs.map((seg, k) => (
-        <g key={k}>
-          {seg.length > 1 && (
-            <polygon fill="url(#pr-area)" points={[...seg.map((p) => `${p.x},${p.y}`), `${seg[seg.length - 1].x},${ys(0)}`, `${seg[0].x},${ys(0)}`].join(' ')} />
-          )}
-          <polyline fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            points={seg.map((p) => `${p.x},${p.y}`).join(' ')} />
-        </g>
-      ))}
-      {pts.filter(Boolean).map((p) => (
-        <g key={p.i} onClick={() => setSel(p.i === sel ? null : p.i)} style={{ cursor: 'pointer' }}>
-          <circle cx={p.x} cy={p.y} r="14" fill="transparent" />
-          <circle cx={p.x} cy={p.y} r={p === shown ? 4.5 : 3} fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />
-        </g>
-      ))}
-      {shown && (
-        <text x={shown.x} y={shown.y - 9} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">{shown.v}%</text>
-      )}
+      {order.map((s) => {
+        const pts = s.series.map((v, i) => (v == null ? null : [xs(i), ys(v)])).filter(Boolean)
+        const dim = hi && hi !== s.id
+        const last = pts[pts.length - 1]
+        return (
+          <g key={s.id} opacity={dim ? 0.18 : 1}>
+            {pts.length > 1 && (
+              <polyline fill="none" stroke={s.chart} strokeWidth={hi === s.id ? 3 : 2} strokeLinecap="round" strokeLinejoin="round"
+                points={pts.map((p) => p.join(',')).join(' ')} />
+            )}
+            {last && <circle cx={last[0]} cy={last[1]} r={hi === s.id ? 5 : 4} fill={s.chart} stroke="var(--surface)" strokeWidth="2" />}
+          </g>
+        )
+      })}
       {xLabels.map((l, i) => (
         <text key={i} x={xs(i)} y={H - 6} textAnchor="middle" fontSize="8.5" fill="var(--muted)">{l}</text>
       ))}
