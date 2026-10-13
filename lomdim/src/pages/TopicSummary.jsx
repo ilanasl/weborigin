@@ -10,7 +10,7 @@ import Markdown from '../components/Markdown'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { fetchAll } from '../lib/fetchAll'
 import { forget } from '../lib/screenCache'
-import { consolidateTopic, needsConsolidation, autoTried } from '../lib/consolidate'
+import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
 import { GEN_MARK } from '../lib/plan'
 
 export default function TopicSummary({ nav, params }) {
@@ -41,6 +41,9 @@ export default function TopicSummary({ nav, params }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [autoMerging, setAutoMerging] = useState(false)   // איחוד אוטומטי של כמה דפים לסיכום אחד
+  const [offs, setOffs] = useState([])          // חומר מתחום אחר שהוצא מהסיכום — ממתין להחלטה
+  const [offBusy, setOffBusy] = useState(null)
+  const [offNote, setOffNote] = useState(null)  // { id, name } — הנושא שנוצר מההעברה
   const [err, setErr] = useState('')
   const [ref, setRef] = useState('')
   const [fetching, setFetching] = useState(false)
@@ -101,6 +104,7 @@ export default function TopicSummary({ nav, params }) {
     // בלי סיכום מאוחד: מציגים את הסיכומים של כל הדפים, לפי סדר ההעלאה (לא רק של הדף האחרון — כדי שדף חדש לא "ידרוס" את הקודמים)
     const pageSums = [...new Set(pages.slice().reverse().map((m) => m.summary_md).filter(Boolean))]
     setSummary((consolidated && stripNotebookWarnings(consolidated.summary_md)) || pageSums.join('\n\n---\n\n') || null)
+    setOffs(readOff(consolidated?.summary_md).pending)
     setNotes(mats.filter((m) => m.kind === 'note' && m.summary_md))
     setSourceText(mats.find((m) => m.source_text)?.source_text || null)
     // מקור לאיחוד: כל מה שהועלה לנושא (סיכומי דפים + טקסטים), לא כולל סיכום מאוחד/הערות
@@ -146,13 +150,19 @@ export default function TopicSummary({ nav, params }) {
     setBusy(true); setErr('')
     try {
       // מאחד את כל החומרים שהועלו לנושא לסיכום אחד (אם אין — סיכום כללי)
-      const { summary_md: md } = await topicSummary({ subjectName, topicName: name, learner: profile, sourceMaterials: aggSource, enrich })
-      // נושא שנכתב מהידע הכללי (בלי דפים) — התגית נשארת גם אחרי בנייה מחדש
-      const summary_md = !aggSource && String(summary || '').includes(GEN_MARK) ? `${GEN_MARK}\n\n${md}` : md
-      await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
-      await supabase.from('materials').insert({
-        subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
-      })
+      if (aggSource) {
+        // יש דפים — איחוד מכולם (כולל גבולות מול שאר הנושאים במקצוע)
+        await consolidateTopic({ subjectId, subjectName, topicId, topicName: name, learner: profile, enrich })
+      } else {
+        const { summary_md: md } = await topicSummary({ subjectName, topicName: name, learner: profile })
+        // נושא שנכתב מהידע הכללי (בלי דפים) — התגית נשארת גם אחרי בנייה מחדש
+        const summary_md = String(summary || '').includes(GEN_MARK) ? `${GEN_MARK}\n\n${md}` : md
+        await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
+        await supabase.from('materials').insert({
+          subject_id: subjectId, topic_id: topicId, title: 'סיכום עיוני', kind: 'summary', summary_md,
+        })
+      }
+      forget(`subject:${subjectId}`)
       await load()
     } catch (e) {
       setErr(aiErrorText('יצירת הסיכום נכשלה.', e))
@@ -452,6 +462,34 @@ export default function TopicSummary({ nav, params }) {
         </div>
         </div>
       </div>
+
+      {/* חומר מתחום אחר שהיה בדפים של הנושא — הוצא מהסיכום; מציעים להעביר לנושא משלו */}
+      {offs.map((o) => (
+        <div key={o.name} className="gap-miss mt-4">
+          <div className="text-[13.5px] leading-relaxed" style={{ color: 'var(--ink)' }}>
+            בדפים של הנושא הזה יש גם חומר על <b style={{ color: 'var(--accent)' }}>{o.name}</b> — נושא אחר, ולכן הוא לא נכנס לסיכום.
+          </div>
+          <div className="flex gap-2 flex-wrap mt-1.5">
+            <button type="button" className="gap-btn gap-btn-fill" disabled={!!offBusy} onClick={async () => {
+              setOffBusy(o.name)
+              try {
+                const t = await moveOffTopic({ subjectId, subjectName, fromTopicId: topicId, item: o, learner: profile })
+                forget(`subject:${subjectId}`); setOffNote(t); await load()
+              } catch { setErr('ההעברה נכשלה. נסו שוב בעוד רגע.') }
+              setOffBusy(null)
+            }}>{offBusy === o.name ? 'יוצר נושא ושאלות…' : 'להעביר לנושא משלו'}</button>
+            <button type="button" className="gap-btn" disabled={!!offBusy} onClick={async () => { await markOffDone(topicId, o.name); await load() }}>לא צריך</button>
+          </div>
+        </div>
+      ))}
+      {offNote && (
+        <button type="button" className="milky-row mt-3 text-[13.5px] font-semibold"
+          onClick={() => nav.go('topicSummary', { subjectId, subjectName, topicId: offNote.id, topicName: offNote.name })}>
+          <Icon name="check" size={18} style={{ color: 'var(--good)' }} />
+          <span className="flex-1 text-start">נוצר נושא «{offNote.name}» עם סיכום ושאלות</span>
+          <Icon name="chevron" size={18} />
+        </button>
+      )}
 
       {/* סיכומים שהוספתי (מהצ'אט) — קבועים, לא נמחקים ב"סכם מחדש" */}
       {notes.length > 0 && (
