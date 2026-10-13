@@ -95,7 +95,11 @@ export default function ParentReport({ nav }) {
         activeSubjects: subjects.filter((s) => s.weekN > 0).length,
         feed,
         runs: (runs || []).map((r) => ({ ...r, name: subjName[r.subject_id] || '', color: subjColor[r.subject_id] })),
-        chartSubjects: subjects.filter((s) => s.series.some((v) => v != null)),
+        // מוכנות כללית בכל נקודת זמן — ממוצע המקצועות שכבר תורגלו באותה נקודה
+        overall: checkpoints.map((_, k) => {
+          const vals = subjects.map((s) => s.series[k]).filter((v) => v != null)
+          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null
+        }),
       })
       setLoading(false)
     })()
@@ -191,22 +195,30 @@ export default function ParentReport({ nav }) {
         </div>
       )}
 
-      {/* גרף התקדמות לאורך זמן */}
-      {data.chartSubjects.length > 0 && (
-        <div>
-          <div className="home-h2 mb-2.5"><h2>מוכנות לאורך זמן</h2><span>5 שבועות</span></div>
-          <div className="milky-row !flex-col !items-stretch">
-            <ProgressChart subjects={data.chartSubjects} />
-            <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center">
-              {data.chartSubjects.map((s) => (
-                <span key={s.id} className="inline-flex items-center gap-1.5 text-[12.5px] text-muted">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.chart }} />{s.name}
-                </span>
-              ))}
+      {/* גרף התקדמות לאורך זמן — קו אחד: מוכנות כללית בכל המקצועות */}
+      {data.overall.some((v) => v != null) && (() => {
+        const ov = data.overall
+        const now = ov[4], prev = ov[3]
+        const diff = now != null && prev != null ? now - prev : null
+        return (
+          <div>
+            <div className="home-h2 mb-2.5"><h2>מוכנות לאורך זמן</h2><span>5 שבועות</span></div>
+            <div className="milky-row !flex-col !items-stretch !gap-2">
+              <div className="flex items-baseline gap-2.5">
+                <span className="font-disp font-black text-[30px] leading-none tnum" dir="ltr">{now == null ? '—' : `${now}%`}</span>
+                {diff != null && diff !== 0 && (
+                  <span className="text-[13px] font-bold tnum" style={{ color: diff > 0 ? 'var(--good)' : 'var(--accent)' }}>
+                    {diff > 0 ? '▲' : '▼'} {Math.abs(diff)} מהשבוע שעבר
+                  </span>
+                )}
+                {diff === 0 && <span className="text-[13px] font-semibold text-muted">כמו בשבוע שעבר</span>}
+              </div>
+              <div className="text-[12px] text-muted -mt-1">ממוצע המוכנות בכל המקצועות שתורגלו</div>
+              <ProgressChart values={ov} />
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* לפי מקצוע */}
       <div className="flex flex-col gap-3">
@@ -260,41 +272,52 @@ export default function ParentReport({ nav }) {
   )
 }
 
-// גרף קווי — מוכנות (0–100) על פני 5 נקודות זמן, קו לכל מקצוע בצבע שלו
-function ProgressChart({ subjects }) {
-  const W = 320, H = 150, padL = 26, padR = 10, padT = 10, padB = 22
-  const N = 5
-  const xs = (i) => padL + (i * (W - padL - padR)) / (N - 1)
+// גרף קווי — מוכנות כללית (0–100) ב-5 נקודות זמן. מימין לשמאל: הכי ישן מימין, "השבוע" משמאל.
+// לחיצה על נקודה מציגה את הערך שלה.
+function ProgressChart({ values }) {
+  const [sel, setSel] = useState(null)
+  const W = 320, H = 150, padL = 30, padR = 52, padT = 22, padB = 22
+  const N = values.length
+  const xs = (i) => padL + ((N - 1 - i) * (W - padL - padR)) / (N - 1)
   const ys = (v) => padT + (1 - v / 100) * (H - padT - padB)
-  const xLabels = ['לפני 4 שב׳', 'לפני 3', 'שבועיים', 'שבוע', 'השבוע']
+  const xLabels = ['לפני 4 שב׳', 'לפני 3', 'שבועיים', 'שבוע שעבר', 'השבוע']
+  const pts = values.map((v, i) => (v == null ? null : { i, v, x: xs(i), y: ys(v) }))
+  // שבועות בלי נתונים (לפני שהתחילו לתרגל) — מדלגים; הנקודות הקיימות מחוברות בקו אחד
+  const segs = [pts.filter(Boolean)].filter((x) => x.length)
+  const last = pts.filter(Boolean).slice(-1)[0]
+  const shown = sel != null && pts[sel] ? pts[sel] : last
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="גרף מוכנות לאורך זמן">
-      {/* קווי רשת עדינים */}
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`מוכנות כללית: ${values.map((v, i) => `${xLabels[i]} ${v == null ? 'אין נתונים' : v + '%'}`).join(', ')}`}>
+      <defs>
+        <linearGradient id="pr-area" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="var(--primary)" stopOpacity=".22" />
+          <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
       {[0, 50, 100].map((g) => (
         <g key={g}>
-          <line x1={padL} x2={W - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(255,255,255,.12)" strokeWidth="1" />
-          <text x={padL - 5} y={ys(g) + 3} textAnchor="end" fontSize="9" fill="var(--muted)">{g}</text>
+          <line x1={padL} x2={W - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(255,255,255,.1)" strokeWidth="1" />
+          <text x={W - padR + 6} y={ys(g) + 3} textAnchor="start" fontSize="9" fill="var(--muted)">{g}</text>
         </g>
       ))}
-      {/* קו לכל מקצוע — מדלג על מקטעים בלי נתונים */}
-      {subjects.map((s) => {
-        const pts = s.series.map((v, i) => (v == null ? null : [xs(i), ys(v)]))
-        const segs = []
-        let cur = []
-        for (const p of pts) { if (p) cur.push(p); else { if (cur.length) segs.push(cur); cur = [] } }
-        if (cur.length) segs.push(cur)
-        const last = pts.filter(Boolean).slice(-1)[0]
-        return (
-          <g key={s.id}>
-            {segs.map((seg, k) => (
-              <polyline key={k} fill="none" stroke={s.chart} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                points={seg.map((p) => p.join(',')).join(' ')} />
-            ))}
-            {last && <circle cx={last[0]} cy={last[1]} r="3.5" fill={s.chart} />}
-          </g>
-        )
-      })}
-      {/* תוויות ציר X */}
+      {segs.map((seg, k) => (
+        <g key={k}>
+          {seg.length > 1 && (
+            <polygon fill="url(#pr-area)" points={[...seg.map((p) => `${p.x},${p.y}`), `${seg[seg.length - 1].x},${ys(0)}`, `${seg[0].x},${ys(0)}`].join(' ')} />
+          )}
+          <polyline fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            points={seg.map((p) => `${p.x},${p.y}`).join(' ')} />
+        </g>
+      ))}
+      {pts.filter(Boolean).map((p) => (
+        <g key={p.i} onClick={() => setSel(p.i === sel ? null : p.i)} style={{ cursor: 'pointer' }}>
+          <circle cx={p.x} cy={p.y} r="14" fill="transparent" />
+          <circle cx={p.x} cy={p.y} r={p === shown ? 4.5 : 3} fill="var(--primary)" stroke="var(--surface)" strokeWidth="2" />
+        </g>
+      ))}
+      {shown && (
+        <text x={shown.x} y={shown.y - 9} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--ink)">{shown.v}%</text>
+      )}
       {xLabels.map((l, i) => (
         <text key={i} x={xs(i)} y={H - 6} textAnchor="middle" fontSize="8.5" fill="var(--muted)">{l}</text>
       ))}
