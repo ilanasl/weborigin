@@ -432,7 +432,7 @@ export default function Upload({ nav, params }) {
                       placeholder={g('שם הנושא — או בחר מהקיימים למטה', 'שם הנושא — או בחרי מהקיימים למטה')} />
                     {topicsList.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                        <span className="text-[11.5px] text-muted">קיימים:</span>
+                        <span className="text-[11.5px] text-muted">נושאים במקצוע ובהעלאה הזו:</span>
                         {topicsList.map((t) => (
                           <button key={t} type="button" onClick={() => setName(ci, t)}
                             className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${c.name === t ? 'bg-primary text-[color:var(--on-fill)] border-primary font-semibold' : 'border-line text-muted'}`}>
@@ -460,7 +460,7 @@ export default function Upload({ nav, params }) {
                       placeholder={g('שם הנושא — או בחר מהקיימים למטה', 'שם הנושא — או בחרי מהקיימים למטה')} />
                     {topicsList.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11.5px] text-muted">קיימים:</span>
+                        <span className="text-[11.5px] text-muted">נושאים במקצוע ובהעלאה הזו:</span>
                         {topicsList.filter((t) => !rows.some((x) => x.c.name === t)).map((t) => (
                           <button key={t} type="button" onClick={() => setAddName(t)} disabled={addBusy === fi}
                             className={`px-2.5 py-1 rounded-full text-[12.5px] border transition ${addName === t ? 'bg-primary text-[color:var(--on-fill)] border-primary font-semibold' : 'border-line text-muted'}`}>
