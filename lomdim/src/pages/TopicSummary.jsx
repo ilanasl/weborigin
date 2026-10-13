@@ -518,7 +518,7 @@ export default function TopicSummary({ nav, params }) {
             <div className="flex items-center gap-3 flex-wrap">
               <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold" disabled={busy || autoMerging}
                 style={{ border: '1.5px solid var(--milky-line)' }} onClick={generate}>
-                <Icon name="refresh" size={16} />{busy ? 'מכין…' : gx('בנה מחדש', 'בני מחדש')}
+                {busy ? <span className="up-spin" style={{ width: 15, height: 15 }} /> : <Icon name="refresh" size={16} />}{busy ? 'בונה…' : gx('בנה מחדש', 'בני מחדש')}
               </button>
               {aggSource && (
                 <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer">
@@ -527,6 +527,12 @@ export default function TopicSummary({ nav, params }) {
                 </label>
               )}
             </div>
+            {busy && (
+              <div className="flex items-start gap-2.5 p-3 rounded-[14px] text-[13px] font-semibold" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                <span className="up-spin mt-0.5" />
+                <span>בונה את הסיכום מחדש מכל הדפים… זה לוקח בערך חצי דקה עד דקה. אפשר להישאר במסך — הסיכום למעלה יתחלף כשזה יסתיים.</span>
+              </div>
+            )}
           </div>
         )}
         {otherTopics.length > 0 && (
