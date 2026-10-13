@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Icon from '../components/Icon'
+import WorkNote, { useWorking } from '../components/WorkNote'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
@@ -49,6 +50,7 @@ export default function Parent({ nav }) {
   const [nkNote, setNkNote] = useState('')
   const [fxSubj, setFxSubj] = useState('all')
   const [fxBusy, setFxBusy] = useState(false)
+  useWorking(nkBusy || fxBusy)
   const [fxNote, setFxNote] = useState('')
   // פרסים
   const [rewards, setRewards] = useState([])
@@ -273,7 +275,7 @@ export default function Parent({ nav }) {
         <button className="btn btn-wide" onClick={addNikud} disabled={nkBusy}>
           {nkBusy ? 'מנקד…' : <><Icon name="pencil" size={17} />נקד שאלות קיימות</>}
         </button>
-        {nkNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: nkBusy ? 'var(--muted)' : 'var(--good)' }}>{nkNote}</div>}
+        {nkNote && (nkBusy ? <WorkNote className="mt-2" text={nkNote} /> : <div className="text-[13px] mt-2 font-semibold" style={{ color: 'var(--good)' }}>{nkNote}</div>)}
       </div>
 
       <div className="home-h2 mt-7 mb-2.5"><h2>תיקון שאלות קיימות</h2></div>
@@ -291,7 +293,7 @@ export default function Parent({ nav }) {
         <button className="btn btn-wide" onClick={fixExisting} disabled={fxBusy}>
           {fxBusy ? 'בודק…' : <><Icon name="refresh" size={17} />בדוק ותקן שאלות קיימות</>}
         </button>
-        {fxNote && <div className="text-[13px] mt-2 font-semibold" style={{ color: fxBusy ? 'var(--muted)' : 'var(--good)' }}>{fxNote}</div>}
+        {fxNote && (fxBusy ? <WorkNote className="mt-2" text={fxNote} /> : <div className="text-[13px] mt-2 font-semibold" style={{ color: 'var(--good)' }}>{fxNote}</div>)}
       </div>
 
       <div className="home-h2 mt-7 mb-2.5"><h2>איפוס</h2></div>

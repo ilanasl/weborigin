@@ -7,6 +7,7 @@ import { scanScope } from '../lib/gemini'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
 import ConfirmDialog from '../components/ConfirmDialog'
+import WorkNote, { useWorking } from '../components/WorkNote'
 import { LEAD_DEFAULT, daysUntil, parseDay, buildStudyPlan, nearestKind, refreshScopeTopics, expirePastExams, isAllScope, scopeIncludesAll, orderPlanTopics,
   readGaps, gapsStale, checkScopeGaps, createTopicFromGeneral } from '../lib/plan'
 import { forget } from '../lib/screenCache'
@@ -38,6 +39,7 @@ export default function Planner({ nav, params }) {
   const [gapBusy, setGapBusy] = useState(null)   // שם החלק שנוצר עכשיו מהידע הכללי
   const [gapNote, setGapNote] = useState('')
   const [gapErr, setGapErr] = useState('')
+  useWorking(busy || !!gapBusy || scanning)
   const [loading, setLoading] = useState(true)
   const [allTs, setAllTs] = useState([])   // זמני כל התשובות במקצוע — לסימון יום חזרה שבוצע
 
@@ -215,12 +217,14 @@ export default function Planner({ nav, params }) {
             {scopeFile && !scanning && <Icon name="check" size={18} style={{ color: 'var(--good)' }} />}
             <input type="file" accept="image/*" className="hidden" onChange={(e) => onPickPhoto(e.target.files?.[0] || null)} />
           </label>
+          {scanning && <WorkNote className="mt-2" stay text="קורא את הצילום ומעתיק את הרשימה לשדה… כמה שניות." />}
           {scanErr && <div className="text-[12.5px] mt-1.5 font-semibold" style={{ color: 'var(--bad)' }}>{scanErr}</div>}
         </div>
 
         <button type="button" className="ts-practice !mb-0" onClick={save} disabled={busy}>
           <Icon name="sparkle" size={19} />{busy ? 'שומר ובונה…' : 'שמור ובנה תוכנית'}
         </button>
+        {busy && <WorkNote text="שומר ובונה תוכנית: מזהה את הנושאים, קובע סדר לימוד ובודק מה חסר… כ-10–30 שניות." />}
         {matchNote && <div className="text-good text-[13px] font-semibold leading-relaxed">{matchNote}</div>}
       </div>
 
@@ -251,6 +255,7 @@ export default function Planner({ nav, params }) {
                   <div key={m.name} className="gap-miss">
                     <div className="font-bold" style={{ color: 'var(--accent)' }}>{m.name}</div>
                     {m.part && <div className="text-[12.5px] text-muted">{m.part}</div>}
+                    {gapBusy === m.name && <WorkNote className="mt-1.5" text={`כותב סיכום ושאלות על «${m.name}»… כחצי דקה.`} />}
                     <div className="flex gap-2 flex-wrap mt-1">
                       <button type="button" className="gap-btn gap-btn-fill" disabled={!!gapBusy} onClick={() => fromGeneral(m)}>
                         {gapBusy === m.name ? 'כותב סיכום ושאלות…' : 'ליצור מהידע הכללי'}

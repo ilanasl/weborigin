@@ -6,6 +6,7 @@ import { stripNotebookWarnings } from '../lib/gemini'
 import { examTag } from '../lib/plan'
 import { consolidateTopic, needsConsolidation, autoTried, readOff } from '../lib/consolidate'
 import { useAuth } from '../context/AuthContext'
+import WorkNote, { useWorking } from '../components/WorkNote'
 
 // חוברת סיכומים: כל סיכומי המקצוע במסך אחד, עם תוכן עניינים — לקריאה רצופה לפני מבחן
 export default function Summaries({ nav, params }) {
@@ -16,6 +17,7 @@ export default function Summaries({ nav, params }) {
   const [subj, setSubj] = useState(null)       // לתגית "למבדק/למבחן הקרוב"
   const [merging, setMerging] = useState({})   // נושאים שמתאחדים עכשיו לסיכום אחד
   const { profile } = useAuth()
+  useWorking(Object.values(merging).some(Boolean))
 
   useEffect(() => {
     (async () => {
@@ -129,12 +131,7 @@ export default function Summaries({ nav, params }) {
                 </>
               )}
               <div className="paper">
-                {merging[t.id] && (
-                  <div className="flex items-start gap-2.5 mb-3 p-3 rounded-[14px] text-[13.5px] font-semibold no-print" style={{ background: 'rgba(94,122,0,.1)', color: '#3E4E00' }}>
-                    <span className="up-spin mt-0.5" style={{ borderColor: 'rgba(94,122,0,.25)', borderTopColor: '#5E7A00' }} />
-                    <span>מאחד את כל הדפים של הנושא לסיכום אחד קצר, בלי חזרות… כחצי דקה.</span>
-                  </div>
-                )}
+                {merging[t.id] && <WorkNote light className="mb-3 no-print" text="מאחד את כל הדפים של הנושא לסיכום אחד, בלי חזרות… כחצי דקה." />}
                 {t.offs?.length > 0 && (
                   <button type="button" onClick={() => openTopic(t)} className="w-full text-start mb-3 p-3 rounded-[14px] text-[13px] font-semibold no-print"
                     style={{ background: 'rgba(184,80,28,.08)', color: '#8A3A12' }}>
