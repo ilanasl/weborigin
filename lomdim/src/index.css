@@ -505,6 +505,8 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
   .print-area, .print-area * { visibility: visible !important }
   .print-area { position: absolute; inset: 0 auto auto 0; width: 100%; background: #fff !important; color: #111 !important; box-shadow: none !important; border-radius: 0 !important; padding: 0 !important }
   .print-area .no-print { display: none !important }
+  /* הדפסה של נושא אחד מתוך החוברת */
+  body.print-one .print-area section:not(.print-this), body.print-one .print-area .print-book-title { display: none !important }
   .print-area * { color: #111 !important; border-color: #ccc !important }
   .print-area .md-tip { background: #f3f7e0 !important }
   html, body { background: #fff !important }
