@@ -199,7 +199,7 @@ export async function orderPlanTopics(subject) {
     const rank = new Map(order.map((n, i) => [String(n).trim(), i]))
     const res = await Promise.all(topics.map((t) => supabase.from('topics').update({ plan_order: rank.get(t.name.trim()) ?? order.length }).eq('id', t.id)))
     return !res.some((r) => r.error)
-  } catch { return false }
+  } catch (e) { return { error: e } }
 }
 
 // topics: [{ id, name, in_exam, att: [{ correct, difficulty, ts }] }] · allTs: זמני כל התשובות במקצוע
