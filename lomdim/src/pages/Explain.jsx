@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase'
 import { explain, prepNote } from '../lib/gemini'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
+import { GEN_MARK } from '../lib/plan'
+import { addMoreQuestions } from '../lib/moreQuestions'
+import { forget } from '../lib/screenCache'
 
 // תגובות-המשך — מופיעות רק אחרי שהמורה ענה (לא בשיחה חדשה ריקה)
 const FOLLOWUPS = ['עדיין לא הבנתי', 'תן דוגמה', 'תסביר יותר פשוט']
@@ -26,7 +29,9 @@ export default function Explain({ nav, params }) {
   const [detecting, setDetecting] = useState(false)
   const [prep, setPrep] = useState({ title: '', summary_md: '' })
   const [detectFail, setDetectFail] = useState(false)   // הזיהוי לא הצליח / לקח יותר מדי — בוחרים נושא ידנית
-  const [saved, setSaved] = useState({})       // idx -> נוסף
+  const [saved, setSaved] = useState({})       // idx -> נוסף / { newTopic, n } לנושא חדש
+  const [newName, setNewName] = useState('')   // "+ נושא חדש…" — שם הנושא
+  const [savingIdx, setSavingIdx] = useState(null)
   const endRef = useRef(null)
 
   async function loadHistory() {
@@ -36,7 +41,7 @@ export default function Explain({ nav, params }) {
   }
   useEffect(() => { loadHistory() }, [subjectId])
   useEffect(() => {
-    supabase.from('topics').select('id, name').eq('subject_id', subjectId).order('created_at')
+    supabase.from('topics').select('id, name, in_exam').eq('subject_id', subjectId).order('created_at')
       .then(({ data }) => setTopics(data || []))
   }, [subjectId])
 
@@ -54,6 +59,33 @@ export default function Explain({ nav, params }) {
   }
 
   async function saveSummary(i) {
+    // נושא חדש מההסבר: הסיכום הופך לסיכום הנושא (עם תגית "נכתב מהידע הכללי") ונוצרות לו שאלות תרגול
+    if (addTopic === '__new') {
+      const nm = newName.trim()
+      if (!nm) return
+      setSavingIdx(i)
+      try {
+        const exist = topics.find((t) => t.name.trim() === nm)
+        let tid = exist?.id
+        if (!tid) {
+          const { data: ins, error } = await supabase.from('topics')
+            .insert({ subject_id: subjectId, name: nm, origin: 'השנה', in_exam: topics.some((t) => t.in_exam) }).select('id, name, in_exam').single()
+          if (error || !ins) throw error || new Error('topic')
+          tid = ins.id
+          setTopics((arr) => [...arr, ins])
+        }
+        await supabase.from('materials').insert({
+          subject_id: subjectId, topic_id: tid, title: prep.title || nm, kind: exist ? 'note' : 'summary',
+          summary_md: exist ? (prep.summary_md || msgs[i].text) : `${GEN_MARK}\n\n${prep.summary_md || msgs[i].text}`,
+        })
+        let n = 0
+        try { n = await addMoreQuestions({ subjectId, subjectName, topicId: tid, topicName: nm, learner: profile, count: 8 }) } catch { /* הנושא והסיכום נשמרו */ }
+        forget(`subject:${subjectId}`)
+        setSaved((s) => ({ ...s, [i]: { newTopic: nm, n } })); setAddIdx(null); setNewName('')
+      } catch { setDetectFail(true) }
+      setSavingIdx(null)
+      return
+    }
     const topicId = addTopic || topics[0]?.id
     if (!topicId) return
     await supabase.from('materials').insert({
@@ -147,7 +179,9 @@ export default function Explain({ nav, params }) {
             {m.who === 'ai' ? <Markdown text={m.text} /> : m.text}
             {m.who === 'ai' && !isIntro(m) && (
               saved[i] ? (
-                <div className="text-good text-[12px] font-semibold mt-2">✓ נוסף לסיכומים של הנושא</div>
+                <div className="text-good text-[12px] font-semibold mt-2">
+                  {saved[i]?.newTopic ? `✓ נוצר נושא «${saved[i].newTopic}» עם סיכום${saved[i].n ? ` ו-${saved[i].n} שאלות תרגול` : ''}` : '✓ נוסף לסיכומים של הנושא'}
+                </div>
               ) : addIdx === i ? (
                 <div className="mt-2 pt-2 border-t border-line">
                   <div className="text-[12px] text-muted mb-1.5">
@@ -157,8 +191,14 @@ export default function Explain({ nav, params }) {
                     <select className="field !py-1.5 !w-auto !text-[16px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)} disabled={detecting}>
                       {topics.length === 0 && <option value="">אין נושאים</option>}
                       {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      <option value="__new">+ נושא חדש…</option>
                     </select>
-                    <button className="text-[12.5px] font-bold text-primary disabled:opacity-40" onClick={() => saveSummary(i)} disabled={detecting || !topics.length}>שמור</button>
+                    {addTopic === '__new' && (
+                      <input className="field !py-1.5 !w-auto flex-1 min-w-[140px] !text-[16px]" autoFocus value={newName}
+                        placeholder="שם הנושא החדש" onChange={(e) => setNewName(e.target.value)} disabled={savingIdx === i} />
+                    )}
+                    <button className="text-[12.5px] font-bold text-primary disabled:opacity-40" onClick={() => saveSummary(i)}
+                      disabled={detecting || savingIdx === i || (addTopic === '__new' ? !newName.trim() : !topics.length)}>{savingIdx === i ? 'יוצר נושא ושאלות…' : 'שמור'}</button>
                     <button className="text-[12.5px] font-semibold text-muted" onClick={() => setAddIdx(null)}>ביטול</button>
                   </div>
                 </div>
