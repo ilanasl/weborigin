@@ -25,6 +25,7 @@ export default function Explain({ nav, params }) {
   const [addTopic, setAddTopic] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [prep, setPrep] = useState({ title: '', summary_md: '' })
+  const [detectFail, setDetectFail] = useState(false)   // הזיהוי לא הצליח / לקח יותר מדי — בוחרים נושא ידנית
   const [saved, setSaved] = useState({})       // idx -> נוסף
   const endRef = useRef(null)
 
@@ -41,13 +42,15 @@ export default function Explain({ nav, params }) {
 
   // פתיחת התפריט + זיהוי נושא, כותרת נקייה וסיכום מנוקה
   async function openAdd(i) {
-    setAddIdx(i); setAddTopic(topics[0]?.id || ''); setPrep({ title: '', summary_md: '' }); setDetecting(true)
+    setAddIdx(i); setAddTopic(topics[0]?.id || ''); setPrep({ title: '', summary_md: '' }); setDetecting(true); setDetectFail(false)
     try {
-      const { topic, title, summary_md } = await prepNote({ subjectName, text: msgs[i].text, knownTopics: topics.map((t) => t.name) })
+      // עד 20 שניות — אחרת לא מחכים: בוחרים נושא ידנית ושומרים (בלי להיתקע על "מזהה…")
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000))
+      const { topic, title, summary_md } = await Promise.race([prepNote({ subjectName, text: msgs[i].text, knownTopics: topics.map((t) => t.name) }), timeout])
       const match = topics.find((t) => t.name === topic)
       if (match) setAddTopic(match.id)
       setPrep({ title: title || '', summary_md: summary_md || '' })
-    } catch { /* נשארים עם ברירת המחדל */ } finally { setDetecting(false) }
+    } catch { setDetectFail(true) /* נשארים עם ברירת המחדל */ } finally { setDetecting(false) }
   }
 
   async function saveSummary(i) {
@@ -148,7 +151,7 @@ export default function Explain({ nav, params }) {
               ) : addIdx === i ? (
                 <div className="mt-2 pt-2 border-t border-line">
                   <div className="text-[12px] text-muted mb-1.5">
-                    {detecting ? 'מזהה את הנושא… ✍️' : 'לשמור בנושא (אפשר לשנות):'}
+                    {detecting ? 'מזהה את הנושא… ✍️ (עד כ-20 שניות)' : detectFail ? 'לא הצלחנו לזהות את הנושא — בחרו נושא ושמרו:' : 'לשמור בנושא (אפשר לשנות):'}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <select className="field !py-1.5 !w-auto !text-[16px]" value={addTopic} onChange={(e) => setAddTopic(e.target.value)} disabled={detecting}>
