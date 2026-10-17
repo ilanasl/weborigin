@@ -31,6 +31,7 @@ export default function Materials({ nav, params }) {
   const [addErr, setAddErr] = useState('')
   const [addDone, setAddDone] = useState(null)
   const [pendingMove, setPendingMove] = useState(null)   // { m, topicId, from, to } — העברה שתרוקן נושא
+  const [moveNew, setMoveNew] = useState(null)   // { id, name } — העברת דף לנושא חדש (מקלידים שם)
 
   async function load() {
     setLoading(true)
@@ -56,6 +57,7 @@ export default function Materials({ nav, params }) {
   // בלי טעינה מחדש של כל המסך — כדי לא לקפוץ למעלה ולאבד את המקום (אפשר לסווג כמה חומרים ברצף).
   // העברת הדף האחרון של נושא תאחד אותו לתוך הנושא החדש (והישן יימחק) — שואלים קודם
   function askMove(m, topicId) {
+    if (topicId === '__new') { setMoveNew({ id: m.id, name: '' }); return }
     if (!topicId || topicId === m.topic_id) return
     const isLast = m.topic_id && !materials.some((x) => x.id !== m.id && x.topic_id === m.topic_id)
     if (!isLast) { moveMaterialTopic(m, topicId); return }
@@ -63,12 +65,27 @@ export default function Materials({ nav, params }) {
     setPendingMove({ m, topicId, from: nameOf(m.topic_id), to: nameOf(topicId) })
   }
 
-  async function moveMaterialTopic(m, topicId) {
+  // העברת דף לנושא חדש: יוצרים את הנושא (באותו "במבחן" כמו הקודם) ומעבירים אליו את הדף והשאלות שלו — בלי ניתוח מחדש
+  async function moveToNewTopic(m) {
+    const nm = (moveNew?.name || '').trim()
+    if (!nm) return
+    const exist = topics.find((t) => t.name.trim() === nm)
+    if (exist) { setMoveNew(null); askMove(m, exist.id); return }
+    const from = topics.find((t) => t.id === m.topic_id)
+    const { data: ins, error } = await supabase.from('topics')
+      .insert({ subject_id: id, name: nm, origin: m.origin || 'השנה', in_exam: !!from?.in_exam }).select('*').single()
+    if (error || !ins) return
+    setTopics((arr) => [...arr, { ...ins, m: mastery([]) }])
+    setMoveNew(null)
+    await moveMaterialTopic(m, ins.id, ins.name)
+  }
+
+  async function moveMaterialTopic(m, topicId, newName) {
     if (!topicId || topicId === m.topic_id) return
     const prev = m.topic_id
     const prevTitle = m.title
     // כותרת הדף = שם הנושא שלו — מתעדכנת יחד עם השיוך
-    const title = topics.find((x) => x.id === topicId)?.name || m.title
+    const title = newName || topics.find((x) => x.id === topicId)?.name || m.title
     setMaterials((arr) => arr.map((x) => x.id === m.id ? { ...x, topic_id: topicId, title } : x))
     setSavingMat(m.id); setSavedMat(null)
     const { error } = await supabase.from('materials').update({ topic_id: topicId, title }).eq('id', m.id)
@@ -81,6 +98,12 @@ export default function Materials({ nav, params }) {
     try {
       await supabase.from('questions').update({ topic_id: topicId }).eq('material_id', m.id)
     } catch { /* אם אין שאלות מקושרות — לא נורא */ }
+    // הסיכום המאוחד של הנושא הקודם (ושל היעד, אם יש בו דפים) כבר לא נכון — נמחק, ונבנה מחדש לבד בכניסה לנושא
+    try {
+      const pagesOf = (tid) => materials.filter((x) => x.id !== m.id && x.topic_id === tid && (x.storage_path || x.content_hash)).length
+      if (prev && pagesOf(prev) > 0) await supabase.from('materials').delete().eq('topic_id', prev).eq('kind', 'summary')
+      if (pagesOf(topicId) > 0) await supabase.from('materials').delete().eq('topic_id', topicId).eq('kind', 'summary')
+    } catch { /* הסיכום הישן פשוט נשאר */ }
     await foldEmptyTopic(prev, topicId)
     setSavingMat(null); setSavedMat(m.id)
     setTimeout(() => setSavedMat((cur) => cur === m.id ? null : cur), 2500)
@@ -262,7 +285,18 @@ export default function Materials({ nav, params }) {
                     onChange={(e) => askMove(m, e.target.value)}>
                     {!m.topic_id && <option value="">— ללא —</option>}
                     {topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    <option value="__new">+ נושא חדש…</option>
                   </select>
+                  {moveNew?.id === m.id && (
+                    <div className="flex gap-2 mt-2">
+                      <input className="field flex-1 min-w-0 !py-1.5" autoFocus value={moveNew.name} placeholder="שם הנושא החדש"
+                        onChange={(e) => setMoveNew({ id: m.id, name: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') moveToNewTopic(m); if (e.key === 'Escape') setMoveNew(null) }} />
+                      <button type="button" className="px-4 rounded-[16px] font-bold text-[14px]" style={{ background: 'var(--primary)', color: 'var(--on-fill)' }}
+                        disabled={!moveNew.name.trim()} onClick={() => moveToNewTopic(m)}>העבר</button>
+                      <button type="button" className="hbtn !px-0 w-10 flex-none" aria-label="ביטול" onClick={() => setMoveNew(null)}><Icon name="x" size={17} /></button>
+                    </div>
+                  )}
                   {(savingMat === m.id || savedMat === m.id || addDone === m.id) && (
                     <div className="text-[12px] font-semibold mt-1" style={{ color: savingMat === m.id ? 'var(--muted)' : 'var(--good)' }}>
                       {savingMat === m.id ? 'שומר…' : savedMat === m.id ? '✓ נשמר' : '✓ נוסף לנושא'}
