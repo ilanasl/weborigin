@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import { mastery } from '../lib/mastery'
 import { scanScope } from '../lib/gemini'
+import { aiErrorReason } from '../lib/aiError'
 import { toneOf } from '../lib/tone'
 import Icon from '../components/Icon'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -32,6 +33,7 @@ export default function Planner({ nav, params }) {
   const [scanning, setScanning] = useState(false)
   const [scanErr, setScanErr] = useState('')
   const [matchNote, setMatchNote] = useState('')
+  const [aiFail, setAiFail] = useState('')   // שירות ה-AI לא זמין — חלק מ"שמור ובנה" לא בוצע
   const [busy, setBusy] = useState(false)
   const [lockMsg, setLockMsg] = useState(null)   // נושא נעול בתוכנית — הודעה + מעבר לנושא הנוכחי
   const { profile } = useAuth()
@@ -97,7 +99,8 @@ export default function Planner({ nav, params }) {
   }
 
   async function save() {
-    setBusy(true); setMatchNote('')
+    setBusy(true); setMatchNote(''); setAiFail('')
+    let failErr = null
     const cols = kind === 'מבדק'
       ? { quiz_date: date || null, quiz_scope_text: scope || null }
       : { exam_kind: 'מבחן מסכם', exam_date: date || null, exam_scope_text: scope || null }
@@ -111,10 +114,16 @@ export default function Planner({ nav, params }) {
         if (scopeIncludesAll(scope)) setMatchNote(`${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר — כל הנושאים, כולל מה שיועלה בהמשך.`)
         else if (set?.size) setMatchNote(`זוהו ${set.size} נושאים ל${kind === 'מבדק' ? 'מבדק' : 'מבחן'} — התוכנית תתמקד בהם: ${[...set].join(', ')}`)
         else if (scope.trim()) setMatchNote(`מה שכתבת לא תואם אף נושא שהועלה — אולי צריך להעלות את החומר או לכתוב את שמות הנושאים. בינתיים ${kind === 'מבדק' ? 'המבדק' : 'המבחן'} יהיה על כל החומר.`)
-      } catch { /* לא חוסם את שמירת התוכנית */ }
+      } catch (e) { failErr = e /* לא חוסם את שמירת התוכנית */ }
       // סדר לימוד הגיוני לתוכנית (מה שצריך לדעת קודם — קודם), ובדיקה מה מהמיקוד עוד אין עליו חומר
-      await Promise.all([orderPlanTopics(updated), checkScopeGaps(updated).catch(() => null)])
+      const [ord] = await Promise.all([orderPlanTopics(updated), checkScopeGaps(updated).catch((e) => { failErr = failErr || e })])
+      if (ord?.error) failErr = failErr || ord.error
       setGapNote(''); setGapErr('')
+      // שירות ה-AI לא זמין (למשל נגמרו הקרדיטים) — אומרים במפורש מה לא בוצע, במקום לשתוק
+      if (failErr) {
+        setMatchNote('')
+        setAiFail(`התאריך ומה שכתבת נשמרו והתוכנית נבנתה על כל הנושאים — אבל זיהוי הנושאים, סדר הלימוד והבדיקה מה חסר לא בוצעו, כי שירות ה-AI לא זמין כרגע. ${aiErrorReason(failErr) || ''} אחר כך ללחוץ שוב "שמור ובנה תוכנית".`)
+      }
     } else if (scope.trim()) {
       setMatchNote(`נשמר. זה ייכנס לתוקף אחרי ה${kind === 'מבדק' ? 'מבחן' : 'מבדק'} הקרוב.`)
     }
@@ -226,6 +235,11 @@ export default function Planner({ nav, params }) {
         </button>
         {busy && <WorkNote text="שומר ובונה תוכנית: מזהה את הנושאים, קובע סדר לימוד ובודק מה חסר… כ-10–30 שניות." />}
         {matchNote && <div className="text-good text-[13px] font-semibold leading-relaxed">{matchNote}</div>}
+        {aiFail && (
+          <div className="text-[13px] font-semibold leading-relaxed rounded-[14px] p-3" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>
+            ⚠️ {aiFail}
+          </div>
+        )}
       </div>
 
       {/* מה מהמיקוד כבר יש ומה חסר */}
