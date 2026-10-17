@@ -13,6 +13,7 @@ import { fetchAll } from '../lib/fetchAll'
 import { forget } from '../lib/screenCache'
 import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
 import { GEN_MARK } from '../lib/plan'
+import { addMoreQuestions } from '../lib/moreQuestions'
 
 // מוצג כלשונית של נושא בתוך מחברת הסיכומים (embedded). onChanged — רענון הלשוניות (שם/נושא חדש), onOpen — מעבר ללשונית של נושא אחר
 export default function TopicSummary({ nav, params, embedded = false, onChanged, onOpen }) {
@@ -42,6 +43,8 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [moreBusy, setMoreBusy] = useState(false)    // "עוד שאלות לנושא"
+  const [moreNote, setMoreNote] = useState('')
   const [autoMerging, setAutoMerging] = useState(false)   // איחוד אוטומטי של כמה דפים לסיכום אחד
   const [offs, setOffs] = useState([])          // חומר מתחום אחר שהוצא מהסיכום — ממתין להחלטה
   const [offBusy, setOffBusy] = useState(null)
@@ -55,7 +58,7 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
   const [fetchedSources, setFetchedSources] = useState([])
   const [wantSource, setWantSource] = useState(false)
 
-  useWorking(busy || autoMerging || completing || fetching || !!offBusy || removing)
+  useWorking(busy || moreBusy || autoMerging || completing || fetching || !!offBusy || removing)
 
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
@@ -514,6 +517,26 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
       {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
       <div className="home-h2 mt-7 mb-2.5"><h2>כלים לנושא</h2></div>
       <div className="milky-row !flex-col !items-stretch !gap-3">
+        {summary && (
+          <div className="flex flex-col gap-2">
+            <div className="text-[13.5px] font-bold">עוד שאלות לנושא</div>
+            <div className="text-[12px] text-muted leading-relaxed">יוצר עוד שאלות תרגול מהסיכום של הנושא — בלי לחזור על השאלות שכבר יש ({qCount}).</div>
+            <button type="button" className="self-start inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13.5px] font-bold" disabled={moreBusy || busy}
+              style={{ border: '1.5px solid var(--milky-line)' }} onClick={async () => {
+                setMoreBusy(true); setMoreNote('')
+                try {
+                  const n = await addMoreQuestions({ subjectId, subjectName, topicId, topicName: name, learner: profile, count: 8 })
+                  setMoreNote(n ? `✓ נוספו ${n} שאלות חדשות.` : 'לא נמצאו שאלות חדשות שלא חוזרות על הקיימות — כנראה החומר כבר מכוסה היטב.')
+                  forget(`subject:${subjectId}`); await load()
+                } catch (e) { setMoreNote(aiErrorText('יצירת השאלות נכשלה.', e)) }
+                setMoreBusy(false)
+              }}>
+              {moreBusy ? <span className="up-spin" style={{ width: 15, height: 15 }} /> : <Icon name="plus" size={16} />}{moreBusy ? 'יוצר שאלות…' : '8 שאלות נוספות'}
+            </button>
+            {moreBusy && <WorkNote text="יוצר שאלות חדשות מהסיכום ובודק שהן לא חוזרות על הקיימות… כחצי דקה." />}
+            {moreNote && !moreBusy && <div className="text-[12.5px] font-semibold" style={{ color: moreNote.startsWith('✓') ? 'var(--good)' : 'var(--muted)' }}>{moreNote}</div>}
+          </div>
+        )}
         {summary && (
           <div className="flex flex-col gap-2">
             <div className="text-[13.5px] font-bold">בנייה מחדש של הסיכום</div>
