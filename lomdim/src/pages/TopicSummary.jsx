@@ -43,6 +43,9 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
   const [enrich, setEnrich] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  // העברת "סיכום שהוספתי" לנושא אחר
+  const [moveNote, setMoveNote] = useState(null)   // { id, to, name }
+  const [noteBusy, setNoteBusy] = useState(null)
   const [moreBusy, setMoreBusy] = useState(false)    // "עוד שאלות לנושא"
   const [moreNote, setMoreNote] = useState('')
   const [autoMerging, setAutoMerging] = useState(false)   // איחוד אוטומטי של כמה דפים לסיכום אחד
@@ -58,7 +61,7 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
   const [fetchedSources, setFetchedSources] = useState([])
   const [wantSource, setWantSource] = useState(false)
 
-  useWorking(busy || moreBusy || autoMerging || completing || fetching || !!offBusy || removing)
+  useWorking(busy || moreBusy || !!noteBusy || autoMerging || completing || fetching || !!offBusy || removing)
 
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
@@ -130,6 +133,35 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
       } catch { /* נשאר הסיכום מהדפים; אפשר לנסות שוב מ"ניהול הנושא" */ }
       setAutoMerging(false)
     }
+  }
+
+  // העברת "סיכום שהוספתי" לנושא אחר. לנושא חדש — ההסבר הופך לסיכום הנושא ונוצרות לו שאלות תרגול
+  async function moveNoteTo(n) {
+    const to = moveNote?.to
+    if (!to) return
+    setNoteBusy(n.id); setErr('')
+    try {
+      if (to === '__new') {
+        const nm = (moveNote.name || '').trim()
+        if (!nm) { setNoteBusy(null); return }
+        const exist = otherTopics.find((t) => t.name.trim() === nm)
+        if (exist) {
+          await supabase.from('materials').update({ topic_id: exist.id }).eq('id', n.id)
+        } else {
+          const { data: cur } = await supabase.from('topics').select('in_exam').eq('id', topicId).maybeSingle()
+          const { data: ins, error } = await supabase.from('topics').insert({ subject_id: subjectId, name: nm, origin: 'השנה', in_exam: !!cur?.in_exam }).select('id').single()
+          if (error || !ins) throw error || new Error('topic')
+          await supabase.from('materials').update({ topic_id: ins.id, kind: 'summary', title: n.title || nm, summary_md: `${GEN_MARK}\n\n${n.summary_md}` }).eq('id', n.id)
+          try { await addMoreQuestions({ subjectId, subjectName, topicId: ins.id, topicName: nm, learner: profile, count: 8 }) } catch { /* הנושא והסיכום נשמרו */ }
+        }
+      } else {
+        await supabase.from('materials').update({ topic_id: to }).eq('id', n.id)
+      }
+      setMoveNote(null)
+      forget(`subject:${subjectId}`)
+      await load(); onChanged?.()
+    } catch (e) { setErr(aiErrorText('ההעברה נכשלה.', e)) }
+    setNoteBusy(null)
   }
 
   async function deleteNote(id) {
@@ -505,9 +537,29 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
             <div key={n.id} className="paper mb-3">
               <div className="flex items-start gap-2 mb-1">
                 <div className="flex-1 font-disp font-extrabold text-[16px] flex items-center gap-1.5"><Icon name="note" size={18} />{n.title || 'סיכום'}</div>
+                <button type="button" onClick={() => setMoveNote(moveNote?.id === n.id ? null : { id: n.id, to: '', name: '' })}
+                  className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#3E3E45', border: '1.5px solid rgba(20,20,22,.25)' }}>העבר לנושא</button>
                 <button type="button" onClick={() => deleteNote(n.id)} title="הסר סיכום" aria-label="הסר סיכום"
                   className="text-[13px] font-bold px-2.5 py-1 rounded-full" style={{ color: '#B8501C', border: '1.5px solid rgba(184,80,28,.35)' }}>הסר</button>
               </div>
+              {moveNote?.id === n.id && (
+                <div className="flex flex-col gap-2 my-2 p-3 rounded-[14px]" style={{ background: 'rgba(20,20,22,.06)' }}>
+                  <select className="field !py-1.5 !text-[16px]" value={moveNote.to} disabled={noteBusy === n.id}
+                    onChange={(e) => setMoveNote({ ...moveNote, to: e.target.value })}>
+                    <option value="">{gx('בחר נושא…', 'בחרי נושא…')}</option>
+                    {otherTopics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    <option value="__new">+ נושא חדש…</option>
+                  </select>
+                  {moveNote.to === '__new' && (
+                    <input className="field !py-1.5" autoFocus value={moveNote.name} placeholder="שם הנושא החדש" disabled={noteBusy === n.id}
+                      onChange={(e) => setMoveNote({ ...moveNote, name: e.target.value })} />
+                  )}
+                  {moveNote.to === '__new' && <div className="text-[12px]" style={{ color: '#6B6B72' }}>ההסבר יהיה הסיכום של הנושא החדש, וייווצרו לו שאלות תרגול.</div>}
+                  <button type="button" className="paper-btn self-start" disabled={noteBusy === n.id || !moveNote.to || (moveNote.to === '__new' && !moveNote.name.trim())}
+                    onClick={() => moveNoteTo(n)}>{noteBusy === n.id ? 'מעביר ויוצר שאלות…' : 'העבר'}</button>
+                  {noteBusy === n.id && moveNote.to === '__new' && <WorkNote light text="יוצר את הנושא ושאלות תרגול… כחצי דקה." />}
+                </div>
+              )}
               <Markdown text={n.summary_md} />
             </div>
           ))}
