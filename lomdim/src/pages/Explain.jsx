@@ -115,7 +115,9 @@ export default function Explain({ nav, params }) {
     const afterMe = [...msgs, { who: 'me', text: q }]
     setMsgs(afterMe); setBusy(true)
     try {
-      const { answer } = await explain({ subjectName, context, question: q, learner: profile })
+      // 12 ההודעות האחרונות (בלי פתיח המסך) — כדי שה-AI יזכור מה שאל ולמה התלמיד/ה עונה
+      const history = msgs.filter((m) => !isIntro(m)).slice(-12)
+      const { answer } = await explain({ subjectName, context, question: q, learner: profile, history })
       const next = [...afterMe, { who: 'ai', text: answer || 'לא הצלחתי לענות, נסו לנסח אחרת.' }]
       setMsgs(next); persist(next)
     } catch (e) {

@@ -170,12 +170,17 @@ function buildParts(payload) {
     return { parts, wantJson: true }
   }
   if (task === 'explain') {
-    const { subjectName, context, question, learner } = payload
+    const { subjectName, context, question, learner, history = [] } = payload
+    // השיחה עד עכשיו — כדי שתשובה קצרה ("תנועה", "ב") תיבדק מול השאלה האחרונה ששאלת, ולא תנוחש
+    const convo = history.length
+      ? `השיחה עד עכשיו (מהישן לחדש):\n` + history.map((m) => `${m.who === 'me' ? 'תלמיד/ה' : 'את/ה'}: ${String(m.text).slice(0, 1800)}`).join('\n\n') +
+        `\n\nאם ההודעה החדשה היא תשובה — היא תשובה לשאלה האחרונה ששאלת (בהודעה האחרונה שלך למעלה). בדוק/י אותה מול השאלה הזו בדיוק.\n\n`
+      : ''
     parts.push({ text:
       `את/ה חבר/ה גדול/ה שעוזר/ת ללמוד "${subjectName}", ברמת כיתה ${gradeOf(learner)}. את/ה כבר באמצע שיחה — אל תפתח/י ב"שלום" ואל תציג/י את עצמך שוב, פשוט המשך/י ישר לעניין. ` +
       TONE_RULE + ' ' + HEB_RULE + learnerRule(learner) +
       ` אם התלמיד/ה עונה תשובה לשאלה ששאלת: תן/י קודם משוב קצר — נכון או לא, ולמה. אם ענה/תה משהו שאינו אחת האפשרויות שנתת — אמור/י בעדינות "זו לא אחת האפשרויות" והסבר/י מה כן. אם היו עוד סעיפים פתוחים ששאלת — המשך/י אליהם ואל תשאיר/י אותם באוויר. ` +
-      (context ? `הקשר החומר: ${context}\n` : '') + `הודעת התלמיד/ה: ${question}` })
+      (context ? `הקשר החומר: ${context}\n` : '') + convo + `הודעת התלמיד/ה: ${question}` })
     return { parts, wantJson: false }
   }
   if (task === 'exam_questions') {
