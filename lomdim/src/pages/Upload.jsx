@@ -8,7 +8,8 @@ import WorkNote from '../components/WorkNote'
 import { supabase } from '../lib/supabase'
 import { subjectStyle } from '../lib/examStyle'
 import { consolidateTopic } from '../lib/consolidate'
-import { analyzeMaterial, fileHash, filterNewQuestions } from '../lib/gemini'
+import { analyzeMaterial, fileHash } from '../lib/gemini'
+import { keepNew, normText, addMoreQuestions, MIN_QUESTIONS } from '../lib/moreQuestions'
 import Markdown from '../components/Markdown'
 import { useAuth } from '../context/AuthContext'
 
@@ -199,24 +200,13 @@ export default function Upload({ nav, params }) {
   }
 
   // ── סינון כפולים מול מה שכבר יש בנושא ──
-  const norm = (t) => String(t || '').replace(/[\u0591-\u05C7]/g, '').replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-  const words = (t) => new Set(norm(t).split(' ').filter((w) => w.length > 1))
-  const similar = (a, b) => {
-    const A = words(a), B = words(b)
-    if (!A.size || !B.size) return false
-    let n = 0; for (const w of A) if (B.has(w)) n++
-    return n / Math.min(A.size, B.size) >= 0.8
-  }
+  const norm = normText
   async function keepNewQuestions(topicId, topicName, qs) {
     const { data: ex } = await supabase.from('questions').select('q').eq('topic_id', topicId).limit(300)
     const existing = (ex || []).map((r) => r.q).filter(Boolean)
     if (!existing.length) return qs
     setSaveMsg(`בודק אילו שאלות על "${topicName}" באמת חדשות…`)
-    try {
-      const { keep } = await filterNewQuestions({ subjectName, topicName, existing, fresh: qs.map((q, i) => ({ i: i + 1, q: q.q })) })
-      if (Array.isArray(keep)) { const set = new Set(keep.map(Number)); return qs.filter((_, i) => set.has(i + 1)) }
-    } catch { /* בלי ה-AI — לפחות בלי כפולים כמעט-זהים */ }
-    return qs.filter((q) => !existing.some((e) => similar(q.q, e)))
+    return keepNew({ subjectName, topicName, existing, fresh: qs })
   }
   async function keepNewCards(topicId, cards) {
     const { data: ex } = await supabase.from('flashcards').select('front').eq('topic_id', topicId).limit(500)
@@ -277,6 +267,16 @@ export default function Upload({ nav, params }) {
             subject_id: subjectId, topic_id: topicId, front: c.front, back: c.back, context: c.context || null,
           })))
         }
+      }
+      // נושא שנשאר עם מעט שאלות — משלימים לבד עד MIN_QUESTIONS (מהסיכום, בלי לחזור על הקיימות)
+      for (const tid of Object.keys(touched)) {
+        try {
+          const { count } = await supabase.from('questions').select('id', { count: 'exact', head: true }).eq('topic_id', tid)
+          if ((count || 0) < MIN_QUESTIONS) {
+            setSaveMsg(`מוסיף שאלות ל"${touched[tid]}"…`)
+            await addMoreQuestions({ subjectId, subjectName, topicId: tid, topicName: touched[tid], learner: profile, count: MIN_QUESTIONS - (count || 0) + 2 })
+          }
+        } catch { /* לא חוסם את השמירה */ }
       }
       // נושא שיש בו עכשיו כמה דפים (או סיכום מאוחד ישן) — בונים סיכום אחד מכולם, בלי חזרות
       if (!onlyPractice) {
