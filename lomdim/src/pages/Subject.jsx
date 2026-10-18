@@ -131,6 +131,7 @@ export default function Subject({ nav, params }) {
   })()
   // תרגיל ניתוח משפט רלוונטי ללשון/עברית/דקדוק
   const isLang = /עברית|לשון|דקדוק|תחביר/.test(name || '')
+  const isMath = /מתמטיקה|חשבון|אלגברה|גאומטרי/.test(name || '')
 
   // הסיכום האחרון כהקשר ל"תסביר לי" — נטען רק בלחיצה (לא בכל כניסה למסך)
   const openExplain = async () => {
@@ -272,6 +273,7 @@ export default function Subject({ nav, params }) {
           { k: 'rv', label: 'לחיזוק', sub: rvCount > 0 ? 'מה שכדאי לחזק' : 'אין כרגע מה לחזק', icon: 'book', count: rvCount, go: () => nav.go('reinforce', { subjectId: id, subjectName: name }) },
           { k: 'pl', label: 'מתכנן המבחן', sub: needsMaterial ? 'צריך להגדיר חומר' : missingParts.length ? `חסר חומר ל${examKind === 'מבדק' ? 'מבדק' : 'מבחן'}` : scopeNoMatch ? 'הרשימה לא תואמת נושא' : 'תוכנית עד המבחן', icon: 'calendar', dot: needsMaterial || scopeNoMatch || missingParts.length > 0, go: () => nav.go('planner', { subjectId: id, subjectName: name }) },
           isLang && { k: 'sx', label: 'ניתוח משפט', sub: 'משפטים לתרגול', icon: 'blocks', go: () => nav.go('syntax', { subjectId: id, subjectName: name, mode: 'syntax' }) },
+          isMath && { k: 'md', label: 'תרגילים', sub: 'חזקות, פילוג, משוואות, זוויות', icon: 'target', go: () => nav.go('mathDrill', { subjectId: id, subjectName: name }) },
           { k: 'ck', label: 'בדוק תרגיל', sub: 'צילום של פתרון', icon: 'camera', go: () => nav.go('check', { subjectId: id, subjectName: name }) },
         ].filter(Boolean)
         const explainTile = { k: 'ex', label: 'תסביר לי', sub: 'שאלו כל שאלה', icon: 'chat', go: openExplain }

@@ -532,3 +532,37 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
   .print-area thead { display: table-header-group }
   .print-area tr { break-inside: avoid }
 }
+
+/* תרגילי מתמטיקה (MathDrill) — ביטויים תמיד משמאל לימין, כמו במחברת */
+.md-level{ display:flex; align-items:center; gap:4px; font-size:12px; color:var(--muted) }
+.md-level i{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.14); display:inline-block }
+.md-level i.on{ background:var(--primary) }
+.md-math{ direction:ltr; text-align:center; font-family:var(--disp); font-weight:500; font-size:26px; background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:16px 10px; margin-bottom:14px; white-space:nowrap; overflow-x:auto }
+.md-math sup, .md-ex sup, .md-wl sup{ font-size:.62em }
+.md-figure svg{ display:block; width:100%; max-width:340px; margin:0 auto 10px }
+.md-figure .wlines{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:6px 14px; margin-bottom:14px }
+.md-figure .wl{ display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px dashed var(--line) }
+.md-figure .wl:last-child{ border-bottom:0 }
+.md-figure .wl b{ font-size:12px; color:var(--muted); background:var(--surface-2); border-radius:999px; width:22px; height:22px; display:grid; place-items:center; flex:none }
+.md-figure .wl span{ direction:ltr; flex:1; text-align:left; font-family:var(--disp); font-size:19px; white-space:nowrap }
+.md-figure .wl sup{ font-size:.62em }
+.frac{ display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; line-height:1.15; font-size:.85em }
+.frac span:first-child{ border-bottom:2px solid currentColor; padding:0 4px }
+.md-answer{ direction:ltr; display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; font-family:var(--disp); font-size:22px; margin-bottom:12px }
+.md-answer sup{ font-size:.62em }
+.md-answer input{ width:72px; font:inherit; font-size:20px; text-align:center; padding:8px 4px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink) }
+.md-answer input:focus{ outline:2px solid var(--primary); outline-offset:1px }
+.md-answer input.sup{ width:50px; font-size:15px; padding:4px 2px; position:relative; top:-16px; margin-inline-start:-2px }
+.md-answer input.ok{ border-color:var(--good); background:var(--good-soft) }
+.md-answer input.no{ border-color:var(--bad); background:var(--bad-soft) }
+.md-opts{ display:flex; gap:8px; margin-bottom:12px }
+.md-opt{ flex:1; height:50px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); font-weight:700; font-size:16px }
+.md-opt.ok{ border-color:var(--good); background:var(--good-soft); color:var(--good) }
+.md-opt.no{ border-color:var(--bad); background:var(--bad-soft); color:var(--bad) }
+.md-note{ background:var(--bad-soft); color:var(--bad); border-radius:12px; padding:10px 12px; font-size:14.5px; margin-bottom:12px }
+.md-steps{ border-top:1px solid var(--line); padding-top:12px; margin-top:4px; scroll-margin-top:12px }
+.md-step{ padding:8px 0; border-bottom:1px dashed var(--line) }
+.md-step:last-child{ border-bottom:0 }
+.md-why{ display:block; font-size:13.5px; color:var(--muted) }
+.md-ex{ display:block; direction:ltr; text-align:left; font-family:var(--disp); font-size:18px; white-space:nowrap; overflow-x:auto; margin-top:2px }
+.md-step.final .md-ex{ color:var(--primary); font-weight:700 }
