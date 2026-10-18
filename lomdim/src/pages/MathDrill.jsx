@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
+import Icon from '../components/Icon'
+import { supabase } from '../lib/supabase'
 import { SegProgress, BottomSheet, FeedbackSheet } from '../components/QuestionUI'
-import { makeExercise, ROUND, LEVELED } from '../lib/mathDrill'
+import { makeExercise, toQuestion, difficultyOf, ROUND, LEVELED } from '../lib/mathDrill'
 
 // תרגילים שנבנים בקוד (בלי AI) — סבב של 10, רמה נפרדת לכל סוג.
 // 2 נכונות ברצף → הרמה עולה; טעות → יורדת. הרמות נשמרות במכשיר.
@@ -10,6 +12,20 @@ function loadLevels(id) {
   try { const v = JSON.parse(localStorage.getItem(keyOf(id)) || '{}'); return v && typeof v === 'object' ? v : {} } catch { return {} }
 }
 function saveLevels(id, lv) { try { localStorage.setItem(keyOf(id), JSON.stringify(lv)) } catch { /* אין אחסון — לא נורא */ } }
+
+// כל סוג תרגיל נרשם על הנושא המתאים במקצוע (לפי השם) — כך הוא נכנס לשליטה בנושא ולדוח.
+// אין נושא כזה — נרשם על המקצוע בלבד (נספר בפעילות, לא בשליטה).
+const TOPIC_MATCH = {
+  expand: [/פילוג|סוגריים|כפל מקוצר/],
+  err: [/פילוג|סוגריים|כפל מקוצר/],
+  pow: [/חזק/],
+  eq: [/משווא/, /פילוג|סוגריים/],
+  tri: [/משולש|זווי/],
+}
+const topicFor = (type, topics) => {
+  for (const re of TOPIC_MATCH[type] || []) { const t = topics.find((x) => re.test(x.name)); if (t) return t.id }
+  return null
+}
 
 const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
 // מספרים בתוך משפט בעברית — כיוון משמאל לימין, שהמינוס לא יקפוץ
@@ -31,6 +47,26 @@ export default function MathDrill({ nav, params }) {
   const mathRef = useRef(null)
   const stepsRef = useRef(null)
   const firstInput = useRef(null)
+  const [topics, setTopics] = useState([])
+  const [toReview, setToReview] = useState(false)
+
+  useEffect(() => {
+    supabase.from('topics').select('id, name').eq('subject_id', subjectId).then(({ data }) => setTopics(data || []))
+  }, [subjectId])
+
+  // התשובה נרשמת לדוח; טעות → אותו תרגיל כשאלה אמריקאית ל"לחיזוק"
+  async function record(ok, lv) {
+    const topic_id = topicFor(ex.type, topics)
+    try {
+      await supabase.from('attempts').insert({ subject_id: subjectId, topic_id, correct: ok, difficulty: difficultyOf(lv) })
+      if (ok) return
+      const { data: ins } = await supabase.from('questions').insert({ subject_id: subjectId, topic_id, ...toQuestion(ex, lv) }).select('id')
+      if (ins?.length) {
+        await supabase.from('review_items').insert(ins.map((q) => ({ subject_id: subjectId, kind: 'question', ref_id: q.id, streak: 0 })))
+        setToReview(true)
+      }
+    } catch { /* לא חוסם את התרגול */ }
+  }
 
   // ביטוי ארוך — מקטינים את הגופן עד שנכנס בשורה אחת
   useEffect(() => {
@@ -45,6 +81,7 @@ export default function MathDrill({ nav, params }) {
     setDone(ok)
     setResults((r) => { const n = r.slice(); n[idx] = ok; return n })
     const t = ex.type
+    record(ok, LEVELED.includes(t) ? levels[t] || 1 : 2)
     if (LEVELED.includes(t)) {
       const s = streak.current
       let lv = levels[t] || 1
@@ -74,7 +111,7 @@ export default function MathDrill({ nav, params }) {
     if (i >= ROUND.length) { setResults([]); setIdx(0) } else setIdx(i)
     const type = ROUND[i % ROUND.length]
     setEx(makeExercise(type, levels[type]))
-    setVals([]); setWrong(null); setDone(null); setPicked(null)
+    setVals([]); setWrong(null); setDone(null); setPicked(null); setToReview(false)
     window.scrollTo({ top: 0 })
   }
 
@@ -155,6 +192,7 @@ export default function MathDrill({ nav, params }) {
       ) : (
         <FeedbackSheet ok={done}
           title={done ? '🎉 נכון!' : 'לא הפעם — הפתרון למעלה'}
+          extra={toReview && <div className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: '#5A43D1' }}><Icon name="book" size={16} />התרגיל נוסף ל„לחיזוק”</div>}
           nextLabel={idx + 1 < ROUND.length ? 'התרגיל הבא' : 'עוד סבב'}
           onNext={next}
           finishLabel="סיים תרגול ✓" onFinish={() => nav.back()} />
