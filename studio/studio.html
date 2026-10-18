@@ -2153,6 +2153,7 @@ Promise.all([
 
   async function run(){
     saveTopic();
+    if(!sizes.length)addSize(); // the size typed in the boxes counts even if "+ Add size" wasn't clicked
     if(!sizes.length){$('im-stat').textContent='add at least one size';return;}
     let ideas=ideasList(); if(!ideas.length) ideas=[$('im-topic').value.trim()||'clean photo'];
     const jobs=[]; sizes.forEach(s=>{for(let i=0;i<s.count;i++)jobs.push({w:s.w,h:s.h,idea:ideas[jobs.length%ideas.length]});});
