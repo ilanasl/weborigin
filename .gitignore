@@ -49,3 +49,9 @@ builds/**/images/*
 # security / ssl
 *.pem
 *.xxjson
+# Google service-account keys (google-tracking skill) — never commit
+*service-account*.json
+*-sa.json
+*-sa-key.json
+.secrets/
+__pycache__/

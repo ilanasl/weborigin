@@ -1,0 +1,78 @@
+{
+  "_doc": "Per-site source of truth. Lives at <site-root>/tracking-plan.json. gapi.py reads it and writes back IDs it creates. Fields starting with _doc are comments and are ignored.",
+  "site": {
+    "name": "Noga Doula",
+    "url": "https://www.example.co.il",
+    "stack": "static-html",
+    "_doc_stack": "static-html | vite-react | next-app | next-pages | wordpress",
+    "type": "lead-gen",
+    "_doc_type": "lead-gen | ecommerce | booking | content | saas",
+    "root": "011_doula-website",
+    "timeZone": "Asia/Jerusalem",
+    "currency": "ILS"
+  },
+  "google": {
+    "gtm": {
+      "accountId": "",
+      "containerId": "",
+      "publicId": "",
+      "workspace": "Default Workspace"
+    },
+    "ga4": {
+      "accountId": "",
+      "propertyId": "",
+      "measurementId": "",
+      "streamId": "",
+      "dataRetention": "FOURTEEN_MONTHS"
+    },
+    "searchConsole": {
+      "property": "sc-domain:example.co.il",
+      "_doc_property": "sc-domain:<domain> (DNS verification, covers all subdomains/protocols) or https://www.example.co.il/ (URL prefix, META verification)",
+      "verification": "DNS_TXT",
+      "_doc_verification": "DNS_TXT | META | ANALYTICS | TAG_MANAGER | existing",
+      "sitemap": "https://www.example.co.il/sitemap.xml",
+      "owners": ["owner@example.com"]
+    },
+    "ads": {
+      "customerId": "",
+      "conversionId": "",
+      "_doc_conversionId": "Numeric part of AW-123456789 (without AW-)",
+      "conversions": [
+        { "event": "generate_lead", "label": "" }
+      ]
+    }
+  },
+  "consent": {
+    "mode": "eea-denied",
+    "_doc_mode": "none | eea-denied | deny-all — see references/consent.md",
+    "banner": "none",
+    "_doc_banner": "none | cookieyes | cookiebot | complianz | custom"
+  },
+  "events": [
+    {
+      "name": "generate_lead",
+      "keyEvent": true,
+      "params": ["form_id", "lead_source"],
+      "fires": "Contact form success (thank-you message shown)",
+      "source": "code",
+      "status": "planned"
+    },
+    {
+      "name": "contact_click",
+      "keyEvent": true,
+      "params": ["method", "link_url", "link_location"],
+      "fires": "Click on tel:, mailto: or WhatsApp link (automatic, tracking.js)",
+      "source": "tracking.js",
+      "status": "planned"
+    }
+  ],
+  "customDimensions": [
+    { "parameter": "method", "displayName": "Contact method", "scope": "EVENT" },
+    { "parameter": "form_id", "displayName": "Form ID", "scope": "EVENT" },
+    { "parameter": "link_location", "displayName": "Link location", "scope": "EVENT" }
+  ],
+  "status": {
+    "lastAudit": "",
+    "notes": []
+  }
+}
