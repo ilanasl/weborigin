@@ -354,6 +354,25 @@ const TEMPLATES = [
     ]
   },
   {
+    // Google Ads wide image (1200x628) in the site's hero style: light-blue panel on the LEFT, photo on the RIGHT, blurred join.
+    // One size only (no mobile version).
+    id:"ad-wide", name:"Ad Image Wide (Photo)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
+    sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
+    bgPos:{desktop:"center", mobile:"center"},
+    bgColor:"#ebf4f9", panelBg:true,
+    imageBox:{x:40,y:0,w:60,h:100},
+    seamBlur:0.6,
+    textArea:{a:5,b:40},
+    bgModes:{side:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",from:"left",hold:40,fade:50,tintTop:false}},
+    defaultTopic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",
+    composition:"A natural, candid lifestyle photo, shot at a MEDIUM distance (not a close-up). Place the person or people on the RIGHT 60% of the frame. The LEFT third simply continues the SAME scene and setting, softly lit and gently out of focus, with NO people and nothing important there (it gets blurred into a light-blue panel). Keep the whole photo light, bright and airy, in soft whites, light blues and neutral tones. Show only the people the topic names. Photorealistic, one continuous photo, no collage, no readable screens or text.",
+    overlay:{desktop:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50},
+             mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50}},
+    elements:[
+      {key:"headline",label:"Headline",val:"Start your career with the right online degree",size:44,weight:700,color:"#1a1a1a",align:"left",x:6,y:34,anchor:"top-left",maxW:34,lh:1.15}
+    ]
+  },
+  {
     id:"gold-popup", name:"Popup (Split)", font:"Poppins", hidden:true, // hidden from the gallery (toggle "hidden" at the top); remove the flag to show it again
     sizes:{desktop:{w:640,h:380}, mobile:{w:360,h:300}},
     // White card on the left; the image fills the right side.
@@ -852,6 +871,18 @@ const STARTERS={
     {topic:"A friendly professional tax advisor in a modern bright office, sitting at a desk across from a smiling client couple, reviewing documents together, warm trustworthy atmosphere",prompt:""},
     {topic:"A happy couple sitting at a small table on a sunny home balcony with plants, looking at a tablet together, relaxed and relieved",prompt:""},
   ],
+  "ad-wide":[
+    {topic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",prompt:""},
+    {topic:"A man in his 30s studying alone on a laptop at a long wooden desk by a wide window overlooking green trees, calm afternoon light",prompt:""},
+    {topic:"A woman in her 40s taking notes from an online lecture at a dining table, her laptop and open textbook spread out, warm evening light",prompt:""},
+    {topic:"Two students, a young man and a young woman, studying side by side on a sofa in a bright living room, both with laptops, smiling",prompt:""},
+    {topic:"A young man with headphones studying alone at a library table in front of a long row of bookshelves, soft natural light",prompt:""},
+    {topic:"A woman in her 50s studying alone on a laptop on a sunny garden patio, plants and flowers around her, relaxed smile",prompt:""},
+    {topic:"Three diverse students around a wide table in a bright co-working space, laptops open, discussing a project together",prompt:""},
+    {topic:"A young woman studying alone on a laptop at a desk in a stylish home office with a big window and city view at dusk",prompt:""},
+    {topic:"A man in his 20s studying alone on a laptop on a wooden bench in a wide green park, trees and path softly blurred",prompt:""},
+    {topic:"A proud woman in her 30s in a graduation gown smiling at her laptop at home, bright cheerful living room",prompt:""},
+  ],
   "travel-overflow":[
     {topic:"Japan travel destination",prompt:""},
     {topic:"active senior couple hiking a scenic trail on their dream vacation",prompt:""},
@@ -915,10 +946,10 @@ TEMPLATES.forEach(tpl=>{
   card.innerHTML=`
     <div class="card-h">
       <input type="checkbox" class="c-sel">
-      <span class="card-title">${d.w}×${d.h} · 📱 ${m.w}×${m.h}</span>
+      <span class="card-title">${d.w}×${d.h}${tpl.desktopOnly?'':` · 📱 ${m.w}×${m.h}`}</span>
       <span class="card-name">${tpl.name}${tpl.hidden?'<span class="hid-tag">hidden</span>':''}</span>
     </div>
-    <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
+    <div class="thumb"><canvas></canvas><div class="c-preview" title="Preview desktop / mobile — both are always downloaded"${tpl.desktopOnly?' style="display:none"':''}><button class="c-pv on" data-s="desktop" title="Desktop">🖥</button><button class="c-pv" data-s="mobile" title="Mobile ${m.w}×${m.h}">📱</button></div></div>
     <div class="src">
       <span class="lab">Image: <b class="c-srclab">upload needed</b></span>
       <label class="mini">Upload<input type="file" class="c-file" accept="image/*" multiple></label>
@@ -1150,7 +1181,7 @@ function openEditorV2(tpl,st,onClose){
       <div class="editor-controls"><div class="v2-tabs"></div><div class="v2-body"></div></div>
       <div class="editor-preview">
         <div class="v2-sel"></div>
-        <div class="e-inline" style="gap:10px;flex-wrap:wrap;justify-content:center"><div class="e-seg seg2"><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>${(tpl.sizes.desktop.w/tpl.sizes.desktop.h>3)?'<div class="e-seg v2-zoom"><button data-z="1" class="on">Fit</button><button data-z="2">Zoom 2×</button><button data-z="3">Zoom 3×</button></div>':''}</div>
+        <div class="e-inline" style="gap:10px;flex-wrap:wrap;justify-content:center"><div class="e-seg seg2"${tpl.desktopOnly?' style="display:none"':''}><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>${(tpl.sizes.desktop.w/tpl.sizes.desktop.h>3)?'<div class="e-seg v2-zoom"><button data-z="1" class="on">Fit</button><button data-z="2">Zoom 2×</button><button data-z="3">Zoom 3×</button></div>':''}</div>
         <div class="muted" style="font-size:12.5px">Click anything in the banner to edit it · drag to move · mouse wheel to resize · arrow keys nudge</div>
         <div class="e-canvas"><canvas></canvas></div>
         <div class="v2-legend"></div>
@@ -1890,7 +1921,7 @@ async function exportBanner(tpl,st,size,f,sfx){const canvas=renderForExport(tpl,
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
   await fontsReady;const f=currentFmt();const sfx=stamp();
-  for(const size of (sizes||["desktop","mobile"])){
+  for(const size of (sizes||(tpl.desktopOnly?["desktop"]:["desktop","mobile"]))){
     const {blob,name,over}=await exportBanner(tpl,st,size,f,sfx);browserDownload(blob,name);
     const under=f.kbmin&&blob.size<f.kbmin*1024;
     log(`⬇ ${name} — ${Math.round(blob.size/1024)} KB${f.kb?(over?` (PNG, over ${f.kb}KB target)`:` ✓ ≤${f.kb}KB`):""}${under?` · ⚠ under ${f.kbmin}KB — flat/simple banner, this is a perfect lossless PNG`:""}`);
@@ -1914,7 +1945,7 @@ document.getElementById("run").addEventListener("click",async()=>{
       else { log(`⚠ ${tpl.name}: no image — upload one, or run the local app for AI. Skipped.`); continue; }
     }
     const sfx=stamp();
-    for(const size of ["desktop","mobile"]){
+    for(const size of (tpl.desktopOnly?["desktop"]:["desktop","mobile"])){
       const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);
       const {blob,fmt:usedFmt,over}=await encodeCapped(canvas,fmt,kb);
       const name=`${tpl.id}-${size}-${sfx}${scaleTag()}.${extOf(usedFmt)}`;
