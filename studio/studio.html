@@ -373,28 +373,29 @@ const TEMPLATES = [
     ]
   },
   {
-    // Google Ads image 1200x628: a photo fills the whole banner; every layer is adjustable in the tab editor
-    // (no fade / fade from side, top or bottom with strength, decorations, logo, texts, extra images). One size only.
-    id:"ad-full", name:"Ad Image 1200×628 (Full photo)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
+    // Google Ads image 1200x628: colour panel on the LEFT, photo at the RIGHT edge joined by a blur (like the tax banner),
+    // with every layer adjustable in the tab editor (background modes + strength, decorations, logo, texts, extra images). One size only.
+    id:"ad-full", name:"Ad Image 1200×628 (Photo right)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
     sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
     bgPos:{desktop:"center", mobile:"center"},
-    bgColor:"#ffffff", panelBg:true, fadeStrength:true,
-    textArea:{a:5,b:55},
+    bgColor:"#ebf4f9", panelBg:true, fadeStrength:true,
+    imageBox:{x:40,y:0,w:60,h:100}, seamBlur:0.6,
+    textArea:{a:5,b:40},
     logo:{x:5,y:8,widthPct:22,anchor:"top-left"},
-    defaultBgMode:"none",
+    defaultBgMode:"side",
     bgModes:{none:{none:true},
-             side:{bg:"#ffffff",color:"#ffffff",src:"custom",from:"left",hold:0,fade:55,opacity:0.9,tintTop:false},
-             top:{bg:"#ffffff",color:"#ffffff",src:"custom",hold:0,fade:40,opacity:0.85,tintTop:false},
-             bottom:{bg:"#ffffff",color:"#0b1f3a",src:"custom",hold:0,fade:45,opacity:0.75,tintTop:false}},
+             side:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",from:"left",hold:40,fade:50,opacity:1,tintTop:false},
+             top:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",hold:0,fade:35,opacity:0.85,tintTop:false},
+             bottom:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",hold:0,fade:40,opacity:0.85,tintTop:false}},
     decorations:{network:{on:false,amt:0.5,size:1},triangles:{on:false,amt:0.5,size:1},circuit:{on:false,amt:0.5,size:1},hexagons:{on:false,amt:0.5,size:1},dots:{on:false,amt:0.5,size:1},
                  waves:{on:false,amt:0.5,size:1},edge:{on:false,amt:1,size:1,color:"#ffffff"}},
     defaultTopic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",
-    composition:"A natural, candid lifestyle photo filling the whole wide frame, shot at a MEDIUM distance (not a close-up). The people the topic names are clearly visible and well composed, with natural breathing room around them; the setting fills the rest of the frame. Show only the people the topic names, no extra background people. Bright, authentic, photorealistic, one continuous photo, no collage, no readable screens or text.",
-    overlay:{desktop:{color:"#ffffff",opacity:0,gradient:true,coverage:"left",hold:0,fade:55},
-             mobile:{color:"#ffffff",opacity:0,gradient:true,coverage:"left",hold:0,fade:55}},
+    composition:"A natural, candid lifestyle photo, shot at a MEDIUM distance (not a close-up). Place the person or people on the RIGHT 60% of the frame. The LEFT third simply continues the SAME scene and setting, softly lit and gently out of focus, with NO people and nothing important there (it gets blurred into a colour panel). Keep the photo bright and airy. Show only the people the topic names, no extra background people. Photorealistic, one continuous photo, no collage, no readable screens or text.",
+    overlay:{desktop:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50},
+             mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50}},
     elements:[
-      {key:"headline",label:"Headline",val:"Earn Your Degree Online",size:52,weight:800,color:"#0b1f3a",align:"left",x:5,y:30,anchor:"top-left",maxW:48,lh:1.1},
-      {key:"subtitle",label:"Subtitle",val:"Flexible programs that fit your schedule",size:26,weight:400,color:"#1a2b45",align:"left",x:5,y:52,anchor:"top-left",maxW:46,lh:1.25},
+      {key:"headline",label:"Headline",val:"Earn Your Degree Online",size:52,weight:800,color:"#0b1f3a",align:"left",x:5,y:30,anchor:"top-left",maxW:34,lh:1.1},
+      {key:"subtitle",label:"Subtitle",val:"Flexible programs that fit your schedule",size:26,weight:400,color:"#1a2b45",align:"left",x:5,y:56,anchor:"top-left",maxW:33,lh:1.25},
       {type:"button",key:"cta",label:"Button text",val:"View Programs",size:22,weight:700,color:"#ffffff",x:5,y:72,anchor:"top-left",btnColor:"#1e5fd8",padX:26,padY:13,radius:8}
     ]
   },
