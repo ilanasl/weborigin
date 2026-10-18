@@ -517,7 +517,9 @@ function drawPlaceholder(ctx,W,H){const g=ctx.createLinearGradient(0,0,W,0);g.ad
 function fitBox(img,x,y,w,h,scale,vy,hx){const s=Math.min(w/img.naturalWidth,h/img.naturalHeight)*(scale||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const v=(vy!=null?vy:100);const dx=x+(w-dw)*((hx!=null?hx:50)/100),dy=y+(h-dh)*(Math.min(v,100)/100)+Math.max(0,v-100)/100*dh;return{dx,dy,dw,dh};}
 // Map an element X (0-100) into one half of a split panel, with a side padding so it never touches the edge/divider.
 // Product box for a size (a template can give the mobile layout its own box).
-function imageBoxFor(tpl,size){const b=tpl.imageBox;return (b&&size==="mobile"&&b.mobile)?Object.assign({},b,b.mobile):b;}
+// Photo box for a size; over.photoStart[size] (0..) lets the user move where the photo begins (0 = it fills the banner).
+function imageBoxFor(tpl,size,over){let b=tpl.imageBox;if(!b)return b;if(size==="mobile"&&b.mobile)b=Object.assign({},b,b.mobile);
+  const ps=over&&over.photoStart&&over.photoStart[size];if(ps!=null){const x=Math.max(0,Math.min(90,ps));b=Object.assign({},b,{x,w:100-x});}return b;}
 // Progressive blur along the left edge of a photo box: strongly blurred at the edge, getting sharper toward the subject,
 // so the photo melts into the panel (two blurred copies, each faded out with its own mask).
 function drawSeamBlur(ctx,img,bx,by,bw,bh,hx,vy,zoom,amt,W,H){if(!(amt>0))return;const RS=RENDER_SCALE||1;
@@ -711,8 +713,8 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       if(tpl.productShadow)groundShadowFor(ctx,image,f,(over.shadow!=null?over.shadow:0.22));
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
-  else if(tpl.imageBox){const b=imageBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image){if(tpl.seamBlur!=null){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
+  else if(tpl.imageBox){const b=imageBoxFor(tpl,size,over),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
+    if(image){if(tpl.seamBlur!=null&&b.x>0.5){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
         const RS=RENDER_SCALE||1,L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const lc=L.getContext("2d");lc.scale(RS,RS);
         drawCoverBox(lc,image,0,0,bw,bh,hx,vy,zoom);drawSeamBlur(lc,image,0,0,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);
         const fw=Math.min(bw*0.3,Math.max(dim.w*0.06,dim.h*0.5));lc.setTransform(1,0,0,1,0,0);lc.globalCompositeOperation="destination-in";
@@ -850,7 +852,7 @@ function buildAIPrompt(tpl,st){
 async function aiGenerate(tpl,st){
   const d=tpl.sizes.desktop;
   // When the image is confined to a box, match the AI aspect ratio to the box.
-  const box=tpl.imageBox, arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
+  const box=imageBoxFor(tpl,"desktop",st.over), arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
   let engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
   const wantTransparent=!!(st.transparent&&tpl.transparentOK);
   // Transparent cut-outs are only possible on GPT — force it when requested.
@@ -1213,7 +1215,7 @@ function openEditorV2(tpl,st,onClose){
   let size="desktop";const o=st.over;backfillOver(tpl,o);ensureV2Css();
   const isPhoto=!tpl.productBox&&(!!tpl.imageBox||!!tpl.editorV2); // the main image is a photo (box or full banner, cover) instead of a floating product
   const isFullPhoto=isPhoto&&!tpl.imageBox; // the photo fills the whole banner
-  const photoBox=()=>imageBoxFor(tpl,size)||{x:0,y:0,w:100,h:100};
+  const photoBox=()=>imageBoxFor(tpl,size,o)||{x:0,y:0,w:100,h:100};
   const tName=k=>(k==="prod"&&isPhoto)?"Photo":V2_NAME[k];
   const D=initOverrides(tpl);
   const back=document.createElement("div");back.className="backdrop";
@@ -1366,6 +1368,9 @@ function openEditorV2(tpl,st,onClose){
   function panePhoto(p){const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",false,uploadMain));
     if(st.uploaded)s.append(btn("Remove",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;forgetAuto(tpl);renderAll();}));p.append(s);
     if(!st.uploaded){p.append(note("No photo yet — generate one with AI on the card, or upload a photo."));return;}
+    if(tpl.imageBox){const base=imageBoxFor(tpl,size);p.append(group("Photo area"));
+      p.append(rowRange("Photo starts at",{min:0,max:70,get:()=>photoBox().x,set:v=>{if(!o.photoStart)o.photoStart={};o.photoStart[size]=Math.round(v);},fmt:v=>Math.round(v)<=0?"full width":Math.round(v)+"%",def:base.x}));
+      p.append(note("Where the photo begins from the left. 0% = the photo fills the whole banner (no colour area)."));}
     p.append(group("Position (inside the photo area)"));
     p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>o.anchorX[size],set:v=>{o.anchorX[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorX[size]}));
     {const im=st.img,b=photoBox(),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&(o.zoom||1)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
