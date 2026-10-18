@@ -577,8 +577,8 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
               style={{ border: '1.5px solid var(--milky-line)' }} onClick={async () => {
                 setMoreBusy(true); setMoreNote('')
                 try {
-                  const n = await addMoreQuestions({ subjectId, subjectName, topicId, topicName: name, learner: profile, count: 8 })
-                  setMoreNote(n ? `✓ נוספו ${n} שאלות חדשות.` : 'לא נמצאו שאלות חדשות שלא חוזרות על הקיימות — כנראה החומר כבר מכוסה היטב.')
+                  const { n, dropped } = await addMoreQuestions({ subjectId, subjectName, topicId, topicName: name, learner: profile, count: 8 })
+                  setMoreNote(n ? `✓ נוספו ${n} שאלות חדשות${dropped ? ` (${dropped} נפסלו כי חזרו על שאלות קיימות)` : ''}.` : 'לא נמצאו שאלות חדשות שלא חוזרות על הקיימות — כנראה החומר כבר מכוסה היטב.')
                   forget(`subject:${subjectId}`); await load()
                 } catch (e) { setMoreNote(aiErrorText('יצירת השאלות נכשלה.', e)) }
                 setMoreBusy(false)

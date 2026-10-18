@@ -79,7 +79,7 @@ export default function Explain({ nav, params }) {
           summary_md: exist ? (prep.summary_md || msgs[i].text) : `${GEN_MARK}\n\n${prep.summary_md || msgs[i].text}`,
         })
         let n = 0
-        try { n = await addMoreQuestions({ subjectId, subjectName, topicId: tid, topicName: nm, learner: profile, count: 8 }) } catch { /* הנושא והסיכום נשמרו */ }
+        try { n = (await addMoreQuestions({ subjectId, subjectName, topicId: tid, topicName: nm, learner: profile, count: 8 })).n } catch { /* הנושא והסיכום נשמרו */ }
         forget(`subject:${subjectId}`)
         setSaved((s) => ({ ...s, [i]: { newTopic: nm, n } })); setAddIdx(null); setNewName('')
       } catch { setDetectFail(true) }
