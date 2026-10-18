@@ -199,29 +199,63 @@ const DOMAIN_BRIEFS = [
       "Warm, bright, natural light, clean modern homes and kitchens, parks and cafes, soft neutral palettes. " +
       "These are clean standalone ad images — the woman or subject should fill the frame naturally; do NOT compose for a headline or leave large empty background areas for text. " +
       "Ad-policy critical: this is medical/health advertising, so NEVER show needles, syringes, injection pens, injecting, vials, pills close-up, scales with numbers, a woman pinching or grabbing fat, distressed or shamed expressions, or literal before/after comparison panels. No dramatic transformation claims — keep it gentle, healthy and lifestyle-led.",
+    angles: [
+      "food & cooking", "outdoor activity & movement", "everyday confidence at home",
+      "shopping for fresh food", "social moments with friends or family",
+      "getting dressed / clothes fitting better", "self-care & healthy routines",
+      "being active with kids or a partner",
+    ],
+  },
+  {
+    id: "online-education",
+    match: /online\s*(college|degree|course|class|classes|learning|education|school|university|program|study|studying)|e-?learning|distance learning|students?\b|college|university|degree|לימוד|סטודנט|תואר|מכלל/i,
+    brief:
+      "You are a senior performance marketer for an online colleges / online degree comparison brand. " +
+      "The audience is mostly working adults aged about 22–55 (career changers, parents, people studying alongside a job) plus some younger students. " +
+      "The images must make online study feel achievable, flexible and rewarding: a real, relatable person clearly STUDYING ONLINE (laptop, tablet or headphones, notes), looking focused, calm or quietly pleased. " +
+      "Use COMMON, believable places where people really study: different rooms at home (kitchen table, sofa, bedroom desk, home office, window seat, balcony), a library, a campus lawn or lounge, a quiet café table, a co-working space, a park bench, a commute on a train. " +
+      "Mix single students, pairs studying together, and small groups (2–4) or a group video call — say exactly how many people. Vary age, gender and ethnicity ACROSS the set. A few concepts may show the payoff: graduation, a proud moment at the laptop, a confident new professional. " +
+      "Never show: readable screens or text, school names or logos, crowded classrooms or lecture halls, children studying (a parent studying with a child nearby is fine), unrealistic or gimmicky situations.",
+    angles: [
+      "studying alone at home", "studying outdoors", "a pair or small group studying together",
+      "a group video call / live online class", "a library or campus setting",
+      "balancing study with work or family", "the payoff: graduation or career success", "evening or late-night study",
+    ],
   },
 ];
-function domainBriefFor(topic, description) {
+function domainFor(topic, description) {
   const hay = `${topic} ${description || ""}`;
-  return (DOMAIN_BRIEFS.find((d) => d.match.test(hay)) || {}).brief || "";
+  return DOMAIN_BRIEFS.find((d) => d.match.test(hay)) || null;
 }
+function domainBriefFor(topic, description) {
+  return (domainFor(topic, description) || {}).brief || "";
+}
+// Applies to EVERY topic: think like an experienced ad creative, not a "surprise me" generator.
+const CREATIVE_BASE =
+  "You write photo concepts for paid ads (Google / Meta) the way an experienced advertising creative director does. " +
+  "Each concept is a REALISTIC, relatable moment the advertiser's real customer would recognise themselves in — common everyday places and situations, never odd, quirky, gimmicky or staged-looking. " +
+  "The core action of the topic must read instantly, even as a small thumbnail. " +
+  "Write each concept as: who (age, gender) + how many people (say 'alone' for one person, or the exact number) + what they are doing + where (a specific, believable setting) + one telling detail + the light / time of day. " +
+  "Across the set, vary the setting, time of day, light, colour mood, camera distance, and the people's age, gender and ethnicity — but each single image shows only the people it names, with no extra background people. " +
+  "Positive, warm, authentic mood; uncluttered scenes; no readable text, screens, logos or brand names.";
+const GENERIC_ANGLES = [
+  "at home", "outdoors", "with family or friends", "at work or in a public place",
+  "a quiet personal moment", "the happy outcome / payoff", "morning light", "evening light",
+];
 
 // --- Ad-image idea generator (text) -----------------------------------------
 async function generateIdeas(topic, negative, description, count) {
   if (!hasKey()) throw new Error("No Gemini key — the idea generator uses GEMINI_API_KEY.");
   if (!client) client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const brief = domainBriefFor(topic, description);
+  const dom = domainFor(topic, description);
+  const brief = (dom && dom.brief) || "";
   // Nudge each run toward a different corner of the idea space so repeated
   // clicks give a genuinely fresh, varied set (not the same 5 every time).
-  const ANGLES = [
-    "food & cooking", "outdoor activity & movement", "everyday confidence at home",
-    "shopping for fresh food", "social moments with friends or family",
-    "getting dressed / clothes fitting better", "self-care & healthy routines",
-    "being active with kids or a partner",
-  ];
+  const ANGLES = (dom && dom.angles) || GENERIC_ANGLES;
   const shuffled = ANGLES.map((a) => [Math.random(), a]).sort((x, y) => x[0] - y[0]).map((p) => p[1]);
   const nonce = Math.random().toString(36).slice(2, 8);
   const prompt =
+    CREATIVE_BASE + "\n\n" +
     (brief ? brief + "\n\n" : "") +
     `I am creating stock advertising photographs for the topic: "${topic}".` +
     (description ? ` Extra direction: ${description}.` : "") +
@@ -231,8 +265,8 @@ async function generateIdeas(topic, negative, description, count) {
     `. Each concept is ONE short English sentence describing a single realistic photograph (subject, setting, mood).` +
     ` IMPORTANT — maximize VARIETY: every concept must be a clearly different scene, setting, activity, and person` +
     (brief ? ` (vary age, ethnicity, and gender across the set)` : ``) +
-    `. Do NOT repeat the same few ideas you would normally give; surprise me with fresh but on-brand concepts.` +
-    (brief ? ` For this batch especially, spread the concepts across these different angles: ${shuffled.slice(0, Math.min(count, shuffled.length)).join("; ")}.` : ``) +
+    `. Do NOT repeat the same few ideas you would normally give — fresh, but always realistic and on-brand (never odd or gimmicky).` +
+    ` For this batch especially, spread the concepts across these different angles: ${shuffled.slice(0, Math.min(count, shuffled.length)).join("; ")}.` +
     ` Every concept must respect every "never show" / "must NOT contain" rule above.` +
     ` No numbering and no extra commentary.` +
     ` Return ONLY a JSON array of exactly ${count} strings. (variety token ${nonce})`;
@@ -241,7 +275,7 @@ async function generateIdeas(topic, negative, description, count) {
     try {
       const resp = await client.models.generateContent({
         model,
-        config: { temperature: 1.15 },
+        config: { temperature: 0.9 },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
       const text = (resp.text || "").trim();
