@@ -1,6 +1,7 @@
 // תרגילי מתמטיקה שנבנים בקוד (בלי AI): התשובה תמיד נכונה והשרטוט מדויק.
 // כל תרגיל: { type, tag, title, math|figure (HTML), ask, fields, steps: [[הסבר, ביטוי, סופי?]], kind? }
 // kind: 'tf' — נכון/לא נכון, 'pick' — בחירת שורה; בלי kind — שדות מספר.
+// mc: { q, right, wrongs } — אותו תרגיל כשאלה אמריקאית, ל"לחיזוק" אחרי טעות (toQuestion).
 
 const R = (a,b) => a + Math.floor(Math.random()*(b-a+1))
 const pick = arr => arr[Math.floor(Math.random()*arr.length)]
@@ -16,6 +17,15 @@ const quad = (a,b,c,v='x') => {                                             // a
   if (b) s += scx(b,v); if (c) s += sgn(c); return s
 }
 const par = n => n < 0 ? '(' + M(n) + ')' : String(n)
+// 3 מסיחים מספריים שונים מהתשובה — קודם הטעויות הצפויות (prefer), אחר כך סמוכים
+const others = (ans, prefer = [], min = -Infinity) => {
+  const out = []
+  for (const n of [...prefer, ans + 1, ans - 1, -ans, ans + 2, ans * 2, ans - 2, ans + 3]) {
+    if (n !== ans && n >= min && Number.isInteger(n) && !out.includes(n)) out.push(n)
+    if (out.length === 3) break
+  }
+  return out
+}
 
 /* ---------- 1. angles in a triangle ---------- */
 function genTri(lv){
@@ -48,8 +58,10 @@ function finishTri(terms, x, v){
   if(sumC !== 1) steps.push(['מחלקים ב-' + sumC, 'x = ' + (180-sumK) + ' : ' + sumC])
   steps.push(['התשובה', 'x = ' + x, true])
   if(terms.some(t=>t.c!==0 && !(t.c===1&&t.k===0))) steps.push(['בדיקה: מציבים x = '+x, vals.join(' + ') + ' = 180 ✓'])
+  const mc = { q: `במשולש הזוויות הן ${terms.map(t => iso(label(t))).join(', ')}. מצאו את x.`,
+    right: 'x = ' + x, wrongs: others(x, [180 - sumK, x + 10, x - 10], 1).map(n => 'x = ' + n) }
   return { type:'tri', tag:'גאומטרייה', title:'זוויות במשולש', math:null,
-    figure: triSVG(vals, terms.map(label)), ask:'מצאו את x.', fields:[{pre:'x =', ans:x}], steps }
+    figure: triSVG(vals, terms.map(label)), ask:'מצאו את x.', fields:[{pre:'x =', ans:x}], steps, mc }
 }
 function triSVG(ang, labels){
   const [A,B] = ang.map(a => a*Math.PI/180), L = 300
@@ -93,8 +105,14 @@ function genExpand(lv){
     [`מכפילים: ${v}·${v} = ${v}²`, `${quad(A,0,0,v)}${scx(a*d,v)}${scx(b*c,v)}${sgn(C)}${tl}`],
     ['מכנסים איברים דומים', quad(A,B,C,v), true],
   ]
-  return { type:'expand', tag:'אלגברה', title:'פילוג מורחב',
-    math:`(${lin(a,b,v)})(${lin(c,d,v)})${tl}`, ask:'פתחו את הסוגריים וכנסו. השלימו את המספרים:',
+  const right = quad(A,B,C,v), wrongs = []
+  for (const [x2, x1, x0] of [[A,-B,C],[A,B,-C],[A,-B,-C],[A,a*d-b*c+tail,C],[A,B,C+b+d],[A,B+2,C]]) {
+    const w = quad(x2,x1,x0,v)
+    if (x1 && w !== right && !wrongs.includes(w) && wrongs.length < 3) wrongs.push(w)
+  }
+  const math = `(${lin(a,b,v)})(${lin(c,d,v)})${tl}`
+  return { type:'expand', tag:'אלגברה', title:'פילוג מורחב', mc: { q: `פתחו את הסוגריים וכנסו: ${iso(math)}`, right, wrongs },
+    math, ask:'פתחו את הסוגריים וכנסו. השלימו את המספרים:',
     fields:[{ans:A, post:sq(v)+' +'},{ans:B, post:v+' +'},{ans:C}], steps }
 }
 
@@ -103,12 +121,14 @@ const P = (b,n) => `${b}<sup>${n}</sup>`
 const frac = (t,b) => `<span class="frac"><span>${t}</span><span>${b}</span></span>`
 function genPow(lv){
   const k = pick(lv === 1 ? ['val','val','r1'] : lv === 2 ? ['r1','r2','r3','tf'] : ['r1','r2','r3','mix','tf','tf'])
-  const out = (title, math, ask, fields, steps, kind) => ({ type:'pow', tag:'חזקות', title, math, ask, fields, steps, kind })
+  const out = (title, math, ask, fields, steps, kind, mc) => ({ type:'pow', tag:'חזקות', title, math, ask, fields, steps, kind, mc })
+  const expMc = (left, b, ans, prefer) => ({ q: `${iso(left)} = ?`, right: P(b,ans), wrongs: others(ans, prefer, 0).map(n => P(b,n)) })
   if(k === 'val'){
     const b = R(2,10), n = R(2, b<=3?5 : b<=5?4 : b===10?4 : 3), v = b**n
     return out('חישוב חזקה', P(b,n) + ' = ?', 'כמה זה?', [{ans:v}], [
       [`${b} כפול עצמו ${n} פעמים`, Array(n).fill(b).join(' · ')],
-      ['התשובה', `${P(b,n)} = ${v}`, true]])
+      ['התשובה', `${P(b,n)} = ${v}`, true]], undefined,
+      { q: `כמה זה ${iso(P(b,n))}?`, right: String(v), wrongs: others(v, [b*n, b**(n-1), v+b], 1).map(String) })
   }
   if(k === 'r1'){
     const b = lv === 3 ? pick([2,3,5,'a','b']) : R(2,7)
@@ -118,24 +138,29 @@ function genPow(lv){
     if(ex.includes(1)) steps.push([`${b} בלי מעריך זה ${b} בחזקת 1`, ex.map(e=>P(b,e)).join(' · ')])
     steps.push(['חוק 1: כפל, אותו בסיס — מחברים את המעריכים', P(b, ex.join('+'))], ['התשובה', P(b,s), true])
     return out('חוק 1 — כפל חזקות', ex.map(e => e===1 ? b : P(b,e)).join(' · ') + ' = ' + P(b,'?'),
-      'מה המעריך?', [{pre:String(b), ans:s, sup:true}], steps)
+      'מה המעריך?', [{pre:String(b), ans:s, sup:true}], steps, undefined,
+      expMc(ex.map(e => e===1 ? b : P(b,e)).join(' · '), b, s, [ex.reduce((p,q)=>p*q,1), s-1]))
   }
   if(k === 'r2'){
     const b = R(2,10), n = R(2,8), m = n + R(1,6)
     return out('חוק 2 — חילוק חזקות', frac(P(b,m),P(b,n)) + ' = ' + P(b,'?'), 'מה המעריך?', [{pre:String(b), ans:m-n, sup:true}], [
-      ['חוק 2: חילוק, אותו בסיס — מחסרים את המעריכים', P(b, m+'−'+n)], ['התשובה', P(b,m-n), true]])
+      ['חוק 2: חילוק, אותו בסיס — מחסרים את המעריכים', P(b, m+'−'+n)], ['התשובה', P(b,m-n), true]], undefined,
+      expMc(frac(P(b,m),P(b,n)), b, m-n, [m+n, m-n+1]))
   }
   if(k === 'r3'){
     const b = pick([2,3,4,5,6,'a']), m = R(2,6), n = R(2,5)
     return out('חוק 3 — חזקה של חזקה', `(${P(b,m)})<sup>${n}</sup> = ${P(b,'?')}`, 'מה המעריך?', [{pre:String(b), ans:m*n, sup:true}], [
-      ['חוק 3: חזקה של חזקה — כופלים את המעריכים', P(b, m+'·'+n)], ['התשובה', P(b,m*n), true]])
+      ['חוק 3: חזקה של חזקה — כופלים את המעריכים', P(b, m+'·'+n)], ['התשובה', P(b,m*n), true]], undefined,
+      expMc(`(${P(b,m)})<sup>${n}</sup>`, b, m*n, [m+n, m*n+n]))
   }
   if(k === 'mix'){
     const c = R(2,5), b = R(2,4), n = R(2,3), d = R(2,3), m = R(2,3)
     return out('חשבון עם חזקות', `${c} · ${P(b,n)} + ${P(d,m)} = ?`, 'כמה זה?', [{ans:c*b**n + d**m}], [
       ['קודם מחשבים את החזקות', `${c} · ${b**n} + ${d**m}`],
       ['אחר כך כפל', `${c*b**n} + ${d**m}`],
-      ['ובסוף חיבור', String(c*b**n + d**m), true]])
+      ['ובסוף חיבור', String(c*b**n + d**m), true]], undefined,
+      { q: `כמה זה ${iso(`${c} · ${P(b,n)} + ${P(d,m)}`)}?`, right: String(c*b**n + d**m),
+        wrongs: others(c*b**n + d**m, [(c*b)**n + d**m, c*b*n + d*m, c*b**n + d*m], 1).map(String) })
   }
   // true / false — aimed at the "5² + 5³ = 5⁵" mix-up
   const b = R(2,5), m = R(2,3), n = R(2,3)
@@ -149,7 +174,8 @@ function genPow(lv){
     div:  [`${frac(P(b,m+n),P(b,n))} = ${P(b,m)}`, true, [['חוק 2: חילוק, אותו בסיס — מחסרים את המעריכים', `${P(b,(m+n)+'−'+n)} = ${P(b,m)} ✓`, true]]],
     base: [`${P(2,m)} · ${P(3,n)} = ${P(6,m+n)}`, false, [['החוקים עובדים רק כשהבסיס זהה. כאן מחשבים כל חזקה לחוד', `${2**m} · ${3**n} = ${2**m*3**n}`, true]]],
   }[st]
-  return out('נכון או לא נכון?', T[0], 'האם זה נכון?', [{ans:T[1]}], T[2], 'tf')
+  return out('נכון או לא נכון?', T[0], 'האם זה נכון?', [{ans:T[1]}], T[2], 'tf',
+    { q: `נכון או לא נכון: ${iso(T[0])}`, right: T[1] ? 'נכון' : 'לא נכון', wrongs: [T[1] ? 'לא נכון' : 'נכון'] })
 }
 
 /* ---------- 4. find the mistake (rare) ---------- */
@@ -171,6 +197,8 @@ function genErr(){
   const fig = `<div class="wlines">${lines.map((l,i)=>`<div class="wl"><b>${i+1}</b><span>${l}</span></div>`).join('')}</div>`
   return { type:'err', tag:'מצא את הטעות', title:'איפה הטעות?', figure:fig, ask:'בפתרון הזה יש טעות אחת. באיזו שורה?',
     kind:'pick', fields:[{ans:at, opts:[[2,'שורה 2'],[3,'שורה 3']]}],
+    mc: { q: `בפתרון של ${iso(lines[0])} יש טעות אחת. באיזו שורה?`,
+      right: `שורה ${at}: ${iso(lines[at-1])}`, wrongs: [`שורה ${5-at}: ${iso(lines[4-at])}`] },
     steps:[[`הטעות בשורה ${at}: ${why[0]}`, why[1]], ['הפתרון הנכון', okLines[1]], ['', okLines[2], true]] }
 }
 
@@ -211,7 +239,27 @@ function genEq(lv){
       ['התשובה', 'x = '+M(x), true]])
   }
 }
-const eqOut = (math, x, steps) => ({ type:'eq', tag:'אלגברה', title:'משוואה עם סוגריים', math, ask:'פתרו את המשוואה.', fields:[{pre:'x =', ans:x}], steps })
+const eqOut = (math, x, steps) => ({ type:'eq', tag:'אלגברה', title:'משוואה עם סוגריים', math, ask:'פתרו את המשוואה.', fields:[{pre:'x =', ans:x}], steps,
+  mc: { q: `פתרו את המשוואה: ${iso(math)}`, right: 'x = ' + M(x), wrongs: others(x, [-x]).map(n => 'x = ' + M(n)) } })
+
+// HTML של תרגיל → טקסט רגיל (חזקות בתווי עילית); iso — ביטוי מבודד משמאל לימין בתוך משפט בעברית
+const SUPS = { 0:'⁰', 1:'¹', 2:'²', 3:'³', 4:'⁴', 5:'⁵', 6:'⁶', 7:'⁷', 8:'⁸', 9:'⁹', '+':'⁺', '−':'⁻', '·':'·' }
+const plain = (h) => String(h)
+  .replace(/<span class="frac"><span>(.*?)<\/span><span>(.*?)<\/span><\/span>/g, '$1 : $2')
+  .replace(/<sup>(.*?)<\/sup>/g, (_, e) => [...e].map((c) => SUPS[c] ?? c).join(''))
+  .replace(/<[^>]+>/g, '')
+function iso(h) { return '\u2066' + plain(h) + '\u2069' }
+const DIFF = { 1: 'קל', 2: 'בינוני', 3: 'קשה' }
+export const difficultyOf = (level) => DIFF[level] || 'בינוני'
+
+// התרגיל כשאלה אמריקאית ל"לחיזוק" — אותו מבנה כמו שאלה רגילה
+export function toQuestion(ex, level) {
+  const { q, right, wrongs } = ex.mc
+  const fix = (c) => (/[א-ת]/.test(c) ? plain(c) : iso(c))
+  const choices = [right, ...wrongs].map(fix).sort(() => Math.random() - 0.5)
+  const explain = ex.steps.map(([why, e]) => [why && plain(why), e && iso(e)].filter(Boolean).join(': ')).join('\n')
+  return { q, choices, answer: choices.indexOf(fix(right)), difficulty: difficultyOf(level), explain, hint: '' }
+}
 
 const GEN = { tri: genTri, expand: genExpand, eq: genEq, pow: genPow, err: genErr }
 // סבב של 10: "איפה הטעות?" פעם אחת בסבב
