@@ -356,7 +356,7 @@ const TEMPLATES = [
   {
     // Google Ads wide image (1200x628) in the site's hero style: light-blue panel on the LEFT, photo on the RIGHT, blurred join.
     // One size only (no mobile version).
-    id:"ad-wide", name:"Ad Image Wide (Photo)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
+    id:"ad-wide", name:"Ad Image Wide (Photo)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true, hidden:true,
     sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
     bgPos:{desktop:"center", mobile:"center"},
     bgColor:"#ebf4f9", panelBg:true,
@@ -370,6 +370,32 @@ const TEMPLATES = [
              mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50}},
     elements:[
       {key:"headline",label:"Headline",val:"Start your career with the right online degree",size:44,weight:700,color:"#1a1a1a",align:"left",x:6,y:34,anchor:"top-left",maxW:34,lh:1.15}
+    ]
+  },
+  {
+    // Google Ads image 1200x628: a photo fills the whole banner; every layer is adjustable in the tab editor
+    // (no fade / fade from side, top or bottom with strength, decorations, logo, texts, extra images). One size only.
+    id:"ad-full", name:"Ad Image 1200×628 (Full photo)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
+    sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
+    bgPos:{desktop:"center", mobile:"center"},
+    bgColor:"#ffffff", panelBg:true, fadeStrength:true,
+    textArea:{a:5,b:55},
+    logo:{x:5,y:8,widthPct:22,anchor:"top-left"},
+    defaultBgMode:"none",
+    bgModes:{none:{none:true},
+             side:{bg:"#ffffff",color:"#ffffff",src:"custom",from:"left",hold:0,fade:55,opacity:0.9,tintTop:false},
+             top:{bg:"#ffffff",color:"#ffffff",src:"custom",hold:0,fade:40,opacity:0.85,tintTop:false},
+             bottom:{bg:"#ffffff",color:"#0b1f3a",src:"custom",hold:0,fade:45,opacity:0.75,tintTop:false}},
+    decorations:{network:{on:false,amt:0.5,size:1},triangles:{on:false,amt:0.5,size:1},circuit:{on:false,amt:0.5,size:1},hexagons:{on:false,amt:0.5,size:1},dots:{on:false,amt:0.5,size:1},
+                 waves:{on:false,amt:0.5,size:1},edge:{on:false,amt:1,size:1,color:"#ffffff"}},
+    defaultTopic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",
+    composition:"A natural, candid lifestyle photo filling the whole wide frame, shot at a MEDIUM distance (not a close-up). The people the topic names are clearly visible and well composed, with natural breathing room around them; the setting fills the rest of the frame. Show only the people the topic names, no extra background people. Bright, authentic, photorealistic, one continuous photo, no collage, no readable screens or text.",
+    overlay:{desktop:{color:"#ffffff",opacity:0,gradient:true,coverage:"left",hold:0,fade:55},
+             mobile:{color:"#ffffff",opacity:0,gradient:true,coverage:"left",hold:0,fade:55}},
+    elements:[
+      {key:"headline",label:"Headline",val:"Earn Your Degree Online",size:52,weight:800,color:"#0b1f3a",align:"left",x:5,y:30,anchor:"top-left",maxW:48,lh:1.1},
+      {key:"subtitle",label:"Subtitle",val:"Flexible programs that fit your schedule",size:26,weight:400,color:"#1a2b45",align:"left",x:5,y:52,anchor:"top-left",maxW:46,lh:1.25},
+      {type:"button",key:"cta",label:"Button text",val:"View Programs",size:22,weight:700,color:"#ffffff",x:5,y:72,anchor:"top-left",btnColor:"#1e5fd8",padX:26,padY:13,radius:8}
     ]
   },
   {
@@ -694,7 +720,8 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       else drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);}
     else placeholderBox(ctx,bx,by,bw,bh);
     if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:bx,y:by,w:bw,h:bh});}
-  else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);}};
+  else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);
+    if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:0,y:0,w:dim.w,h:dim.h});}};
   if(!subjAbove)drawSubject();
   if(!imgAbove){drawDecorations(ctx,tpl,size,dim,image,over);drawMain();}
   drawExtras(ctx,over,size,dim.w,dim.h,true);
@@ -752,7 +779,7 @@ function initOverrides(tpl){
   const overlay2=tpl.bottomOverlay?{desktop:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay),mobile:Object.assign({auto:false,autoLogo:false},tpl.bottomOverlay)}:null;
   const colors={desktop:{},mobile:{}};for(const el of tpl.elements){colors.desktop[el.key]=el.color;colors.mobile[el.key]=(el.mobile&&el.mobile.color)||el.color;}
   const btnEl=tpl.elements.find(e=>e.type==="button");
-  return {font:tpl.font,overlay,overlay2,colors,anchorX:(tpl.anchorX?Object.assign({},tpl.anchorX):{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)}),anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:"side",bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
+  return {font:tpl.font,overlay,overlay2,colors,anchorX:(tpl.anchorX?Object.assign({},tpl.anchorX):{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)}),anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:(tpl.defaultBgMode||"side"),bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
 }
 
 /* ---------------- State ---------------- */
@@ -870,6 +897,18 @@ const STARTERS={
     {topic:"A relaxed couple in their 30s sitting together at a bright wooden kitchen table at home, reviewing papers and a laptop, smiling and relieved, coffee cups on the table, soft natural daylight from a window",prompt:""},
     {topic:"A friendly professional tax advisor in a modern bright office, sitting at a desk across from a smiling client couple, reviewing documents together, warm trustworthy atmosphere",prompt:""},
     {topic:"A happy couple sitting at a small table on a sunny home balcony with plants, looking at a tablet together, relaxed and relieved",prompt:""},
+  ],
+  "ad-full":[
+    {topic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",prompt:""},
+    {topic:"A man in his 30s studying alone on a laptop at a long wooden desk by a wide window overlooking green trees, calm afternoon light",prompt:""},
+    {topic:"A woman in her 40s taking notes from an online lecture at a dining table, her laptop and open textbook spread out, warm evening light",prompt:""},
+    {topic:"Two students, a young man and a young woman, studying side by side on a sofa in a bright living room, both with laptops, smiling",prompt:""},
+    {topic:"A young man with headphones studying alone at a library table in front of a long row of bookshelves, soft natural light",prompt:""},
+    {topic:"A woman in her 50s studying alone on a laptop on a sunny garden patio, plants and flowers around her, relaxed smile",prompt:""},
+    {topic:"Three diverse students around a wide table in a bright co-working space, laptops open, discussing a project together",prompt:""},
+    {topic:"A young woman studying alone on a laptop at a desk in a stylish home office with a big window and city view at dusk",prompt:""},
+    {topic:"A man in his 20s studying alone on a laptop on a wooden bench in a wide green park, trees and path softly blurred",prompt:""},
+    {topic:"A proud woman in her 30s in a graduation gown smiling at her laptop at home, bright cheerful living room",prompt:""},
   ],
   "ad-wide":[
     {topic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",prompt:""},
@@ -1115,7 +1154,7 @@ function backfillOver(tpl,o){
   if(!o.pads)o.pads={desktop:{},mobile:{}};
   if(!o.bold)o.bold={desktop:{},mobile:{}};
   if(tpl.bgModes){if(!o.bgModes||typeof o.bgModes!=="object"){o.bgModes=JSON.parse(JSON.stringify(tpl.bgModes));o._bgFresh=true;}
-    ["side","top","bottom"].forEach(k=>{if(!o.bgModes[k]&&tpl.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":"side";}
+    ["none","side","top","bottom"].forEach(k=>{if(!o.bgModes[k]&&tpl.bgModes[k])o.bgModes[k]=JSON.parse(JSON.stringify(tpl.bgModes[k]));});if(!o.bgMode)o.bgMode=o.split?"split":(tpl.defaultBgMode||"side");}
   if(tpl.decorations){if(!o.deco||typeof o.deco!=="object")o.deco=initDeco(tpl);Object.keys(tpl.decorations).forEach(k=>{if(!o.deco[k])o.deco[k]=JSON.parse(JSON.stringify(tpl.decorations[k]));});}
 }
 /* ---------------- Editor v2 — Popup (Product): one tab per object, click-to-select, area-aware align ---------------- */
@@ -1171,7 +1210,9 @@ function ensureV2Css(){if(document.getElementById("v2css"))return;const st=docum
 
 function openEditorV2(tpl,st,onClose){
   let size="desktop";const o=st.over;backfillOver(tpl,o);ensureV2Css();
-  const isPhoto=!tpl.productBox&&!!tpl.imageBox; // the main image fills a photo box (cover) instead of a floating product
+  const isPhoto=!tpl.productBox&&(!!tpl.imageBox||!!tpl.editorV2); // the main image is a photo (box or full banner, cover) instead of a floating product
+  const isFullPhoto=isPhoto&&!tpl.imageBox; // the photo fills the whole banner
+  const photoBox=()=>imageBoxFor(tpl,size)||{x:0,y:0,w:100,h:100};
   const tName=k=>(k==="prod"&&isPhoto)?"Photo":V2_NAME[k];
   const D=initOverrides(tpl);
   const back=document.createElement("div");back.className="backdrop";
@@ -1200,7 +1241,7 @@ function openEditorV2(tpl,st,onClose){
   /* ---- selection ---- */
   let sel={t:"prod"};const lastIn={bg:{t:"bg",id:(o.split?"split":(o.bgMode||"side"))},prod:{t:"prod"},subj:{t:"subj"},extra:{t:"extra",id:null},logo:{t:"logo"},text:{t:"text",key:firstText}};
   const colOf=s=>V2_COL[s.t];
-  const bgNames={side:"Fade from side",top:"Fade from top",bottom:"Fade from bottom",split:"Split (half / half)"};
+  const bgNames={none:"No fade",side:"Fade from side",top:"Fade from top",bottom:"Fade from bottom",split:"Split (half / half)"};
   const nameOf=s=>s.t==="bg"?bgNames[s.id]:s.t==="extra"?("Image "+(o.extras.findIndex(e=>e.id===s.id)+1)):s.t==="text"?((elOf(s.key)||{}).label||s.key):tName(s.t);
   const select=s=>{sel=s;lastIn[s.t]=s;renderAll();};
 
@@ -1213,10 +1254,12 @@ function openEditorV2(tpl,st,onClose){
   const ov=()=>o.overlay[size],ov2=()=>o.overlay2&&o.overlay2[size];
   const bgInUse=id=>o.split?id==="split":id===o.bgMode;
   // Show exactly one background: the chosen mode's fade colour over its own background colour; every other fade is off.
-  const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;o.panelColor=m.bg;o.panelTop=m.tintTop?null:m.bg;o.panelDir="top";
+  const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;
+    if(m.none){["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{opacity:0});if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});return;}
+    o.panelColor=m.bg;o.panelTop=m.tintTop?null:m.bg;o.panelDir="top";
     const cov=id==="side"?(m.from||"left"):id;
     ["desktop","mobile"].forEach(z=>{const sh=(z==="mobile"&&tpl.mobileFadeShift)||{hold:0,fade:0};const hd=Math.max(0,(m.hold||0)+sh.hold),fd=Math.max(hd+2,Math.min(100,(m.fade!=null?m.fade:100)+sh.fade));
-      o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:1,hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
+      o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:(m.opacity!=null?m.opacity:1),hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
       if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});};
   const chooseBg=id=>{if(id==="split")setMode(true);else{setMode(false);applyMode(id);}select({t:"bg",id});};
   if(o._bgFresh){delete o._bgFresh;if(!o.split)applyMode(o.bgMode||"side");}
@@ -1225,7 +1268,7 @@ function openEditorV2(tpl,st,onClose){
   const TXA=tpl.textArea||{a:5,b:45};
   const divider=()=>o.split?(o.splitAt!=null?o.splitAt:50):(tpl.textArea?TXA.b:50);
   const areaOf=s=>{const A=divider();
-    if(s.t==="prod"){const b=isPhoto?imageBoxFor(tpl,size):prodBoxFor(tpl,size);return [b.x,b.x+b.w,isPhoto?"Photo area":"Image area"];}
+    if(s.t==="prod"){const b=isPhoto?photoBox():prodBoxFor(tpl,size);return [b.x,b.x+b.w,isPhoto?"Photo area":"Image area"];}
     if(s.t==="subj"){const b=tpl.subjectBox||tpl.productBox;return [b.x,Math.min(100,b.x+b.w),"Image area"];}
     if(s.t==="extra")return [A,100,"Image area"];
     if(s.t==="text"&&(elOf(s.key)||{}).splitOnly)return [A,100,"Right text area"];
@@ -1295,7 +1338,7 @@ function openEditorV2(tpl,st,onClose){
     p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>d.amt!=null?d.amt:0.5,set:v=>{d.amt=v;},fmt:v=>Math.round(v*100)+"%",def:def.amt}));
     p.append(rowRange(decoSel==="edge"?"Height":"Size",{min:0.5,max:2,step:0.05,get:()=>d.size!=null?d.size:1,set:v=>{d.size=v;},fmt:v=>Math.round(v*100)+"%",def:def.size}));}
   function paneBg(p){paneBgModes(p);if(tpl.decorations&&o.deco)paneDeco(p);}
-  function paneBgModes(p){const ids=["side","top","bottom"].filter(k=>tpl.bgModes[k]).concat(tpl.splittable?["split"]:[]);
+  function paneBgModes(p){const ids=["none","side","top","bottom"].filter(k=>tpl.bgModes[k]).concat(tpl.splittable?["split"]:[]);
     const chips=mk("div","v2-chips");ids.forEach(id=>{const c=mk("button","v2-chip"+(sel.id===id?" on":""),(bgInUse(id)?"● ":"")+bgNames[id]);c.type="button";c.onclick=()=>chooseBg(id);chips.append(c);});p.append(chips);
     const id=sel.id;
     if(id==="split"){p.append(note("Two flat halves. Pick one of the fades above to go back to it."));p.append(group("Split (half / half)"));
@@ -1304,13 +1347,15 @@ function openEditorV2(tpl,st,onClose){
       p.append(rowColor("Right colour",()=>o.panelColorR||tpl.panelColorR,v=>{toSplit();o.panelColorR=v;}));
       p.append(rowRange("Split at",{min:30,max:70,get:()=>o.splitAt||50,set:v=>{toSplit();o.splitAt=v;},fmt:v=>Math.round(v)+"%",def:50}));return;}
     const m=o.bgModes[id];const upd=()=>{if(o.split)setMode(false);applyMode(id);};
+    if(m&&m.none){p.append(note("The photo is shown as it is, with no colour fade over it. Pick a fade above to lay a colour over one side (for example behind a headline)."));return;}
     {const rb=mk("div","v2-slot");rb.append(btn("↺ Back to the starting colours",()=>{o.bgModes[id]=JSON.parse(JSON.stringify(tpl.bgModes[id]));applyMode(id);renderAll();},"restore this background's original settings"));p.append(rb);}
     p.append(note({side:"A colour fading in from the side",top:"A colour fading down from the top",bottom:"A colour rising up from the bottom"}[id]+", over its own background colour. Only this is shown while this chip is selected."));
     p.append(group("Colours"));
     p.append(rowSeg("Fade colour",[["custom","Custom"],["image","From image"],...(tpl.logoTint?[["logo","From logo"]]:[])],()=>m.src||"custom",v=>{m.src=v;upd();}));
     if((m.src||"custom")==="custom")p.append(rowColor("Custom colour",()=>m.color,v=>{m.color=v;upd();}));
-    p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
-    p.append(checks([["Background slightly lighter at the top",()=>!!m.tintTop,v=>{m.tintTop=v;upd();}]]));
+    if(!isFullPhoto){p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
+      p.append(checks([["Background slightly lighter at the top",()=>!!m.tintTop,v=>{m.tintTop=v;upd();}]]));}
+    if(tpl.fadeStrength)p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>m.opacity!=null?m.opacity:1,set:v=>{m.opacity=v;upd();},fmt:v=>Math.round(v*100)+"%",def:()=>tpl.bgModes[id].opacity!=null?tpl.bgModes[id].opacity:1}));
     p.append(group("Shape"));
     if(id==="side")p.append(rowSeg("From",[["left","Left"],["right","Right"]],()=>m.from||"left",v=>{m.from=v;upd();}));
     p.append(rowRange("Solid area",{min:0,max:100,get:()=>m.hold||0,set:v=>{m.hold=v;if((m.fade!=null?m.fade:100)<v+5){m.fade=Math.min(100,v+5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].hold}));
@@ -1322,10 +1367,11 @@ function openEditorV2(tpl,st,onClose){
     if(!st.uploaded){p.append(note("No photo yet — generate one with AI on the card, or upload a photo."));return;}
     p.append(group("Position (inside the photo area)"));
     p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>o.anchorX[size],set:v=>{o.anchorX[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorX[size]}));
-    {const im=st.img,b=imageBoxFor(tpl,size),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&(o.zoom||1)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
+    {const im=st.img,b=photoBox(),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&(o.zoom||1)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
     p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>Math.min(100,o.anchorY[size]),set:v=>{o.anchorY[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorY[size]}));
     p.append(group("Size"));
     p.append(rowRange("Zoom",{min:1,max:2.5,step:0.05,get:()=>Math.max(1,o.zoom||1),set:v=>{o.zoom=v;},fmt:v=>Math.round(v*100)+"%",def:1}));
+    if(tpl.seamBlur==null)return;
     p.append(group("Join with the background"));
     p.append(note("The blur softens the left edge of the photo. If that edge is a plain wall, there is little to blur — generate again or move the photo."));
     p.append(rowRange("Blur at the join",{min:0,max:1,step:0.02,get:()=>o.seamBlur!=null?o.seamBlur:(tpl.seamBlur||0),set:v=>{o.seamBlur=v;},fmt:v=>v>0?Math.round(v*100)+"%":"off",def:tpl.seamBlur||0}));
