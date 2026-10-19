@@ -687,8 +687,15 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   const edgeColor=(tpl.matchBg&&image&&!(over&&over.imgTransparent))?sampleEdge(image):null;
   const bgFill=edgeColor||tpl.bgColor;
   if(tpl.panelBg){ // coloured panel with a subtle vertical gradient (light top -> base bottom)
-    const pc=(over&&over.panelColor)||tpl.bgColor||"#ffffff";
-    const paint=(x0,x1,col)=>{const pd=(over&&over.panelDir)||"top";const gv=pd==="left"?[0,0,dim.w,0]:pd==="right"?[dim.w,0,0,0]:pd==="bottom"?[0,dim.h,0,0]:[0,0,0,dim.h];const pg=ctx.createLinearGradient(gv[0],gv[1],gv[2],gv[3]);pg.addColorStop(0,(over&&over.panelTop)||paleTint(col,0.28));pg.addColorStop(1,col);ctx.fillStyle=pg;ctx.fillRect(x0,0,x1-x0,dim.h);};
+    // Photo-side templates: the area beside the photo always shows the SAME colour the fade uses
+    // (custom colour, or the colour taken from the image / logo), so the two can never disagree.
+    let pc=(over&&over.panelColor)||tpl.bgColor||"#ffffff",flatTop=null;
+    if(tpl.imageBox&&over&&over.bgMode!=="none"){const sv=over.overlay&&over.overlay[size],bo=tpl.overlay[size]||tpl.overlay.desktop;
+      if(sv&&sv.autoLogo&&logoImg)pc=hexLum(bo.color)>=0.6?paleTint(avgColor(logoImg)||getAccent(logoImg),0.55):darken(getAccent(logoImg),58);
+      else if(sv&&sv.auto&&image)pc=hexLum(bo.color)>=0.6?paleTint(avgColor(image)||getAccent(image),0.55):darken(getAccent(image),58);
+      else if(sv&&sv.color)pc=sv.color;
+      flatTop=pc;}
+    const paint=(x0,x1,col)=>{const pd=(over&&over.panelDir)||"top";const gv=pd==="left"?[0,0,dim.w,0]:pd==="right"?[dim.w,0,0,0]:pd==="bottom"?[0,dim.h,0,0]:[0,0,0,dim.h];const pg=ctx.createLinearGradient(gv[0],gv[1],gv[2],gv[3]);pg.addColorStop(0,flatTop||(over&&over.panelTop)||paleTint(col,0.28));pg.addColorStop(1,col);ctx.fillStyle=pg;ctx.fillRect(x0,0,x1-x0,dim.h);};
     if(tpl.splittable&&over&&over.split){ // two-tone split panel: FLAT left colour + FLAT right colour (no gradient)
       const sx=Math.round((over.splitAt!=null?over.splitAt:50)/100*dim.w);
       ctx.fillStyle=pc;ctx.fillRect(0,0,sx,dim.h);
