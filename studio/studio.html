@@ -1258,8 +1258,8 @@ function openEditorV2(tpl,st,onClose){
   const bgInUse=id=>o.split?id==="split":id===o.bgMode;
   // Show exactly one background: the chosen mode's fade colour over its own background colour; every other fade is off.
   const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;
-    if(m.none){["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{opacity:0});if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});return;}
-    o.panelColor=m.bg;o.panelTop=m.tintTop?null:m.bg;o.panelDir="top";
+    if(m.none){if(m.bg){o.panelColor=m.bg;o.panelTop=m.bg;}["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{opacity:0});if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});return;}
+    {const pc=tpl.imageBox?(m.color||m.bg):m.bg;o.panelColor=pc;o.panelTop=m.tintTop?null:pc;o.panelDir="top";}
     const cov=id==="side"?(m.from||"left"):id;
     ["desktop","mobile"].forEach(z=>{const sh=(z==="mobile"&&tpl.mobileFadeShift)||{hold:0,fade:0};const hd=Math.max(0,(m.hold||0)+sh.hold),fd=Math.max(hd+2,Math.min(100,(m.fade!=null?m.fade:100)+sh.fade));
       o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:(m.opacity!=null?m.opacity:1),hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
@@ -1350,13 +1350,14 @@ function openEditorV2(tpl,st,onClose){
       p.append(rowColor("Right colour",()=>o.panelColorR||tpl.panelColorR,v=>{toSplit();o.panelColorR=v;}));
       p.append(rowRange("Split at",{min:30,max:70,get:()=>o.splitAt||50,set:v=>{toSplit();o.splitAt=v;},fmt:v=>Math.round(v)+"%",def:50}));return;}
     const m=o.bgModes[id];const upd=()=>{if(o.split)setMode(false);applyMode(id);};
-    if(m&&m.none){p.append(note("The photo is shown as it is, with no colour fade over it. Pick a fade above to lay a colour over one side (for example behind a headline)."));return;}
+    if(m&&m.none){p.append(note(tpl.imageBox?"No colour fade over the photo. The colour area beside the photo uses the colour below.":"The photo is shown as it is, with no colour fade over it. Pick a fade above to lay a colour over one side (for example behind a headline)."));
+      if(tpl.imageBox)p.append(rowColor("Colour",()=>m.bg||o.panelColor||tpl.bgColor,v=>{m.bg=v;upd();}));return;}
     {const rb=mk("div","v2-slot");rb.append(btn("↺ Back to the starting colours",()=>{o.bgModes[id]=JSON.parse(JSON.stringify(tpl.bgModes[id]));applyMode(id);renderAll();},"restore this background's original settings"));p.append(rb);}
     p.append(note({side:"A colour fading in from the side",top:"A colour fading down from the top",bottom:"A colour rising up from the bottom"}[id]+", over its own background colour. Only this is shown while this chip is selected."));
     p.append(group("Colours"));
     p.append(rowSeg("Fade colour",[["custom","Custom"],["image","From image"],...(tpl.logoTint?[["logo","From logo"]]:[])],()=>m.src||"custom",v=>{m.src=v;upd();}));
-    if((m.src||"custom")==="custom")p.append(rowColor("Custom colour",()=>m.color,v=>{m.color=v;upd();}));
-    if(!isFullPhoto){p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
+    if((m.src||"custom")==="custom")p.append(rowColor(tpl.imageBox?"Colour":"Custom colour",()=>m.color,v=>{m.color=v;if(tpl.imageBox)m.bg=v;upd();}));
+    if(!isFullPhoto&&!tpl.imageBox){p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
       p.append(checks([["Background slightly lighter at the top",()=>!!m.tintTop,v=>{m.tintTop=v;upd();}]]));}
     if(tpl.fadeStrength)p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>m.opacity!=null?m.opacity:1,set:v=>{m.opacity=v;upd();},fmt:v=>Math.round(v*100)+"%",def:()=>tpl.bgModes[id].opacity!=null?tpl.bgModes[id].opacity:1}));
     p.append(group("Shape"));
