@@ -1308,6 +1308,7 @@ function openEditorV2(tpl,st,onClose){
       if(unused)label+=" — not in use (Split is on)";
       if(id==="split"){const sx=W*(o.splitAt||50)/100;frame(x,W,H,[lw,lw,sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);frame(x,W,H,[sx+lw,lw,W-sx-2*lw,H-2*lw],col,lw,[lw*4,lw*3]);}
       else frame(x,W,H,[box[0]+lw,box[1]+lw,Math.max(4,box[2]-2*lw),Math.max(4,box[3]-2*lw)],col,lw,[lw*4,lw*3]);
+      if(tpl.imageBox){const px=W*photoBox().x/100;if(px>2)g.push(["v",px,"Photo starts"]);}
       g.forEach(([k,v,t])=>guide(x,W,H,k,v,t,col,lw));tagAt(x,W,H,box[0]+8,box[1]+8,label,col);return;}
     const ar=areaOf(sel);if(ar){const x0=ar[0]/100*W,x1=ar[1]/100*W;frame(x,W,H,[x0+1,1,x1-x0-2,H-2],col,lw*.7,[lw*1.5,lw*2.5],.6);const fs=Math.max(11,Math.round(W/64/zoomF));tagAt(x,W,H,x0+6,H-fs*2.4,`${ar[2]} — Align & slider work here · drag to go anywhere`,col,true);}
     const h=hitOf(sel);if(h){frame(x,W,H,[h.x-4,h.y-4,h.w+8,h.h+8],col,lw,[lw*3.5,lw*2.5]);const fs=Math.max(11,Math.round(W/56/zoomF));tagAt(x,W,H,h.x-4,h.y-4-fs*1.7,nameOf(sel),col);}}
@@ -1370,7 +1371,10 @@ function openEditorV2(tpl,st,onClose){
     p.append(group("Shape"));
     if(id==="side")p.append(rowSeg("From",[["left","Left"],["right","Right"]],()=>m.from||"left",v=>{m.from=v;upd();}));
     p.append(rowRange("Solid area",{min:0,max:100,get:()=>m.hold||0,set:v=>{m.hold=v;if((m.fade!=null?m.fade:100)<v+5){m.fade=Math.min(100,v+5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].hold}));
-    p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>m.fade!=null?m.fade:100,set:v=>{m.fade=v;if(v<(m.hold||0)+5){m.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].fade}));}
+    p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>m.fade!=null?m.fade:100,set:v=>{m.fade=v;if(v<(m.hold||0)+5){m.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].fade}));
+    if(tpl.imageBox){const base=imageBoxFor(tpl,size);p.append(group("Colour area"));
+      p.append(rowRange("Colour area ends at",{min:0,max:70,get:()=>photoBox().x,set:v=>{if(!o.photoStart)o.photoStart={};o.photoStart[size]=Math.round(v);},fmt:v=>Math.round(v)<=0?"none":Math.round(v)+"%",def:base.x}));
+      p.append(note("Where the plain colour area ends and the photo begins (the dotted line marked \"Photo starts\"). 0% = no colour area, the photo fills the banner."));}}
   async function uploadMain(fs){const f=fs[0];const u=await fileToDataUrl(f);st.uploaded=u;st.img=await loadImage(u);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);if(fs.length>1)await addExtraFiles(tpl,o,fs.slice(1));renderAll();}
   const swapMainSubj=()=>{const u=st.uploaded,i=st.img;st.uploaded=st.uploaded2||null;st.img=st.img2||null;st.uploaded2=u||null;st.img2=i||null;if(st.img){st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);}renderAll();};
   function panePhoto(p){const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",false,uploadMain));
@@ -1505,6 +1509,13 @@ function openEditorV2(tpl,st,onClose){
     else if(s.t==="logo")o.logoScale=clamp((o.logoScale||1)*f,0.4,2);
     else if(s.t==="text"){const rEl=resolveEl(elOf(s.key),size);o.sizes[size][s.key]=clamp(Math.round((o.sizes[size][s.key]!=null?o.sizes[size][s.key]:rEl.size)*f),8,120);}}
   let drag=null,paneTimer=null;const paneSoon=()=>{clearTimeout(paneTimer);paneTimer=setTimeout(()=>{renderPane();renderSel();},220);};
+  // The "Photo starts" line (photo-side templates) can be dragged left/right.
+  let lineDrag=false;const nearLine=pt=>{if(!tpl.imageBox)return false;const lx=prev.width*photoBox().x/100;return Math.abs(pt.x-lx)<=Math.max(6,prev.width*0.012);};
+  const setStart=pt=>{if(!o.photoStart)o.photoStart={};o.photoStart[size]=Math.round(clamp(pt.x/prev.width*100,0,70));};
+  prev.addEventListener("pointerdown",ev=>{const pt0=toB(ev);if(nearLine(pt0)){ev.preventDefault();lineDrag=true;try{prev.setPointerCapture(ev.pointerId);}catch(_){}sel=lastIn.bg;prev.style.cursor="col-resize";renderAll();ev.stopImmediatePropagation();}},true);
+  prev.addEventListener("pointermove",ev=>{const pt=toB(ev);if(lineDrag){setStart(pt);draw();ev.stopImmediatePropagation();return;}if(nearLine(pt)){prev.style.cursor="col-resize";ev.stopImmediatePropagation();}},true);
+  const endLine=ev=>{if(!lineDrag)return;lineDrag=false;prev.style.cursor="";renderPane();ev.stopImmediatePropagation();};
+  prev.addEventListener("pointerup",endLine,true);prev.addEventListener("pointercancel",endLine,true);
   prev.addEventListener("pointerdown",ev=>{const pt=toB(ev),h=hitAt(pt);if(h){ev.preventDefault();sel=selFromHit(h);lastIn[sel.t]=sel;drag={last:pt};try{prev.setPointerCapture(ev.pointerId);}catch(_){}prev.style.cursor="grabbing";renderAll();}
     else{select(lastIn.bg);}});
   prev.addEventListener("pointermove",ev=>{const pt=toB(ev);if(!drag){prev.style.cursor=hitAt(pt)?"grab":"";return;}moveSel(sel,(pt.x-drag.last.x)/prev.width*100,(pt.y-drag.last.y)/prev.height*100);drag.last=pt;draw();});
