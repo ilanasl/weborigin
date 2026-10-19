@@ -13,6 +13,7 @@ import Reinforce from './pages/Reinforce'
 import Planner from './pages/Planner'
 import ExamBoard from './pages/ExamBoard'
 import Syntax from './pages/Syntax'
+import EnergyDrill from './pages/EnergyDrill'
 import ParentReport from './pages/ParentReport'
 import Explain from './pages/Explain'
 import Flashcards from './pages/Flashcards'
@@ -47,7 +48,7 @@ function ConfigNeeded() {
 }
 
 // מסכים שהם "באמצע משימה" — בלי סרגל, כדי שלא ייצאו מתרגול בלחיצה לא מכוונת
-const TASK_ROUTES = new Set(['practice', 'reinforce', 'flashcards', 'syntax'])
+const TASK_ROUTES = new Set(['practice', 'reinforce', 'flashcards', 'syntax', 'energyDrill'])
 
 const Ico = ({ d, size = 22 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -110,7 +111,7 @@ const TopicInNotebook = (props) => <Summaries {...props} />
 const PAGES = {
   home: Home, subject: Subject, upload: Upload, practice: Practice,
   practicePicker: PracticePicker, topicSummary: TopicInNotebook, reinforce: Reinforce, planner: Planner, examBoard: ExamBoard,
-  explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax,
+  explain: Explain, flashcards: Flashcards, check: CheckExercise, pastExams: PastExams, syntax: Syntax, energyDrill: EnergyDrill,
   parentReport: ParentReport, store: Store, soon: Soon,
   settings: Settings, parent: Parent, summaries: Summaries, materials: Materials,
 }
