@@ -1,9 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
+import { supabase } from '../lib/supabase'
 import { SegProgress, BottomSheet, FeedbackSheet } from '../components/QuestionUI'
 import { FORMS, ROUND, sceneCount, makeChain, chainOk, makePie, pieSVG, nameOf, shuffled } from '../lib/energyDrill'
 
-// תרגול המרות אנרגיה — קובייה נפרדת במדעים (לא מתערבב בתרגול הרגיל ולא נרשם לדוח).
+// תרגול המרות אנרגיה — קובייה נפרדת במדעים (לא מתערבב בתרגול הרגיל).
+// כל תשובה נרשמת לדוח — על נושא האנרגיה במקצוע אם יש כזה, אחרת על המקצוע בלבד.
 // תרשים זרימה: בונים את שרשרת ההמרות בלחיצה על הקופסאות. גרף עוגה: חוק שימור האנרגיה בחישוב.
 const lvKey = (id) => `energyDrill:${id}`
 function readLv(id) {
@@ -45,9 +47,18 @@ export default function EnergyDrill({ nav, params }) {
   const [wrong, setWrong] = useState(false)   // ניסיון ראשון שגוי — אפשר לתקן
   const [done, setDone] = useState(null)      // null | true | false
   const stepsRef = useRef(null)
+  const topicId = useRef(null)
+
+  useEffect(() => {
+    supabase.from('topics').select('id, name').eq('subject_id', subjectId)
+      .then(({ data }) => { topicId.current = (data || []).find((t) => /אנרגי/.test(t.name))?.id || null })
+  }, [subjectId])
 
   function finish(ok) {
     setDone(ok)
+    const difficulty = ex.kind === 'pie' ? ['קל', 'בינוני', 'קשה'][(stats.current.pie || 1) - 1] : 'בינוני'
+    supabase.from('attempts').insert({ subject_id: subjectId, topic_id: topicId.current, correct: ok, difficulty })
+      .then(() => {}, () => {})   // לא חוסם את התרגול
     setResults((r) => { const n = r.slice(); n[idx] = ok; return n })
     if (ex.kind === 'pie') {
       // רמה לגרף העוגה: 2 נכונות ברצף → עולה, טעות → יורדת
