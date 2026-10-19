@@ -820,9 +820,28 @@ function initOverrides(tpl){
   return {font:tpl.font,overlay,overlay2,colors,anchorX:(tpl.anchorX?Object.assign({},tpl.anchorX):{desktop:horizNum(tpl.bgPos.desktop),mobile:horizNum(tpl.bgPos.mobile)}),anchorY:{desktop:vertNum(tpl.bgPos.desktop),mobile:vertNum(tpl.bgPos.mobile)},zoom:tpl.zoom||1,pos:{desktop:{},mobile:{}},sizes:{desktop:{},mobile:{}},pads:{desktop:{},mobile:{}},bold:{desktop:{},mobile:{}},panelColor:(tpl.panelBg?tpl.bgColor:null),shadow:(tpl.productShadow?0.22:null),subjZoom:1,subjX:50,subjY:100,productRotate:0,subjRotate:0,imgAbove:!!tpl.productBox,subjAbove:!!tpl.secondLayer,glow:0,glowSize:0.5,split:false,panelColorR:(tpl.splittable?tpl.panelColorR:null),splitAt:(tpl.splittable?(tpl.splitAt||52):null),logoScale:1,logoX:(tpl.logo?tpl.logo.x:50),logoAlign:(tpl.logo?(((tpl.logo.anchor||"top-left").indexOf("center")>=0)?"center":(((tpl.logo.anchor||"").indexOf("right")>=0)?"right":"left")):"left"),halign:{desktop:{},mobile:{}},buttonAuto:tpl.buttonAuto!==undefined?tpl.buttonAuto:true,buttonColor:(btnEl&&btnEl.btnColor)||"#1e3a5f",...(tpl.bgModes?{bgMode:(tpl.defaultBgMode||"side"),bgModes:JSON.parse(JSON.stringify(tpl.bgModes))}:{}),...(tpl.decorations?{deco:initDeco(tpl)}:{})};
 }
 
+/* ---------------- Saved styles (per template): every setting of a banner except its images ---------------- */
+// Stored on this computer (localStorage) and mirrored to the backup folder as one record ("styles:all").
+const STYLES_KEY="bs_styles_v1";
+function loadStyles(){try{return JSON.parse(localStorage.getItem(STYLES_KEY)||"{}")||{};}catch(_){return {};}}
+function saveStyles(all){try{localStorage.setItem(STYLES_KEY,JSON.stringify(all));}catch(_){}
+  const rec={id:"styles:all",styles:all,when:Date.now()};try{BankDB.put(rec).catch(()=>{});}catch(_){}backupPut(rec);}
+function stylesFor(tid){return (loadStyles()[tid])||[];}
+const STYLE_SKIP=["extras","imgTransparent","_fadeSnap","_splitSnap","_bgFresh","_styleId"];
+function styleFromOver(o){const d={};for(const k in o){if(STYLE_SKIP.indexOf(k)<0&&o[k]!==undefined)d[k]=JSON.parse(JSON.stringify(o[k]));}return d;}
+// Apply a style IN PLACE (keeps the same object, so an open editor sees it); the banner's own images stay.
+function applyStyleTo(tpl,o,style){const keep={};STYLE_SKIP.forEach(k=>{if(o[k]!==undefined)keep[k]=o[k];});
+  Object.keys(o).forEach(k=>{delete o[k];});Object.assign(o,initOverrides(tpl),JSON.parse(JSON.stringify(style.data||{})),keep);backfillOver(tpl,o);}
+function defaultStyle(tid){return stylesFor(tid).find(x=>x.isDefault)||null;}
+function freshOver(tpl){const o=initOverrides(tpl);const d=defaultStyle(tpl.id);if(d)applyStyleTo(tpl,o,d);return o;}
+async function loadStylesFromBank(){try{if(Object.keys(loadStyles()).length)return;const all=await BankDB.all();const r=all.find(x=>x&&x.id==="styles:all");
+  if(r&&r.styles){try{localStorage.setItem(STYLES_KEY,JSON.stringify(r.styles));}catch(_){} }}catch(_){}}
+function styleOptionsHTML(tid,ph){const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  return `<option value="">${ph}</option>`+stylesFor(tid).map(x=>`<option value="${esc(x.id)}">${x.isDefault?"⭐ ":""}${esc(x.name)}</option>`).join("");}
+
 /* ---------------- State ---------------- */
 const state = {}; // id -> {selected,mobile,topic,customPrompt,uploaded,img,accent,logo,logoImg,over,text}
-for(const t of TEMPLATES) state[t.id]={selected:false,mobile:false,previewSize:"desktop",transparent:!!t.defaultTransparent,topic:"",customPrompt:"",uploaded:null,img:null,accent:null,tint:null,logo:null,logoImg:null,over:initOverrides(t),text:{enabled:false,texts:{}}};
+for(const t of TEMPLATES) state[t.id]={selected:false,mobile:false,previewSize:"desktop",transparent:!!t.defaultTransparent,topic:"",customPrompt:"",uploaded:null,img:null,accent:null,tint:null,logo:null,logoImg:null,over:freshOver(t),text:{enabled:false,texts:{}}};
 
 const fontsReady = (async()=>{try{await Promise.all(TEMPLATES.map(t=>document.fonts.load(`800 20px "${t.font}"`)));await document.fonts.ready;}catch(_){}} )();
 
@@ -1017,6 +1036,7 @@ const BankDB={db:null,
   async del(id){const d=await this.open();return new Promise((res,rej)=>{const t=d.transaction("banners","readwrite");t.objectStore("banners").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);});}
 };
 const cardRefresh={}; // tpl.id -> redraw its card + inputs
+const CARD_STYLE_FILL=[];function refreshCardStyles(){CARD_STYLE_FILL.forEach(f=>{try{f();}catch(_){}});}
 TEMPLATES.forEach(tpl=>{
   const st=state[tpl.id];const d=tpl.sizes.desktop,m=tpl.sizes.mobile;
   const card=document.createElement("div");card.className="card"+(tpl.hidden?" is-hidden":"");card.dataset.id=tpl.id;
@@ -1048,6 +1068,7 @@ TEMPLATES.forEach(tpl=>{
       <input type="text" class="c-prompt" placeholder="e.g. warm daylight, no text on boxes"></label>
     <div class="src c-savedrow"><select class="c-saved" style="flex:1"><option value="">↩ Load a saved topic…</option></select><button class="tiny c-savetopic" title="Save this topic + prompt">💾 Save</button><button class="tiny c-deltopic" title="Delete the loaded saved topic" hidden>🗑</button></div>
     <div class="src c-airow" hidden><button class="tiny c-gen">✨ Generate with AI</button><span class="c-genstat muted"></span></div>
+    ${tpl.editorV2?'<div class="src c-stylerow"><span class="lab">Style</span><select class="c-style" style="flex:1"></select></div>':''}
     <div class="card-foot">
       <div class="card-btns">
         <button class="tiny c-dl" title="Downloads both desktop + mobile in one click">⬇ Download</button>
@@ -1101,9 +1122,12 @@ TEMPLATES.forEach(tpl=>{
    if(sf)sf.addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;const url=await fileToDataUrl(f);st.uploaded2=url;st.img2=await loadImage(url);e.target.value="";refresh();});
    if(cs)cs.addEventListener("click",()=>{st.uploaded2=null;st.img2=null;refresh();});}
   card.querySelector(".c-logosz").addEventListener("input",e=>{st.over.logoScale=+e.target.value;drawThumb(canvasEl,tpl,st);});
-  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:initOverrides(tpl),text:{enabled:false,texts:{}}});refresh();forgetAuto(tpl);});
+  resetBtn.addEventListener("click",()=>{Object.assign(st,{selected:st.selected,mobile:false,previewSize:"desktop",uploaded:null,img:null,accent:null,logo:null,logoImg:null,over:freshOver(tpl),text:{enabled:false,texts:{}}});refresh();forgetAuto(tpl);});
   textBtn.addEventListener("click",()=>openTextModal(tpl,st,refresh));
   card.querySelector(".c-edit").addEventListener("click",e=>{e.stopPropagation();openEditor(tpl,st,afterEdit);});
+  {const sSel=card.querySelector(".c-style");if(sSel){const fill=()=>{sSel.innerHTML=styleOptionsHTML(tpl.id,stylesFor(tpl.id).length?"🎨 Apply a saved style…":"🎨 No saved styles yet (save one in Edit)");};fill();
+    CARD_STYLE_FILL.push(fill);sSel.addEventListener("focus",fill);
+    sSel.addEventListener("change",()=>{const x=stylesFor(tpl.id).find(z=>z.id===sSel.value);sSel.value="";if(!x)return;applyStyleTo(tpl,st.over,x);refresh();autoSaveBanner(tpl,st);});}}
   card.querySelector(".c-dl").addEventListener("click",()=>downloadOne(tpl,st));
   card.querySelector(".c-save").addEventListener("click",async e=>{const b=e.currentTarget;const id=await saveSnapshot(tpl,st);if(id){b.textContent="✓ Saved";setTimeout(()=>b.textContent="💾 Save",1200);}});
   // topic / prompt / AI generate
@@ -1134,7 +1158,7 @@ TEMPLATES.forEach(tpl=>{
 refreshSavedSelects();
 // pull any backups from the folder into the browser, then bring back every banner's
 // last state (survives refresh / tool updates / restart / cleared browser / new machine)
-(async()=>{ await syncFromBackup(); await restoreAutoSaved(); })();
+(async()=>{ await syncFromBackup(); await loadStylesFromBank(); refreshCardStyles(); await restoreAutoSaved(); })();
 {const sb=document.getElementById("savedBtn"); if(sb) sb.addEventListener("click",openSavedGallery);}
 
 function fileToDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=()=>rej(r.error);r.readAsDataURL(file);});}
@@ -1237,6 +1261,10 @@ function ensureV2Css(){if(document.getElementById("v2css"))return;const st=docum
 .v2-check input{width:17px;height:17px;accent-color:var(--k)}
 .v2-note{font-size:13px;color:var(--muted);padding:3px 0}
 .v2-swatches{display:flex;flex-wrap:wrap;gap:8px}
+.v2-stylebar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 8px;border:1px dashed var(--border);border-radius:10px}
+.v2-stylebar .l{font-weight:700;font-size:14px;color:var(--text)}
+.v2-stylebar select{flex:1;min-width:150px;font:500 14px var(--ui);padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text)}
+.v2-stylebar .tiny{font-size:13px;padding:5px 9px}
 .v2-sw{width:32px;height:32px;border-radius:50%;border:2px solid var(--border);cursor:pointer;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
 .v2-sw:hover{transform:scale(1.12)}.v2-sw.on{border-color:var(--k);box-shadow:0 0 0 2px var(--k)}
 .v2-slot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}
@@ -1260,7 +1288,7 @@ function openEditorV2(tpl,st,onClose){
   back.innerHTML=`<div class="modal editor v2">
     <div class="modal-h"><b>Edit — ${tpl.name}</b><button class="ghost e-x">✕</button></div>
     <div class="editor-body">
-      <div class="editor-controls"><div class="v2-tabs"></div><div class="v2-body"></div></div>
+      <div class="editor-controls"><div class="v2-stylebar"></div><div class="v2-tabs"></div><div class="v2-body"></div></div>
       <div class="editor-preview">
         <div class="v2-sel"></div>
         <div class="e-inline" style="gap:10px;flex-wrap:wrap;justify-content:center"><div class="e-seg seg2"${tpl.desktopOnly?' style="display:none"':''}><button data-s="desktop" class="on">Desktop</button><button data-s="mobile">Mobile</button></div>${(tpl.sizes.desktop.w/tpl.sizes.desktop.h>3)?'<div class="e-seg v2-zoom"><button data-z="1" class="on">Fit</button><button data-z="2">Zoom 2×</button><button data-z="3">Zoom 3×</button></div>':''}</div>
@@ -1516,6 +1544,22 @@ function openEditorV2(tpl,st,onClose){
     p.append(alignRow(()=>Math.abs(curX()-snaps()[ha()])<0.8?ha():"",v=>{o.halign[size][key]=v;pos().x=snaps()[v];}));
     p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>isR||o.split?curX():txtToV(curX()),set:v=>{pos().x=(isR||o.split)?v:vToTxt(v);},fmt:pctFmt}));
     p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>pos().y!=null?pos().y:rEl.y,set:v=>{pos().y=v;},fmt:v=>Math.round(v)+"%",def:rEl.y}));}
+
+  /* ---- saved styles bar ---- */
+  const styleBar=back.querySelector(".v2-stylebar");
+  function renderStyleBar(){styleBar.innerHTML="";const lab=mk("span","l","Style");const sel=mk("select");const list=stylesFor(tpl.id);
+    sel.innerHTML=styleOptionsHTML(tpl.id,list.length?"Choose a saved style…":"No saved styles yet");sel.value=o._styleId&&list.some(x=>x.id===o._styleId)?o._styleId:"";
+    sel.onchange=()=>{const x=list.find(z=>z.id===sel.value);if(!x)return;applyStyleTo(tpl,o,x);o._styleId=x.id;renderAll();renderStyleBar();};
+    const save=btn("💾 Save style",()=>{const cur=list.find(z=>z.id===o._styleId);const name=(prompt("Name for this style (all settings except the images):",cur?cur.name:"")||"").trim();if(!name)return;
+      const all=loadStyles();const arr=all[tpl.id]||(all[tpl.id]=[]);let x=arr.find(z=>z.name.toLowerCase()===name.toLowerCase());
+      if(x&&!confirm(`Replace the saved style "${x.name}" with the current settings?`))return;
+      if(!x){x={id:"st"+Date.now().toString(36),name,isDefault:false};arr.push(x);}x.data=styleFromOver(o);saveStyles(all);o._styleId=x.id;renderStyleBar();refreshCardStyles();},"save every setting of this banner (not the images) under a name");
+    const cur=list.find(z=>z.id===sel.value);
+    const def=btn(cur&&cur.isDefault?"⭐ Default":"☆ Make default",()=>{if(!cur)return;const all=loadStyles();(all[tpl.id]||[]).forEach(z=>{z.isDefault=(z.id===cur.id)?!cur.isDefault:false;});saveStyles(all);renderStyleBar();refreshCardStyles();},"new banners of this type (and Reset) start with this style");
+    const del=btn("🗑",()=>{if(!cur||!confirm(`Delete the style "${cur.name}"?`))return;const all=loadStyles();all[tpl.id]=(all[tpl.id]||[]).filter(z=>z.id!==cur.id);saveStyles(all);delete o._styleId;renderStyleBar();refreshCardStyles();},"delete this style");
+    if(!cur){def.disabled=true;del.disabled=true;}
+    styleBar.append(lab,sel,save,def,del);}
+  renderStyleBar();
 
   /* ---- render ---- */
   function renderTabs(){tabsEl.innerHTML="";[["bg"],["prod"],["subj"],["extra"],["logo"],["text"]].forEach(([k])=>{if(k==="subj"&&!tpl.secondLayer)return;if(k==="logo"&&!tpl.logo)return;const b=mk("button","v2-tab"+(sel.t===k?" on":""));b.type="button";b.style.setProperty("--k",V2_COL[k]);b.append(ico(k),document.createTextNode(tName(k)));b.onclick=()=>select(lastIn[k]);tabsEl.append(b);});}
