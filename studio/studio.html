@@ -375,7 +375,7 @@ const TEMPLATES = [
   {
     // Google Ads image 1200x628: colour panel on the LEFT, photo at the RIGHT edge joined by a blur (like the tax banner),
     // with every layer adjustable in the tab editor (background modes + strength, decorations, logo, texts, extra images). One size only.
-    id:"ad-full", name:"Ad Image 1200×628 (Photo right)", font:"Poppins", editorV2:true, textOptional:true, desktopOnly:true,
+    id:"ad-full", name:"Ad Image 1200×628 (Photo right)", font:"Poppins", editorV2:true, screensOK:true, textOptional:true, desktopOnly:true,
     sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
     bgPos:{desktop:"center", mobile:"center"},
     bgColor:"#ebf4f9", panelBg:true, fadeStrength:true,
@@ -390,7 +390,7 @@ const TEMPLATES = [
     decorations:{network:{on:false,amt:0.5,size:1},triangles:{on:false,amt:0.5,size:1},circuit:{on:false,amt:0.5,size:1},hexagons:{on:false,amt:0.5,size:1},dots:{on:false,amt:0.5,size:1},
                  waves:{on:false,amt:0.5,size:1},edge:{on:false,amt:1,size:1,color:"#ffffff"}},
     defaultTopic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",
-    composition:"A natural, candid lifestyle photo: ONE single continuous camera shot of ONE room or place — never two pictures side by side. Frame it as a wide shot with the person or people on the RIGHT side of the frame, and the SAME room or place naturally extending to their left (open floor, wall, window light, soft background) — calm and uncluttered, with no other people and nothing important on the left. Shot at a MEDIUM distance (not a close-up); keep every head inside the vertical CENTER band of the frame with clear space above it. Bright, light and airy. Evenly exposed and sharp across the whole width: no fading, wash-out, blur, vignette, white band, split, panel, frame or dividing line anywhere (a soft colour fade is laid over the left side later in editing). Clean, modern, minimal setting with a calm, uncluttered background: NO fairy lights, string lights, neon, posters, wall decorations, garlands, candles or decorative clutter. Photorealistic, no collage, no readable screens or text.",
+    composition:"A natural, candid lifestyle photo: ONE single continuous camera shot of ONE room or place — never two pictures side by side. Frame it as a wide shot with the person or people on the RIGHT side of the frame, and the SAME room or place naturally extending to their left (open floor, wall, window light, soft background) — calm and uncluttered, with no other people and nothing important on the left. Shot at a MEDIUM distance (not a close-up); keep every head inside the vertical CENTER band of the frame with clear space above it. Bright, light and airy. Evenly exposed and sharp across the whole width: no fading, wash-out, blur, vignette, white band, split, panel, frame or dividing line anywhere (a soft colour fade is laid over the left side later in editing). Clean, modern, minimal setting with a calm, uncluttered background: NO fairy lights, string lights, neon, posters, wall decorations, garlands, candles or decorative clutter. Any laptop, tablet or phone screen shows believable study content — an online video lecture with an instructor, a course page or slides with simple charts and diagrams — softly out of focus so no words can be read, never a blank, black or grey screen. Photorealistic, no collage, no readable text, logos or brand names anywhere.",
     overlay:{desktop:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:25,fade:55},
              mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:25,fade:55}},
     elements:[
@@ -881,7 +881,7 @@ function buildAIPrompt(tpl,st){
     "It must be one unified scene. Do NOT make a collage, a grid, split panels, or several separate photos stitched together.",
     "Realistic and believable: natural human anatomy and correct body proportions, objects at true real-world size, natural relaxed expressions. Never crop or cut off the top of anyone's head.",
     (tpl.composition&&tpl.composition.trim())||safeZoneHint(tpl),
-    "Photorealistic, clean, soft even lighting on the open side. No text, letters, words, numbers, logos, watermarks or UI anywhere in the image."
+    tpl.screensOK?"Photorealistic, clean, soft even lighting. No readable text, letters, words, numbers, logos or watermarks anywhere — screens may show blurred, unreadable study content.":"Photorealistic, clean, soft even lighting on the open side. No text, letters, words, numbers, logos, watermarks or UI anywhere in the image."
   ].filter(Boolean).join(" ");
 }
 async function aiGenerate(tpl,st){
