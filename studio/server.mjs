@@ -8,7 +8,10 @@
 //
 // Your Gemini key stays on THIS computer (in the .env file) and is never sent
 // to the browser. Run it with:  npm install  then  npm start
-import "dotenv/config";
+import dotenv from "dotenv";
+// The key in studio/.env always wins over a GEMINI_API_KEY / OPENAI_API_KEY set in Windows,
+// so this app can use its own key while other tools keep theirs.
+dotenv.config({ override: true });
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
