@@ -14,6 +14,7 @@ import { forget } from '../lib/screenCache'
 import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
 import { GEN_MARK } from '../lib/plan'
 import { addMoreQuestions } from '../lib/moreQuestions'
+import { isMathSubject, drillTypeOf } from '../lib/mathDrill'
 
 // מוצג כלשונית של נושא בתוך מחברת הסיכומים (embedded). onChanged — רענון הלשוניות (שם/נושא חדש), onOpen — מעבר ללשונית של נושא אחר
 export default function TopicSummary({ nav, params, embedded = false, onChanged, onOpen }) {
@@ -63,6 +64,7 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
 
   useWorking(busy || moreBusy || !!noteBusy || autoMerging || completing || fetching || !!offBusy || removing)
 
+  const drillTopic = isMathSubject(subjectName) && !!drillTypeOf(name)
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
   const isLiterary = isBible || /ספרות|שיר|פזמון|יצירה|בלדה|סיפור|פרוזה/.test(subjectName || '')
@@ -569,7 +571,8 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
       {/* ניהול הנושא — איחוד עם נושא אחר או מחיקה */}
       <div className="home-h2 mt-7 mb-2.5"><h2>כלים לנושא</h2></div>
       <div className="milky-row !flex-col !items-stretch !gap-3">
-        {summary && (
+        {/* נושא מתמטי עם תרגילים (חזקות, פילוג...) — מתורגל בתרגילים שנבנים בקוד, אין צורך בשאלות נוספות */}
+        {summary && !drillTopic && (
           <div className="flex flex-col gap-2">
             <div className="text-[13.5px] font-bold">עוד שאלות לנושא</div>
             <div className="text-[12px] text-muted leading-relaxed">יוצר עוד שאלות תרגול מהסיכום של הנושא — בלי לחזור על השאלות שכבר יש ({qCount}).</div>

@@ -12,6 +12,8 @@ import { checkPlanDayDone, daysUntil, nearestKind } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 import { buildItem, isChatCard } from '../lib/flashcardQuiz'
+import { isMathSubject, drillTypeOf, drillItems } from '../lib/mathDrill'
+import DrillExercise from '../components/DrillExercise'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
 // ערבוב מיקום התשובה בכל שאלה בזמן התצוגה — מבטיח פיזור גם לשאלות ישנות שנשמרו עם התשובה במיקום 1
@@ -45,6 +47,8 @@ export default function Practice({ nav, params }) {
   const [focused, setFocused] = useState(false)   // סימולציה על החומר שבמיקוד (ולא על כל החומר)
   const [examKind, setExamKind] = useState(null)  // מבדק / מבחן מסכם — לכותרת מסך הסיום של הסימולציה
   const [rvLeft, setRvLeft] = useState(0)         // אחרי סימולציה: כמה פריטים מחכים ב"לחיזוק"
+  const [drillOk, setDrillOk] = useState(null)    // תרגיל מתמטי: null עד שנענה
+  const [drillReview, setDrillReview] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -65,25 +69,35 @@ export default function Practice({ nav, params }) {
       ])
       // שאלות "וריאציה" (נוצרו אחרי טעות) — רק ב"לחיזוק", לא בתרגול ובסימולציה
       const varIds = new Set((vr || []).map((r) => r.ref_id))
-      const data = (all || []).filter((x) => !varIds.has(x.id))
+      // מתמטיקה: נושא שיש לו סוג תרגיל (חזקות, פילוג, משוואות, משולש) מתורגל בתרגילים שנבנים בקוד —
+      // השאלות האמריקאיות הישנות שלו מוסתרות (לא נמחקות)
+      const drillTp = isMathSubject(subjectName) ? (tp || []).filter((t) => drillTypeOf(t.name)) : []
+      const hideIds = new Set(drillTp.map((t) => t.id))
+      const data = (all || []).filter((x) => !varIds.has(x.id) && !hideIds.has(x.topic_id))
+      const drillScope = drillTp.filter((t) => (topicId ? t.id === topicId : !scopeIds.length || scopeIds.includes(t.id)))
       // סימולציה עם מיקוד שאין בו עדיין שאלות — הודעה מדויקת (לא "אין שאלות במקצוע")
-      if (examMode && !topicId && (tp || []).some((t) => t.in_exam) && data.length === 0) setEmptyScope(true)
+      if (examMode && !topicId && (tp || []).some((t) => t.in_exam) && data.length === 0 && !drillScope.length) setEmptyScope(true)
       // דגימה אקראית מכל השאלות (לא רק מה-40 הראשונות)
       // params.count — סבב קצר שמשלים את היעד היומי (מהכרטיס בבית)
       const total = examMode ? 15 : (params.count > 0 ? params.count : 10)
+      // כמה תרגילים: לפי חלקם של נושאי התרגילים מכל הנושאים שיש בהם מה לתרגל
+      const otherTopics = new Set(data.map((x) => x.topic_id)).size
+      const drillN = !drillScope.length ? 0 : !data.length ? total
+        : Math.max(1, Math.round(total * drillScope.length / (drillScope.length + otherTopics)))
       let fcItems = []
       // תרגול רגיל: 2–3 שאלות הגדרה מהכרטיסיות (מושג ↔ הגדרה), במקום מסך כרטיסיות נפרד
       if (!examMode) {
         const { data: cards } = await fetchAll(() => supabase.from('flashcards').select('*').eq('subject_id', subjectId))
         const all = (cards || []).filter((c) => !isChatCard(c))
-        const own = topicId ? all.filter((c) => c.topic_id === topicId) : all
+        const own = (topicId ? all.filter((c) => c.topic_id === topicId) : all).filter((c) => !hideIds.has(c.topic_id))
         const fcBase = total >= 6 ? FC_PER_ROUND : total >= 3 ? 1 : 0   // בסבב קצר — פחות שאלות הגדרה
-        const want = Math.max(fcBase, total - (data || []).length)   // מעט שאלות רגילות → משלימים מכרטיסיות
+        // מעט שאלות רגילות → משלימים מכרטיסיות; סבב שכולו תרגילים — בלי שאלות הגדרה
+        const want = drillN >= total ? 0 : Math.min(total - drillN, Math.max(fcBase, total - drillN - data.length))
         fcItems = shuffle(own).slice(0, want).map((c) => buildItem(c, all)).filter((it) => it.valid)
           .map((it) => ({ ...it, fc: true, explain: `התשובה הנכונה: **${it.choices[it.answer]}**`, difficulty: 'קל' }))
       }
-      const qs = shuffle(data || []).slice(0, total - fcItems.length).map(shuffleChoices)
-      setQueue(shuffle([...qs, ...fcItems]))
+      const qs = shuffle(data).slice(0, Math.max(0, total - drillN - fcItems.length)).map(shuffleChoices)
+      setQueue(shuffle([...qs, ...fcItems, ...drillItems(drillScope, drillN)]))
       setLoading(false)
     })()
   }, [subjectId, topicId])
@@ -131,7 +145,14 @@ export default function Practice({ nav, params }) {
   }
 
   const q = queue[idx]
-  const answered = picked != null
+  const answered = picked != null || drillOk != null
+
+  // תרגיל מתמטי — הרישום, "לחיזוק" והרמה מטופלים בתוך התרגיל עצמו
+  function drillDone(ok) {
+    setDrillOk(ok)
+    if (ok) setCorrect((c) => c + 1)
+    setResults((r) => { const n = [...r]; n[idx] = ok; return n })
+  }
 
   async function answer(i) {
     if (answered) return
@@ -212,7 +233,8 @@ export default function Practice({ nav, params }) {
       setPlanDay(await checkPlanDayDone(subjectId))
       return
     }
-    setIdx(idx + 1); setPicked(null); setShowHint(false)
+    setIdx(idx + 1); setPicked(null); setShowHint(false); setDrillOk(null); setDrillReview(false)
+    if (queue[idx + 1]?.drill) window.scrollTo({ top: 0 })
   }
 
   const topicLabel = topicNames[q.topic_id] || topicName
@@ -221,9 +243,15 @@ export default function Practice({ nav, params }) {
     <div className="pt-1">
       <SegProgress total={queue.length} idx={idx} results={results} />
 
-      <QuestionBlock topic={topicLabel} sub={q.fc ? q.prompt : `${examMode ? 'סימולציה · ' : ''}${q.difficulty || ''}`} text={q.q} />
-
-      <Options choices={q.choices} answer={q.answer} picked={picked} onPick={answer} />
+      {q.drill ? (
+        <DrillExercise key={idx} subjectId={subjectId} item={q} topicName={topicLabel} examMode={examMode}
+          onDone={drillDone} onReview={() => setDrillReview(true)} />
+      ) : (
+        <>
+          <QuestionBlock topic={topicLabel} sub={q.fc ? q.prompt : `${examMode ? 'סימולציה · ' : ''}${q.difficulty || ''}`} text={q.q} />
+          <Options choices={q.choices} answer={q.answer} picked={picked} onPick={answer} />
+        </>
+      )}
 
       {!answered && q.hint && !examMode && (
         showHint
@@ -231,10 +259,14 @@ export default function Practice({ nav, params }) {
           : <button type="button" className="q-hint inline-flex items-center gap-1.5" onClick={() => setShowHint(true)}><Icon name="bulb" size={18} />רמז</button>
       )}
 
-      {answered && (
+      {answered && (q.drill ? (
+        <FeedbackSheet ok={drillOk} title={drillOk ? 'יפה מאוד!' : 'לא הפעם — הפתרון למעלה'}
+          extra={drillReview && <div className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: '#5A43D1' }}><Icon name="book" size={16} />התרגיל נוסף ל„לחיזוק”</div>}
+          nextLabel={last ? 'לסיכום' : 'הבא'} onNext={next} />
+      ) : (
         <FeedbackSheet ok={picked === q.answer} title={picked === q.answer ? 'יפה מאוד!' : g('כמעט — בוא נבין', 'כמעט — בואי נבין')}
           explain={q.explain} nextLabel={last ? 'לסיכום' : 'הבא'} onNext={next} />
-      )}
+      ))}
     </div>
   )
 }

@@ -1,0 +1,142 @@
+import { useEffect, useRef, useState } from 'react'
+import { useG } from '../lib/gender'
+import { supabase } from '../lib/supabase'
+import { BottomSheet } from './QuestionUI'
+import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel } from '../lib/mathDrill'
+
+const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
+// מספרים בתוך משפט בעברית — כיוון משמאל לימין, שהמינוס לא יקפוץ
+const ltrNums = (t) => t.replace(/\(?−?\d+°?\)?/g, (m) => `<bdi dir="ltr">${m}</bdi>`)
+// ה-HTML נבנה בקוד שלנו בלבד (mathDrill) — לא מתוכן שהמשתמש או ה-AI כתבו
+const Html = ({ html, className, as: Tag = 'span' }) => <Tag className={className} dangerouslySetInnerHTML={{ __html: html }} />
+
+// תרגיל מתמטי אחד בתוך סבב תרגול: הקלדת תשובה (או בחירה), ניסיון שני, ופתרון שלב אחר שלב.
+// התשובה נרשמת לדוח; טעות → אותו תרגיל כשאלה אמריקאית ל"לחיזוק" (onReview).
+export default function DrillExercise({ subjectId, item, topicName, examMode, onDone, onReview }) {
+  const g = useG()
+  const [lv] = useState(() => levelOf(subjectId, item.type))
+  const [ex] = useState(() => makeExercise(item.type, lv))
+  const [vals, setVals] = useState([])
+  const [wrong, setWrong] = useState(null)   // אחרי ניסיון ראשון שגוי: אילו שדות לא נכונים
+  const [done, setDone] = useState(null)     // null | true | false
+  const [picked, setPicked] = useState(null)
+  const mathRef = useRef(null)
+  const stepsRef = useRef(null)
+  const firstInput = useRef(null)
+
+  // ביטוי ארוך — מקטינים את הגופן עד שנכנס בשורה אחת
+  useEffect(() => {
+    const m = mathRef.current
+    if (m) for (let fs = 26; m.scrollWidth > m.clientWidth && fs > 15; fs--) m.style.fontSize = fs + 'px'
+    firstInput.current?.focus({ preventScroll: true })
+  }, [])
+
+  async function record(ok) {
+    try {
+      const row = { subject_id: subjectId, topic_id: item.topic_id, correct: ok, difficulty: difficultyOf(lv || 2) }
+      const { error } = await supabase.from('attempts').insert(examMode ? { ...row, mode: 'exam' } : row)
+      if (error && examMode) await supabase.from('attempts').insert(row)
+      if (ok) return
+      const { data: ins } = await supabase.from('questions').insert({ subject_id: subjectId, topic_id: item.topic_id, ...toQuestion(ex, lv || 2) }).select('id')
+      if (ins?.length) {
+        await supabase.from('review_items').insert(ins.map((q) => ({ subject_id: subjectId, kind: 'question', ref_id: q.id, streak: 0 })))
+        onReview?.()
+      }
+    } catch { /* לא חוסם את התרגול */ }
+  }
+
+  function finish(ok) {
+    setDone(ok)
+    bumpLevel(subjectId, item.type, ok)
+    record(ok)
+    onDone(ok)
+    requestAnimationFrame(() => stepsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  function check() {
+    const ok = ex.fields.map((f, i) => num(vals[i] ?? '') === f.ans)
+    if (ok.every(Boolean)) { setWrong(null); finish(true); return }
+    if (!wrong && !examMode) { setWrong(ok); return }   // ניסיון ראשון — אפשר לתקן (לא בסימולציה)
+    setWrong(ok); finish(false)
+  }
+
+  function choose(v) {
+    if (done !== null) return
+    setPicked(v)
+    finish(v === ex.fields[0].ans)
+  }
+
+  const filled = ex.fields.every((_, i) => String(vals[i] ?? '').trim() !== '')
+  const isChoice = ex.kind === 'tf' || ex.kind === 'pick'
+  const opts = ex.kind === 'tf' ? [[true, 'נכון'], [false, 'לא נכון']] : ex.fields[0].opts
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="tp-badge inline-block" style={{ background: 'var(--primary)' }}>{topicName || ex.tag}{examMode ? ' · סימולציה' : ''}</span>
+        {lv > 0 && (
+          <span className="md-level" aria-label={`רמה ${lv} מתוך 3`}>רמה {[1, 2, 3].map((n) => <i key={n} className={n <= lv ? 'on' : ''} />)}</span>
+        )}
+      </div>
+      <h1 className="font-black text-[30px] leading-tight">{ex.title}</h1>
+
+      <div className="mt-4">
+        {ex.figure
+          ? <Html as="div" className="md-figure" html={ex.figure} />
+          : <div ref={mathRef} className="md-math" dangerouslySetInnerHTML={{ __html: ex.math }} />}
+      </div>
+      <div className="text-[15px] mb-3">{ex.ask}</div>
+
+      {isChoice ? (
+        <div className="md-opts">
+          {opts.map(([v, l]) => {
+            const cls = picked === v ? (v === ex.fields[0].ans ? 'ok' : 'no') : done !== null && v === ex.fields[0].ans ? 'ok' : ''
+            return <button key={String(v)} type="button" className={`md-opt ${cls}`} disabled={done !== null} onClick={() => choose(v)}>{l}</button>
+          })}
+        </div>
+      ) : (
+        <div className="md-answer">
+          {ex.fields.map((f, i) => (
+            <span key={i} className="contents">
+              {f.pre && <span>{f.pre}</span>}
+              <input ref={i === 0 ? firstInput : undefined} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
+                className={`${f.sup ? 'sup' : ''} ${wrong ? (wrong[i] ? 'ok' : 'no') : done === true ? 'ok' : ''}`}
+                value={vals[i] ?? ''} disabled={done !== null}
+                onChange={(e) => { const v = vals.slice(); v[i] = e.target.value; setVals(v) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
+              {f.post && <Html html={f.post} />}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {wrong && done === null && (
+        <div className="md-note">
+          לא מדויק{ex.fields.length > 1 ? ' — המקומות באדום לא נכונים' : ''}. {g('נסה', 'נסי')} שוב, או{' '}
+          <button type="button" className="underline font-semibold" onClick={() => finish(false)}>{g('הראה', 'הראי')} את הפתרון</button>
+        </div>
+      )}
+
+      {done !== null && (
+        <div ref={stepsRef} className="md-steps">
+          <div className="font-disp font-bold text-[15px] mb-1">הפתרון שלב אחר שלב</div>
+          {ex.steps.map(([why, expr, fin], i) => (
+            <div key={i} className={`md-step ${fin ? 'final' : ''}`}>
+              {why && <Html className="md-why" html={ltrNums(why)} />}
+              {expr && <Html className="md-ex" html={expr} />}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {done === null && !isChoice && (
+        <BottomSheet>
+          <button type="button" className="q-next" onClick={check} disabled={!filled}
+            style={filled ? undefined : { background: 'rgba(20,20,22,.1)', color: 'rgba(20,20,22,.5)' }}>
+            {filled ? g('✓ בדוק', '✓ בדקי') : 'מלאו את התשובה'}
+          </button>
+        </BottomSheet>
+      )}
+    </>
+  )
+}

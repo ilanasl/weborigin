@@ -533,7 +533,7 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
   .print-area tr { break-inside: avoid }
 }
 
-/* תרגילי מתמטיקה (MathDrill) — ביטויים תמיד משמאל לימין, כמו במחברת */
+/* תרגילי מתמטיקה (DrillExercise) — ביטויים תמיד משמאל לימין, כמו במחברת */
 .md-level{ display:flex; align-items:center; gap:4px; font-size:12px; color:var(--muted) }
 .md-level i{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.14); display:inline-block }
 .md-level i.on{ background:var(--primary) }

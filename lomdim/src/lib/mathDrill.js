@@ -262,7 +262,38 @@ export function toQuestion(ex, level) {
 }
 
 const GEN = { tri: genTri, expand: genExpand, eq: genEq, pow: genPow, err: genErr }
-// סבב של 10: "איפה הטעות?" פעם אחת בסבב
-export const ROUND = ['expand', 'pow', 'eq', 'tri', 'pow', 'expand', 'eq', 'pow', 'tri', 'err']
 export const LEVELED = ['tri', 'expand', 'eq', 'pow']
 export const makeExercise = (type, level) => GEN[type](level || 1)
+
+// ── שילוב בתרגול הרגיל: נושא מתמטי שיש לו סוג תרגיל → תרגילים במקום שאלות אמריקאיות ──
+export const isMathSubject = (name) => /מתמטיקה|חשבון|אלגברה|גאומטרי/.test(name || '')
+// הסדר חשוב: "משוואות עם סוגריים" הוא משוואות, לא פילוג
+const TOPIC_TYPES = [['pow', /חזק/], ['eq', /משווא/], ['tri', /משולש|זווי/], ['expand', /פילוג|סוגריים|כפל מקוצר/]]
+export const drillTypeOf = (topicName) => (TOPIC_TYPES.find(([, re]) => re.test(topicName || '')) || [])[0] || null
+
+// n תרגילים מהנושאים (בסבב, בסדר אקראי); בנושא פילוג — מדי פעם "איפה הטעות?"
+export function drillItems(topics, n) {
+  if (!topics.length || n <= 0) return []
+  const order = topics.slice().sort(() => Math.random() - 0.5)
+  return Array.from({ length: n }, (_, i) => {
+    const t = order[i % order.length]
+    let type = drillTypeOf(t.name)
+    if (type === 'expand' && Math.random() < 0.12) type = 'err'
+    return { drill: true, type, topic_id: t.id }
+  })
+}
+
+// רמה לכל סוג (1–3), שמורה במכשיר: 2 נכונות ברצף → עולה, טעות → יורדת
+const lvKey = (id) => `mathDrill:${id}`
+function readLv(id) {
+  try { const v = JSON.parse(localStorage.getItem(lvKey(id)) || '{}'); return v && typeof v === 'object' ? v : {} } catch { return {} }
+}
+export const levelOf = (subjectId, type) => (LEVELED.includes(type) ? readLv(subjectId)[type] || 1 : 0)
+export function bumpLevel(subjectId, type, ok) {
+  if (!LEVELED.includes(type)) return
+  const v = readLv(subjectId), s = v._s || {}
+  let lv = v[type] || 1
+  if (ok) { s[type] = (s[type] || 0) + 1; if (s[type] >= 2 && lv < 3) { lv++; s[type] = 0 } }
+  else { s[type] = 0; if (lv > 1) lv-- }
+  try { localStorage.setItem(lvKey(subjectId), JSON.stringify({ ...v, [type]: lv, _s: s })) } catch { /* אין אחסון — לא נורא */ }
+}

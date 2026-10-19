@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchAll } from '../lib/fetchAll'
 import Icon from '../components/Icon'
 import { mastery, level, LEVEL_LABEL } from '../lib/mastery'
+import { isMathSubject, drillTypeOf } from '../lib/mathDrill'
 
 const LEVEL_COLOR = { strong: 'var(--good)', mid: 'var(--primary)', weak: 'var(--accent)' }
 
@@ -34,7 +35,9 @@ export default function PracticePicker({ nav, params }) {
 
   if (loading) return <div className="text-muted pt-4">טוען…</div>
 
-  const withQ = topics.filter((t) => t.n > 0)
+  // מתמטיקה: נושא שיש לו תרגילים (חזקות, פילוג...) תמיד ניתן לתרגול
+  const math = isMathSubject(subjectName)
+  const withQ = topics.filter((t) => t.n > 0 || (math && drillTypeOf(t.name)))
   // המלצה: הנושא החלש ביותר שיש בו נתונים; אם אין — הראשון עם שאלות
   const scored = withQ.filter((t) => t.m.pct != null).sort((a, b) => a.m.pct - b.m.pct)
   const recommended = scored[0] || null
