@@ -379,20 +379,20 @@ const TEMPLATES = [
     sizes:{desktop:{w:1200,h:628}, mobile:{w:1200,h:628}},
     bgPos:{desktop:"center", mobile:"center"},
     bgColor:"#ebf4f9", panelBg:true, fadeStrength:true,
-    imageBox:{x:40,y:0,w:60,h:100}, seamBlur:0.6,
-    textArea:{a:5,b:40},
+    imageBox:{x:0,y:0,w:100,h:100}, seamBlur:0.6, // one wide photo across the banner; "Photo starts at" can still pull it to the right
+    textArea:{a:5,b:45},
     logo:{x:5,y:8,widthPct:22,anchor:"top-left"},
     defaultBgMode:"side",
     bgModes:{none:{none:true},
-             side:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",from:"left",hold:40,fade:50,opacity:1,tintTop:false},
+             side:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",from:"left",hold:25,fade:55,opacity:1,tintTop:false},
              top:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",hold:0,fade:35,opacity:0.85,tintTop:false},
              bottom:{bg:"#ebf4f9",color:"#ebf4f9",src:"custom",hold:0,fade:40,opacity:0.85,tintTop:false}},
     decorations:{network:{on:false,amt:0.5,size:1},triangles:{on:false,amt:0.5,size:1},circuit:{on:false,amt:0.5,size:1},hexagons:{on:false,amt:0.5,size:1},dots:{on:false,amt:0.5,size:1},
                  waves:{on:false,amt:0.5,size:1},edge:{on:false,amt:1,size:1,color:"#ffffff"}},
     defaultTopic:"A young woman with glasses laughing while studying alone on a laptop at a bright white kitchen counter, soft blue and white tones, morning light",
-    composition:"A natural, candid lifestyle photo: ONE single continuous camera shot of ONE room or place — never two pictures side by side. Frame it as a wide shot with the person or people on the RIGHT side of the frame, and the SAME room or place naturally extending to their left (open floor, wall, window light, soft background) — calm and uncluttered, with no other people and nothing important on the left. Shot at a MEDIUM distance (not a close-up); keep every head inside the vertical CENTER band of the frame with clear space above it. Bright, light and airy. Evenly exposed and sharp across the whole width: no fading, wash-out, blur, vignette, white band, split, panel, frame or dividing line anywhere (the blend into a colour panel is done later in editing). Photorealistic, no collage, no readable screens or text.",
-    overlay:{desktop:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50},
-             mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:40,fade:50}},
+    composition:"A natural, candid lifestyle photo: ONE single continuous camera shot of ONE room or place — never two pictures side by side. Frame it as a wide shot with the person or people on the RIGHT side of the frame, and the SAME room or place naturally extending to their left (open floor, wall, window light, soft background) — calm and uncluttered, with no other people and nothing important on the left. Shot at a MEDIUM distance (not a close-up); keep every head inside the vertical CENTER band of the frame with clear space above it. Bright, light and airy. Evenly exposed and sharp across the whole width: no fading, wash-out, blur, vignette, white band, split, panel, frame or dividing line anywhere (a soft colour fade is laid over the left side later in editing). Photorealistic, no collage, no readable screens or text.",
+    overlay:{desktop:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:25,fade:55},
+             mobile:{color:"#ebf4f9",opacity:1,gradient:true,coverage:"left",hold:25,fade:55}},
     elements:[
       {key:"headline",label:"Headline",val:"Earn Your Degree Online",size:52,weight:800,color:"#0b1f3a",align:"left",x:5,y:30,anchor:"top-left",maxW:34,lh:1.1},
       {key:"subtitle",label:"Subtitle",val:"Flexible programs that fit your schedule",size:26,weight:400,color:"#1a2b45",align:"left",x:5,y:56,anchor:"top-left",maxW:33,lh:1.25},
@@ -714,11 +714,11 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
       drawRotated(ctx,image,f,(over.productRotate||0));}
     else if(!(tpl.secondLayer&&img2))placeholderBox(ctx,bx,by,bw,bh);}
   else if(tpl.imageBox){const b=imageBoxFor(tpl,size,over),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
-    if(image){if(tpl.seamBlur!=null&&b.x>0.5){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
+    if(image){if(tpl.seamBlur!=null){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
         const RS=RENDER_SCALE||1,L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const lc=L.getContext("2d");lc.scale(RS,RS);
         drawCoverBox(lc,image,0,0,bw,bh,hx,vy,zoom);drawSeamBlur(lc,image,0,0,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);
-        const fw=Math.min(bw*0.3,Math.max(dim.w*0.06,dim.h*0.5));lc.setTransform(1,0,0,1,0,0);lc.globalCompositeOperation="destination-in";
-        const g=lc.createLinearGradient(0,0,fw*RS,0);[[0,0],[0.35,0.22],[0.7,0.75],[1,1]].forEach(([t,a])=>g.addColorStop(t,`rgba(0,0,0,${a})`));lc.fillStyle=g;lc.fillRect(0,0,L.width,L.height);
+        if(b.x>0.5){const fw=Math.min(bw*0.3,Math.max(dim.w*0.06,dim.h*0.5));lc.setTransform(1,0,0,1,0,0);lc.globalCompositeOperation="destination-in"; // edge feather only when the photo starts inside the banner
+        const g=lc.createLinearGradient(0,0,fw*RS,0);[[0,0],[0.35,0.22],[0.7,0.75],[1,1]].forEach(([t,a])=>g.addColorStop(t,`rgba(0,0,0,${a})`));lc.fillStyle=g;lc.fillRect(0,0,L.width,L.height);}
         ctx.drawImage(L,bx,by,bw,bh);}
       else drawCoverBox(ctx,image,bx,by,bw,bh,hx,vy,zoom);}
     else placeholderBox(ctx,bx,by,bw,bh);
