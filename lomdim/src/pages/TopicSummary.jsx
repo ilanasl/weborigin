@@ -352,13 +352,13 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
         </h1>
       )}
       <div className="text-[13.5px] text-muted mt-1.5 mb-4">
-        {summary ? 'סיכום' : 'אין עדיין סיכום'} · {qCount} שאלות{notes.length ? ` · ${notes.length} סיכומים שהוספתי` : ''}
+        {summary ? 'סיכום' : 'אין עדיין סיכום'} · {drillTopic ? 'תרגילים ללא הגבלה' : `${qCount} שאלות`}{notes.length ? ` · ${notes.length} סיכומים שהוספתי` : ''}
       </div>
-      <button type="button" className="ts-practice" disabled={qCount === 0}
+      <button type="button" className="ts-practice" disabled={qCount === 0 && !drillTopic}
         onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" fill="currentColor" /></svg>
         <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
-        {qCount > 0 && <span className="ts-count tnum">{qCount}</span>}
+        {qCount > 0 && !drillTopic && <span className="ts-count tnum">{qCount}</span>}
       </button>
 
       {sourceText && !pasteMode ? (
@@ -479,7 +479,7 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
         {(busy || autoMerging) && (
           <WorkNote light className="mt-4" text={autoMerging ? 'מאחד את כל הדפים של הנושא לסיכום אחד, בלי חזרות… בערך חצי דקה.' : 'בונה את הסיכום מחדש מכל הדפים… בערך חצי דקה עד דקה. הסיכום הנוכחי יתחלף כשזה יסתיים.'} />
         )}
-        <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0}
+        <button type="button" className="ts-practice mt-4 !mb-0" disabled={qCount === 0 && !drillTopic}
           onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice' })}>
           <Icon name="target" size={19} />
           <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
