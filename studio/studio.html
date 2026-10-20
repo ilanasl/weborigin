@@ -910,13 +910,16 @@ async function aiGenerate(tpl,st){
   const box=imageBoxFor(tpl,"desktop",st.over), arW=box?d.w*box.w/100:d.w, arH=box?d.h*box.h/100:d.h;
   let engine=(document.getElementById('engine')||{}).value||'gemini-2.5-flash-image';
   const wantTransparent=!!(st.transparent&&tpl.transparentOK);
-  // Transparent cut-outs are only possible on GPT — force it when requested.
-  if(wantTransparent&&!(engine==='openai'||engine.startsWith('openai:'))) engine='openai';
+  // Transparent cut-outs are only possible on GPT — use the best GPT model on the list (not just the basic one).
+  if(wantTransparent&&!(engine==='openai'||engine.startsWith('openai:'))){const es=document.getElementById('engine');const best=es&&[...es.options].map(o=>o.value).find(v=>v.startsWith('openai:'));engine=best||'openai';}
   const isGpt=engine==='openai'||engine.startsWith('openai:');
   const body={prompt:buildAIPrompt(tpl,st),aspectRatio:tpl.aiAspect||nearestAspect(arW,arH),provider:isGpt?'openai':'gemini'};
   if(isGpt){ body.quality=(document.getElementById('quality')||{}).value||'medium'; if(engine.startsWith('openai:'))body.model=engine.slice(7); if(wantTransparent)body.transparent=true; } else body.model=engine;
-  const res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const j=await res.json().catch(()=>({}));
+  let res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let j=await res.json().catch(()=>({}));
+  // A newer GPT model that can't do this request (e.g. no transparent background) → retry once on the basic GPT model.
+  if(!res.ok&&isGpt&&body.model&&!/credit|billing|quota|spending|expired|api key|incorrect/i.test(j.error||"")){const b2=Object.assign({},body);delete b2.model;
+    res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b2)});j=await res.json().catch(()=>({}));if(res.ok)j.arFallback=(j.arFallback||"")+" (used basic GPT)";}
   if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
   st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
   if(st.over)st.over.imgTransparent=wantTransparent;
