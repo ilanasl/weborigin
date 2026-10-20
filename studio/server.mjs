@@ -439,7 +439,7 @@ app.listen(PORT, () => {
   console.log(`\n  🗂  Banner Studio is running.`);
   console.log(`  Open this in your browser:  http://localhost:${PORT}\n`);
   if (hasKey()) console.log(`  ✓ Gemini active (model: ${MODEL}) — key …${String(process.env.GEMINI_API_KEY).slice(-4)}.`);
-  if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}).`);
+  if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}) — key …${String(process.env.OPENAI_API_KEY).slice(-4)}.`);
   console.log(`  💾 Saved-banner backups: ${backupDir()}`);
   if (hasKey() || hasOpenAI()) {
     console.log(`  ✓ Generated banners save to: ${outputDir()}\n`);
