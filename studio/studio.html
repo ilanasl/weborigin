@@ -84,6 +84,9 @@
   .pxl{font-size:11px;color:var(--muted);flex:0 0 auto}
   .e-posrow input[type=range]{flex:1;min-width:56px}
   .e-texts .f{gap:4px;margin-bottom:6px}
+  .modal.editor input.e-num{width:46px;min-width:0;flex:0 0 46px;height:26px;font:600 12.5px var(--ui);padding:2px 3px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:var(--text);text-align:center;-moz-appearance:textfield}
+  .modal.editor input.e-num::-webkit-inner-spin-button,.modal.editor input.e-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .e-numu{font-size:12px;color:var(--muted);margin-left:-2px}
   .e-row{display:flex;gap:8px}
   .e-sec{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-top:6px}
   .cwhite{color:var(--text)}
@@ -1627,6 +1630,16 @@ function openEditorV2(tpl,st,onClose){
   preloadExtras(o).then(()=>{try{draw();}catch(_){}});
 }
 function paleHex(hex,t){const m=/^#?([0-9a-f]{6})$/i.exec(String(hex||"").replace("#",""));if(!m)return "#ffffff";const n=parseInt(m[1],16),f=c=>Math.round(c+(255-c)*t).toString(16).padStart(2,"0");return "#"+f((n>>16)&255)+f((n>>8)&255)+f(n&255);}
+// Old editor: put an exact-value box next to each range slider. Fraction sliders (0–1, 0.4–2.5…) show as %.
+function attachNumberBoxes(root){if(!root)return;root.querySelectorAll('input[type=range]').forEach(r=>{
+  const mn=+r.min,mx=+r.max,stp=r.step===""?1:+r.step,frac=(stp>0&&stp<1&&mx<=3);const toBox=v=>frac?Math.round(v*100):Math.round(v*10)/10,fromBox=v=>frac?v/100:v;
+  let b=r._nb;if(!b){b=document.createElement("input");b.type="number";b.className="e-num";b.title=frac?"exact value (%)":"exact value";b.step=frac?1:(stp>=1?1:stp);
+    b.min=String(toBox(mn));b.max=String(toBox(mx));r.insertAdjacentElement("afterend",b);r._nb=b;
+    if(frac){const u=document.createElement("span");u.className="e-numu";u.textContent="%";b.insertAdjacentElement("afterend",u);}
+    const push=()=>{const v=parseFloat(b.value);if(isNaN(v))return;r.value=String(Math.max(mn,Math.min(mx,fromBox(v))));r.dispatchEvent(new Event("input",{bubbles:true}));r.dispatchEvent(new Event("change",{bubbles:true}));};
+    b.addEventListener("input",push);b.addEventListener("change",()=>{push();b.value=toBox(+r.value);});
+    r.addEventListener("input",()=>{if(document.activeElement!==b)b.value=toBox(+r.value);});}
+  if(document.activeElement!==b){const v=toBox(+r.value);if(String(v)!==b.value)b.value=v;}});}
 function openEditor(tpl,st,onClose){
   if(tpl.editorV2)return openEditorV2(tpl,st,onClose);
   let size="desktop";const o=st.over;
@@ -1648,6 +1661,8 @@ function openEditor(tpl,st,onClose){
   </div>`;
   document.body.appendChild(back);
   const prev=back.querySelector(".e-canvas canvas"), controls=back.querySelector(".editor-controls");
+  // Exact values: a number box beside every slider (type a value, or use the arrow keys). Kept in sync while the editor is open.
+  {const nbTick=()=>{if(!back.isConnected){clearInterval(nbTimer);return;}attachNumberBoxes(controls);};const nbTimer=setInterval(nbTick,250);setTimeout(nbTick,0);}
   let lastHits=[];
   const draw=()=>{HIT_CAPTURE=[];let c;try{c=renderBanner(tpl,size,st.img,st.text.texts,true,st.logoImg,st.accent,o,st.tint,st.img2);}finally{lastHits=HIT_CAPTURE||[];HIT_CAPTURE=null;}prev.width=c.width;prev.height=c.height;prev.getContext("2d").drawImage(c,0,0);};
   const showErr=(where,e)=>{try{const d=document.createElement("div");d.style.cssText="color:#b00020;font:600 11px monospace;padding:6px 8px;background:#fff3f3;border:1px solid #f3c0c0;border-radius:6px;margin:4px 0;white-space:pre-wrap";d.textContent=where+": "+((e&&e.message)||e)+"\n"+(((e&&e.stack)||"").split("\n").slice(1,3).join("\n"));controls.insertBefore(d,controls.firstChild);}catch(_){}};
