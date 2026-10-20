@@ -921,7 +921,7 @@ async function aiGenerate(tpl,st){
   // A newer GPT model that can't do this request (e.g. no transparent background) → retry once on the basic GPT model.
   if(!res.ok&&isGpt&&body.model&&!/credit|billing|quota|spending|expired|api key|incorrect/i.test(j.error||"")){const b2=Object.assign({},body);delete b2.model;
     res=await fetch('/api/generate-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b2)});j=await res.json().catch(()=>({}));if(res.ok)j.arFallback=(j.arFallback||"")+" (used basic GPT)";}
-  if(!res.ok) throw new Error(j.error||('HTTP '+res.status));
+  if(!res.ok) throw new Error((isGpt?'[GPT] ':'[Gemini] ')+(j.error||('HTTP '+res.status)));
   st.uploaded=j.dataUrl;st.img=await loadImage(j.dataUrl);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);st._arNote=j.arFallback||null;
   if(st.over)st.over.imgTransparent=wantTransparent;
 }
@@ -1154,7 +1154,7 @@ TEMPLATES.forEach(tpl=>{
   genBtn.addEventListener("click",async()=>{
     genBtn.disabled=true; genStat.textContent="Generating…";
     try{ await aiGenerate(tpl,st); refresh(); autoSaveBanner(tpl,st); genStat.textContent="✓ "+(st.img?st.img.naturalWidth+"×"+st.img.naturalHeight:"done")+(st._arNote?" · 21:9 rejected":""); }
-    catch(e){ if(isCreditErr(e.message)){genStat.innerHTML=creditHTML();} else {genStat.textContent="✗ "+(e.message||"failed");} }
+    catch(e){ if(isCreditErr(e.message)){genStat.innerHTML=creditHTML(e.message);} else {genStat.textContent="✗ "+(e.message||"failed");} }
     genBtn.disabled=false;
   });
 });
@@ -1943,7 +1943,10 @@ function openEditor(tpl,st,onClose){
 /* ---- Encode + save ---- */
 // Recognise a Gemini/OpenAI "out of credit / billing" failure so we can show a clear message.
 function isCreditErr(m){return /RESOURCE_EXHAUSTED|credits?\s*(are\s*)?depleted|prepayment|billing|insufficient|quota|\b402\b|\b429\b/i.test(String(m||""));}
-function creditHTML(){return '⚠ נגמר הקרדיט ב-Gemini API. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:#2f86ff;font-weight:700">לחצו כאן לטעינת קרדיט</a> · או עברו ל-GPT בבורר המנועים.';}
+// Names the provider that actually failed (aiGenerate tags its errors with [GPT] / [Gemini]) and shows the original message.
+function creditHTML(m){m=String(m||"");const gpt=/^\[GPT\]|openai/i.test(m);const raw=m.replace(/^\[(GPT|Gemini)\]\s*/,"").replace(/</g,"&lt;").slice(0,160);
+  return gpt?'⚠ אין קרדיט או שהגעת למגבלה ב-OpenAI (GPT). <a href="https://platform.openai.com/settings/organization/billing" target="_blank" rel="noopener" style="color:#2f86ff;font-weight:700">לחצו כאן לטעינת קרדיט</a> · או עברו ל-Gemini (בלי Transparent).'+(raw?'<br><span style="opacity:.7;font-size:11px">'+raw+'</span>':'')
+    :'⚠ נגמר הקרדיט או שהגעת למגבלה ב-Gemini API. <a href="https://aistudio.google.com/spend" target="_blank" rel="noopener" style="color:#2f86ff;font-weight:700">לחצו כאן לבדיקת המגבלה</a> · או עברו ל-GPT בבורר המנועים.'+(raw?'<br><span style="opacity:.7;font-size:11px">'+raw+'</span>':'');}
 function toBlob(c,type,q){return new Promise(r=>c.toBlob(r,type,q));}
 function flatten(c,bg){const o=document.createElement("canvas");o.width=c.width;o.height=c.height;const x=o.getContext("2d");x.fillStyle=bg;x.fillRect(0,0,o.width,o.height);x.drawImage(c,0,0);return o;}
 async function encode(canvas,fmt,kb){
@@ -2352,7 +2355,7 @@ Promise.all([
       done++; renderResults();
     }
     const created=results.filter(r=>r.canvas).length;
-    if(created===0 && results.some(r=>isCreditErr(r.error))){ $('im-stat').innerHTML=creditHTML(); }
+    if(created===0 && results.some(r=>isCreditErr(r.error))){ {const er=(results.find(r=>isCreditErr(r.error))||{}).error||'';const ge=String(($('im-engine')||{}).value||'');$('im-stat').innerHTML=creditHTML(((ge==='openai'||ge.startsWith('openai:'))?'[GPT] ':'[Gemini] ')+er);} }
     else { $('im-stat').textContent=`done — ${created}/${results.length} created. Tick the ones to keep and download.`; }
     $('im-run').disabled=false;
   }
