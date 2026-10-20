@@ -624,13 +624,18 @@ async function addExtraFiles(tpl,over,files){if(!Array.isArray(over.extras))over
       const x=reg.x+reg.w*slots[n%slots.length];pos[sz]={x:Math.round(Math.max(w/2,Math.min(100-w/2,x))),y:60,w:Math.round(w),rot:0};}
     over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,glow:true,pos});added++;}catch(_){failed++;}}
   return {added,failed};}
+// Stretch an extra image over the whole banner as its backdrop (cover, centred, bottom layer).
+function fillExtra(tpl,over,e){const im=EXTRA_IMGS.get(e.src);
+  for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=100;if(im&&im.naturalWidth)w=Math.max(100,d.h*im.naturalWidth/im.naturalHeight/d.w*100);e.pos[sz]={x:50,y:50,w:Math.ceil(w*10)/10,rot:0};}
+  e.bg=true;e.under=true;e.glow=false;e.shadow=false;const ex=over.extras,i=ex.indexOf(e);if(i>0){ex.splice(i,1);ex.unshift(e);}}
+// layer: "bg" = backdrop under everything, true = under the fade, false = on top.
 function drawExtras(ctx,over,size,W,H,under){const ex=over&&over.extras;if(!ex||!ex.length)return;
-  for(const e of ex){if(!!e.under!==!!under)continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
+  for(const e of ex){if(under==="bg"?!e.bg:(!!e.bg||!!e.under!==!!under))continue;const im=EXTRA_IMGS.get(e.src);if(!im||!im.naturalWidth)continue;
     const p=(e.pos&&(e.pos[size]||e.pos.desktop))||{};const w=(p.w!=null?p.w:30)/100*W,h=w*im.naturalHeight/im.naturalWidth;
     const cx=(p.x!=null?p.x:50)/100*W,cy=(p.y!=null?p.y:55)/100*H;const f={dx:cx-w/2,dy:cy-h/2,dw:w,dh:h};
     if(e.glow&&over.glow>0)drawGlowOnly(ctx,im,f,p.rot||0,over.glow,over.glowSize);
     if(e.shadow)groundShadowFor(ctx,im,f,(over.shadow!=null?over.shadow:0.3));
-    drawRotated(ctx,im,f,p.rot||0);if(HIT_CAPTURE)HIT_CAPTURE.push({kind:"extra",id:e.id,x:f.dx,y:f.dy,w:f.dw,h:f.dh});}}
+    drawRotated(ctx,im,f,p.rot||0);if(HIT_CAPTURE&&!e.bg)HIT_CAPTURE.push({kind:"extra",id:e.id,x:f.dx,y:f.dy,w:f.dw,h:f.dh});}}
 function placeholderBox(ctx,x,y,w,h){const g=ctx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,"#c9a227");g.addColorStop(1,"#7a5f1a");ctx.fillStyle=g;ctx.fillRect(x,y,w,h);}
 function drawCoverBox(ctx,img,x,y,w,h,hx,vy,zoom){const s=Math.max(w/img.naturalWidth,h/img.naturalHeight)*(zoom||1);const dw=img.naturalWidth*s,dh=img.naturalHeight*s;const dx=x+(w-dw)*(hx/100),dy=y+(h-dh)*(vy/100);ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();}
 function mixHex(a,b,t){var pa=/^#?([0-9a-f]{6})$/i.exec((a||"").replace("#","")),pb=/^#?([0-9a-f]{6})$/i.exec((b||"").replace("#",""));if(!pa||!pb)return b||a||"#ffffff";var na=parseInt(pa[1],16),nb=parseInt(pb[1],16),r=Math.round(((na>>16)&255)+(((nb>>16)&255)-((na>>16)&255))*t),gg=Math.round(((na>>8)&255)+(((nb>>8)&255)-((na>>8)&255))*t),bl=Math.round((na&255)+((nb&255)-(na&255))*t);return "#"+[r,gg,bl].map(function(x){return x.toString(16).padStart(2,"0");}).join("");}
@@ -765,6 +770,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
     if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:bx,y:by,w:bw,h:bh});}
   else{ if(image)drawCover(ctx,image,dim.w,dim.h,hx,vy,zoom);else drawPlaceholder(ctx,dim.w,dim.h);
     if(HIT_CAPTURE&&tpl.editorV2)HIT_CAPTURE.push({kind:"prod",x:0,y:0,w:dim.w,h:dim.h});}};
+  drawExtras(ctx,over,size,dim.w,dim.h,"bg");
   if(!subjAbove)drawSubject();
   if(!imgAbove){drawDecorations(ctx,tpl,size,dim,image,over);drawMain();}
   drawExtras(ctx,over,size,dim.w,dim.h,true);
@@ -1508,6 +1514,7 @@ function openEditorV2(tpl,st,onClose){
     const chips=mk("div","v2-chips");o.extras.forEach((e,i)=>{const c=mk("button","v2-chip"+(e.id===sel.id?" on":""),"Image "+(i+1));c.type="button";c.onclick=()=>select({t:"extra",id:e.id});chips.append(c);});p.append(chips);
     const i=o.extras.findIndex(e=>e.id===sel.id),e=o.extras[i];const pos=e.pos[size]||(e.pos[size]=Object.assign({},e.pos.desktop));
     const s=mk("div","v2-slot");s.append(thumb(e.src),btn("★ Make main",async()=>{const old=st.uploaded;st.uploaded=e.src;st.img=await extraImg(e.src);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);if(old){e.src=old;await extraImg(old);}else{o.extras.splice(i,1);}renderAll();},"make this the product image (swaps with the current one)"),
+      btn("⤢ Fill banner",()=>{fillExtra(tpl,o,e);renderAll();},"stretch this image over the whole banner as the background"),
       btn("⬆ Front",()=>{o.extras.splice(i,1);o.extras.push(e);renderAll();},"bring to front"),btn("Remove",()=>{o.extras.splice(i,1);renderAll();}));p.append(s);
     const A=()=>divider(),toV=x=>(x-A())/(100-A())*100,toX=v=>A()+v/100*(100-A());
     const hw=()=>{const h=lastHits.find(x=>x.kind==="extra"&&x.id===e.id);return h?h.w/2/prev.width*100:(pos.w||30)/2;};
@@ -1518,7 +1525,7 @@ function openEditorV2(tpl,st,onClose){
     p.append(group("Size & rotation"));
     p.append(rowRange("Size",{min:3,max:150,get:()=>pos.w!=null?pos.w:30,set:v=>{pos.w=v;},fmt:v=>Math.round(v)+"%"}));
     p.append(rowRange("Rotate",{min:-45,max:45,get:()=>pos.rot||0,set:v=>{pos.rot=v;},fmt:v=>Math.round(v)+"°",def:0}));
-    p.append(group("Effects"));p.append(checks([["Under the fade",()=>!!e.under,v=>{e.under=v;}],["Glow",()=>!!e.glow,v=>{e.glow=v;}],["Shadow",()=>!!e.shadow,v=>{e.shadow=v;}]]));
+    p.append(group("Effects"));p.append(checks([["Under the fade",()=>!!e.under,v=>{e.under=v;if(!v)e.bg=false;}],["Glow",()=>!!e.glow,v=>{e.glow=v;}],["Shadow",()=>!!e.shadow,v=>{e.shadow=v;}]]));
     p.append(note("Glow strength and shadow strength are set in the Product tab."));}
   function paneLogo(p){const s=mk("div","v2-slot");s.append(thumb(st.logo),fileBtn(st.logo?"Replace":"Upload",false,async fs=>{const u=await fileToDataUrl(fs[0]);st.logo=u;st.logoImg=await loadImage(u);renderAll();}));
     if(st.logo)s.append(btn("Remove",()=>{st.logo=null;st.logoImg=null;renderAll();}));p.append(s);
@@ -1907,14 +1914,16 @@ function openEditor(tpl,st,onClose){
       const rm=document.createElement("button");rm.type="button";rm.className="tiny";rm.textContent="✕";rm.title="remove";
       const unw=document.createElement("label");unw.className="pxl";unw.style.cssText="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap";unw.title="draw this image under the fade/gradient instead of on top";
       const unc=document.createElement("input");unc.type="checkbox";unc.checked=!!e.under;unw.appendChild(unc);unw.appendChild(document.createTextNode("Under fade"));
-      unc.addEventListener("change",()=>{e.under=unc.checked;draw();});
+      unc.addEventListener("change",()=>{e.under=unc.checked;if(!unc.checked)e.bg=false;draw();});
       const glw=document.createElement("label");glw.className="pxl";glw.style.cssText="display:inline-flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap";
       const glc=document.createElement("input");glc.type="checkbox";glc.checked=!!e.glow;glw.appendChild(glc);glw.appendChild(document.createTextNode("Glow"));
       glc.addEventListener("change",()=>{e.glow=glc.checked;draw();});
       head.appendChild(th);head.appendChild(lab);const mkm=document.createElement("button");mkm.type="button";mkm.className="tiny";mkm.textContent="★ Main";mkm.title="make this the main image (swaps with the current main image)";
       mkm.addEventListener("click",async()=>{const old=st.uploaded;st.uploaded=e.src;st.img=await extraImg(e.src);st.accent=getAccent(st.img);st.tint=tintFromImage(st.img);
         if(old){e.src=old;await extraImg(old);}else{o.extras.splice(i,1);}renderExtras();renderSlots();draw();});
-      head.appendChild(unw);head.appendChild(glw);head.appendChild(shw);head.appendChild(mkm);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
+      const fil=document.createElement("button");fil.type="button";fil.className="tiny";fil.textContent="⤢ Fill banner";fil.title="stretch this image over the whole banner as the background";
+      fil.addEventListener("click",()=>{fillExtra(tpl,o,e);renderExtras();draw();});
+      head.appendChild(unw);head.appendChild(glw);head.appendChild(shw);head.appendChild(fil);head.appendChild(mkm);head.appendChild(fr);head.appendChild(rm);row.appendChild(head);
       const pair=(a,b)=>{const r=document.createElement("div");r.className="e-inline";[a,b].forEach(([label,key,min,max])=>{const l=document.createElement("span");l.className="pxl";l.textContent=label;
         const inp=document.createElement("input");inp.type="range";inp.min=min;inp.max=max;inp.step=1;inp.style.flex="1";inp.value=(p[key]!=null?p[key]:0);
         inp.addEventListener("input",()=>{p[key]=+inp.value;draw();});r.appendChild(l);r.appendChild(inp);});row.appendChild(r);};
