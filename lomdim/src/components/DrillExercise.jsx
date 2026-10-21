@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
 import { supabase } from '../lib/supabase'
 import { BottomSheet } from './QuestionUI'
-import Calculator from './Calculator'
+import Calculator, { calcMemory } from './Calculator'
 import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel, parsePoly } from '../lib/mathDrill'
 
 const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
@@ -21,7 +21,9 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   const [wrong, setWrong] = useState(null)   // אחרי ניסיון ראשון שגוי: אילו שדות לא נכונים
   const [done, setDone] = useState(null)     // null | true | false
   const [picked, setPicked] = useState(null)
-  const [calc, setCalc] = useState(false)          // מחשבון קטן בצד
+  const [calc, setCalcState] = useState(calcMemory.open)   // מחשבון קטן בצד — נשאר פתוח/מוקטן גם בתרגיל הבא
+  const [wake, setWake] = useState(0)
+  const setCalc = (v) => { calcMemory.open = v; if (v) calcMemory.docked = null; setCalcState(v) }
   const [badInput, setBadInput] = useState(false)   // ביטוי שלא הצלחנו לקרוא
   const [work, setWork] = useState('')               // הדרך (לא חובה, לא נבדקת)
   const workRef = useRef(null)
@@ -98,7 +100,8 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
           {lv > 0 && (
             <span className="md-level" aria-label={`רמה ${lv} מתוך 3`}>רמה {[1, 2, 3].map((n) => <i key={n} className={n <= lv ? 'on' : ''} />)}</span>
           )}
-          <button type="button" className="calc-open" onClick={() => setCalc(!calc)} aria-expanded={calc}>🧮 מחשבון</button>
+          <button type="button" className="calc-open" aria-expanded={calc}
+            onClick={() => { if (calc && calcMemory.docked) setWake((n) => n + 1); else setCalc(!calc) }}>🧮 מחשבון</button>
         </span>
       </div>
       <h1 className="font-black text-[30px] leading-tight">{ex.title}</h1>
@@ -200,7 +203,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
           </button>
         </BottomSheet>
       )}
-      {calc && <Calculator onClose={() => setCalc(false)} />}
+      {calc && <Calculator wake={wake} onClose={() => setCalc(false)} />}
     </>
   )
 }
