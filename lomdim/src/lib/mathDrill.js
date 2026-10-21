@@ -273,11 +273,13 @@ function genErr(){
   else { at = 3; const B2 = -B
     lines[2] = quad(1,B2,C,v); why = ['כינוס איברים לא נכון', `${cx(d,v)}${scx(b,v)} = ${cx(B,v)}`]; }
   const fig = `<div class="wlines">${lines.map((l,i)=>`<div class="wl"><b>${i+1}</b><span>${l}</span></div>`).join('')}</div>`
-  return { type:'err', tag:'מצא את הטעות', title:'איפה הטעות?', figure:fig, ask:'בפתרון הזה יש טעות אחת. באיזו שורה?',
-    kind:'pick', fields:[{ans:at, opts:[[2,'שורה 2'],[3,'שורה 3']]}],
-    mc: { q: `בפתרון של ${iso(lines[0])} יש טעות אחת. באיזו שורה?`,
-      right: `שורה ${at}: ${iso(lines[at-1])}`, wrongs: [`שורה ${5-at}: ${iso(lines[4-at])}`] },
-    steps:[[`הטעות בשורה ${at}: ${why[0]}`, why[1]], ['הפתרון הנכון', okLines[1]], ['', okLines[2], true]] }
+  // "מצא ותקן": כותבים את התוצאה הנכונה (בלי בחירה בין שורות — אי אפשר לנחש)
+  const right = quad(1,B,C,v)
+  const wrongs = [...new Set([lines[2], quad(1,-B,C,v), quad(1,B,-C,v), quad(1,-B,-C,v)])].filter((w) => w !== right).slice(0, 3)
+  return { type:'err', tag:'מצא ותקן', title:'מצא ותקן', figure:fig, ask:'בפתרון הזה יש טעות אחת. מצאו אותה וכתבו את התוצאה הנכונה:',
+    fields:[{poly:true, v, ans:[1,B,C]}],
+    steps:[[`הטעות בשורה ${at}: ${why[0]}`, why[1]], ['הפתרון הנכון', okLines[1]], ['', okLines[2], true]],
+    mc: { q: `בפתרון של ${iso(lines[0])} יש טעות. מה התוצאה הנכונה?`, right, wrongs } }
 }
 
 /* ---------- 5. equations with brackets ---------- */
