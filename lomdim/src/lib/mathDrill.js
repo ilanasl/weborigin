@@ -112,9 +112,9 @@ function genExpand(lv){
   }
   const math = `(${lin(a,b,v)})(${lin(c,d,v)})${tl}`
   return { type:'expand', tag:'אלגברה', title:'פילוג מורחב', mc: { q: `פתחו את הסוגריים וכנסו: ${iso(math)}`, right, wrongs },
-    math, ask:'פתחו את הסוגריים וכנסו. השלימו את המספרים:',
-    // מקדם 1 — לא כותבים "1x²" (כמו במחברת), אז אין לו תיבה
-    fields: A === 1 ? [{pre:sq(v)+' +', ans:B, post:v+' +'},{ans:C}] : [{ans:A, post:sq(v)+' +'},{ans:B, post:v+' +'},{ans:C}], steps }
+    math, ask:'פתחו את הסוגריים וכנסו, וכתבו את התוצאה:',
+    // התלמיד כותב את כל הביטוי בעצמו (כמו במחברת) — נבדק לפי המקדמים, בכל סדר
+    fields:[{poly:true, v, ans:[A,B,C]}], steps }
 }
 
 /* ---------- 3. powers ---------- */
@@ -242,6 +242,25 @@ function genEq(lv){
 }
 const eqOut = (math, x, steps) => ({ type:'eq', tag:'אלגברה', title:'משוואה עם סוגריים', math, ask:'פתרו את המשוואה.', fields:[{pre:'x =', ans:x}], steps,
   mc: { q: `פתרו את המשוואה: ${iso(math)}`, right: 'x = ' + M(x), wrongs: others(x, [-x]).map(n => 'x = ' + M(n)) } })
+
+// ביטוי שהתלמיד כתב (למשל "x²+7x+12", "x^2 - 2x", "12+7x+x²") → [מקדם x², מקדם x, מספר]; לא קריא → null
+export function parsePoly(raw, v = 'x') {
+  const s = String(raw).toLowerCase().replace(/\s+/g, '').replace(/[−–]/g, '-').replace(/\^2/g, '²').replace(/[*·]/g, '')
+  if (!s) return null
+  const re = new RegExp(`([+-]?)(\\d*)(${v}²|${v})?`, 'y')
+  const c = [0, 0, 0]
+  let i = 0, n = 0
+  while (i < s.length) {
+    re.lastIndex = i
+    const m = re.exec(s)
+    if (!m || m[0] === '' || m[0] === '+' || m[0] === '-' || (n > 0 && !m[1])) return null
+    if (m[2] === '' && !m[3]) return null
+    const k = m[2] === '' ? 1 : Number(m[2])
+    c[m[3] ? (m[3].endsWith('²') ? 2 : 1) : 0] += (m[1] === '-' ? -1 : 1) * k
+    i = re.lastIndex; n++
+  }
+  return [c[2], c[1], c[0]]
+}
 
 // HTML של תרגיל → טקסט רגיל (חזקות בתווי עילית); iso — ביטוי מבודד משמאל לימין בתוך משפט בעברית
 const SUPS = { 0:'⁰', 1:'¹', 2:'²', 3:'³', 4:'⁴', 5:'⁵', 6:'⁶', 7:'⁷', 8:'⁸', 9:'⁹', '+':'⁺', '−':'⁻', '·':'·' }
