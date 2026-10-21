@@ -83,6 +83,8 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
 
   const filled = ex.fields.every((_, i) => String(vals[i] ?? '').trim() !== '')
   const isChoice = ex.kind === 'tf' || ex.kind === 'pick'
+  const poly = !!ex.fields[0].poly
+  const withWork = poly || ex.type === 'eq' || ex.type === 'tri'
   const opts = ex.kind === 'tf' ? [[true, 'נכון'], [false, 'לא נכון']] : ex.fields[0].opts
 
   return (
@@ -109,24 +111,45 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
             return <button key={String(v)} type="button" className={`md-opt ${cls}`} disabled={done !== null} onClick={() => choose(v)}>{l}</button>
           })}
         </div>
-      ) : ex.fields[0].poly ? (
+      ) : (
         <>
-          {/* הדרך — לא חובה ולא נבדקת; התשובה — חובה, רק היא נבדקת */}
-          <label className="md-label" htmlFor="md-work">הדרך <span className="text-muted font-normal">(לא חובה — אפשר גם במחברת)</span></label>
-          <input id="md-work" ref={workRef} inputMode="text" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-            dir="ltr" className="md-poly md-work" value={work} disabled={done !== null}
-            onFocus={() => { target.current = 'work' }} onChange={(e) => setWork(e.target.value)} />
-          <label className="md-label" htmlFor="md-ans">התשובה <span className="text-muted font-normal">(חובה — רק היא נבדקת)</span></label>
-          <input id="md-ans" ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-            dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
-            value={vals[0] ?? ''} disabled={done !== null}
-            onFocus={() => { target.current = 'ans' }}
-            onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
-          {done === null && (
+          {/* הדרך — לא חובה ולא נבדקת (פילוג, משוואות, משולש); התשובה — חובה, רק היא נבדקת */}
+          {withWork && (
+            <>
+              <label className="md-label" htmlFor="md-work">הדרך <span className="text-muted font-normal">(לא חובה — אפשר גם במחברת)</span></label>
+              <textarea id="md-work" ref={workRef} rows={poly ? 1 : 3} autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                dir="ltr" className="md-poly md-work" value={work} disabled={done !== null}
+                onFocus={() => { target.current = 'work' }} onChange={(e) => setWork(e.target.value)} />
+              <label className="md-label" htmlFor="md-ans">התשובה <span className="text-muted font-normal">(חובה — רק היא נבדקת)</span></label>
+            </>
+          )}
+          {poly ? (
+            <input id="md-ans" ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+              dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
+              value={vals[0] ?? ''} disabled={done !== null}
+              onFocus={() => { target.current = 'ans' }}
+              onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
+          ) : (
+            <div className="md-answer">
+              {ex.fields.map((f, i) => (
+                <span key={i} className="contents">
+                  {f.pre && <Html html={f.pre} />}
+                  <input id={i === 0 ? 'md-ans' : undefined} ref={i === 0 ? firstInput : undefined} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
+                    className={`${f.sup ? 'sup' : ''} ${wrong ? (wrong[i] ? 'ok' : 'no') : done === true ? 'ok' : ''}`}
+                    value={vals[i] ?? ''} disabled={done !== null}
+                    onFocus={() => { target.current = 'ans' }}
+                    onChange={(e) => { const v = vals.slice(); v[i] = e.target.value; setVals(v) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
+                  {f.post && <Html html={f.post} />}
+                </span>
+              ))}
+            </div>
+          )}
+          {withWork && done === null && (
             // מקלדת בעברית — האות, החזקה, הסימנים והסוגריים בלחיצה אחת, בשורה שבה נמצא הסמן
             <div className="md-keys">
-              {[ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='].map((k) => (
+              {(poly ? [ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='] : ['x', '+', '−', '·', ':', '(', ')', '=']).map((k) => (
                 <button key={k} type="button" className="md-key" onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     const isWork = target.current === 'work'
@@ -134,7 +157,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
                     const cur = isWork ? work : (vals[0] ?? '')
                     const a = el?.selectionStart ?? cur.length, b = el?.selectionEnd ?? cur.length
                     const next = cur.slice(0, a) + k + cur.slice(b)
-                    if (isWork) setWork(next); else { setVals([next]); setBadInput(false) }
+                    if (isWork) setWork(next); else { const v = vals.slice(); v[0] = next; setVals(v); setBadInput(false) }
                     requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(a + k.length, a + k.length) })
                   }}>{k}</button>
               ))}
@@ -142,20 +165,6 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
           )}
           {badInput && <div className="md-note">לא הצלחתי לקרוא את התשובה. בשורת התשובה כותבים רק את התוצאה הסופית, למשל: <bdi dir="ltr">{`${ex.fields[0].v}²+5${ex.fields[0].v}+6`}</bdi></div>}
         </>
-      ) : (
-        <div className="md-answer">
-          {ex.fields.map((f, i) => (
-            <span key={i} className="contents">
-              {f.pre && <Html html={f.pre} />}
-              <input ref={i === 0 ? firstInput : undefined} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
-                className={`${f.sup ? 'sup' : ''} ${wrong ? (wrong[i] ? 'ok' : 'no') : done === true ? 'ok' : ''}`}
-                value={vals[i] ?? ''} disabled={done !== null}
-                onChange={(e) => { const v = vals.slice(); v[i] = e.target.value; setVals(v) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
-              {f.post && <Html html={f.post} />}
-            </span>
-          ))}
-        </div>
       )}
 
       {wrong && done === null && (

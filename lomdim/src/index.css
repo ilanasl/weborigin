@@ -555,9 +555,9 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .md-answer input.sup{ width:50px; font-size:15px; padding:4px 2px; position:relative; top:-16px; margin-inline-start:-2px }
 .md-keys{ direction:ltr; display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:-2px 0 12px }
 .md-label{ display:block; font-size:13.5px; font-weight:700; margin:0 0 5px }
-input.md-poly{ display:block; width:100%; font-family:var(--disp); font-size:22px; text-align:left; padding:10px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); margin-bottom:14px }
-input.md-poly:focus{ outline:2px solid var(--primary); outline-offset:1px }
-input.md-poly.md-work{ font-size:18px; border-style:dashed }
+textarea.md-poly, input.md-poly{ display:block; width:100%; font-family:var(--disp); font-size:22px; text-align:left; padding:10px 14px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink); margin-bottom:14px }
+textarea.md-poly:focus, input.md-poly:focus{ outline:2px solid var(--primary); outline-offset:1px }
+textarea.md-poly.md-work{ resize:none; line-height:1.5; font-size:18px; border-style:dashed }
 input.md-poly.ok{ border-color:var(--good); background:var(--good-soft) }
 input.md-poly.no{ border-color:var(--bad); background:var(--bad-soft) }
 .md-key{ min-width:38px; padding:0 6px; height:44px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--disp); font-size:20px; font-weight:600 }
