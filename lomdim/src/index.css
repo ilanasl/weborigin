@@ -608,3 +608,8 @@ input.md-poly.no{ border-color:var(--bad); background:var(--bad-soft) }
 .calc-key.op{ color:var(--primary); font-size:24px }
 .calc-key.fn{ color:var(--accent) }
 .calc-key.eq{ background:var(--btn); color:var(--btn-ink); font-size:24px }
+.calc-tab{ position:fixed; z-index:60; bottom:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  min-width:46px; min-height:64px; padding:6px; background:var(--surface); border:1px solid var(--line); box-shadow:0 8px 24px -6px rgba(0,0,0,.7); font-size:22px }
+.calc-tab.left{ left:0; border-radius:0 16px 16px 0; border-left:0 }
+.calc-tab.right{ right:0; border-radius:16px 0 0 16px; border-right:0 }
+.calc-tab-res{ font-family:var(--disp); font-size:12px; font-weight:700; color:var(--primary); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }

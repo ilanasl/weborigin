@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 // מחשבון קטן לתרגילי מתמטיקה — צף מעל התרגיל, אפשר לגרור אותו מהפס העליון לכל מקום במסך
-// (המיקום נשמר במכשיר), ונסגר בלי לאבד את מה שנכתב.
+// (המיקום נשמר במכשיר). "הקטנה" (או גרירה אל קצה המסך) מצמידה אותו לצד כלשונית קטנה — כמו סרטון
+// בטלפון — והחישוב האחרון נשאר. הזיכרון נשמר גם בין תרגילים באותו סבב.
 // החישוב נעשה כאן (בלי eval): מספרים, + − × ÷, סוגריים ומינוס בהתחלה.
 function evaluate(src) {
   const s = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/\s+/g, '')
@@ -35,19 +36,38 @@ function evaluate(src) {
 
 const KEYS = ['C', '(', ')', '÷', '7', '8', '9', '×', '4', '5', '6', '−', '1', '2', '3', '+', '0', '.', '⌫', '=']
 const POS_KEY = 'calcPos'
+// נשמר בין תרגילים (כל תרגיל בונה את המסך מחדש)
+export const calcMemory = { open: false, expr: '', result: null, docked: null }
 const readPos = () => { try { const p = JSON.parse(localStorage.getItem(POS_KEY) || 'null'); return p && Number.isFinite(p.x) ? p : null } catch { return null } }
 
-export default function Calculator({ onClose }) {
-  const [expr, setExpr] = useState('')
-  const [result, setResult] = useState(null)   // { ok, text }
+export default function Calculator({ onClose, wake }) {
+  const [expr, setExprState] = useState(calcMemory.expr)
+  const [result, setResultState] = useState(calcMemory.result)   // { ok, text }
   const [pos, setPos] = useState(readPos)        // null = מקום ברירת המחדל (למטה בצד)
+  const [docked, setDockedState] = useState(calcMemory.docked)   // null | 'left' | 'right'
+  const setExpr = (v) => { calcMemory.expr = v; setExprState(v) }
+  const setResult = (v) => { calcMemory.result = v; setResultState(v) }
+  const setDocked = (v) => { calcMemory.docked = v; setDockedState(v) }
   const box = useRef(null)
   const drag = useRef(null)
+  const posRef = useRef(pos)
+  posRef.current = pos
+  // לחיצה על "מחשבון" כשהוא מוקטן — מחזירה אותו
+  useEffect(() => { if (wake) setDocked(null) }, [wake])
 
   // תמיד בתוך המסך — גם אחרי סיבוב הטלפון או מקום שנשמר במסך אחר
+  const size = () => ({ w: box.current?.offsetWidth || 300, h: box.current?.offsetHeight || 400 })
   const clamp = (p) => {
-    const el = box.current, w = el?.offsetWidth || 280, h = el?.offsetHeight || 380
+    const { w, h } = size()
     return { x: Math.min(Math.max(8, p.x), window.innerWidth - w - 8), y: Math.min(Math.max(8, p.y), window.innerHeight - h - 8) }
+  }
+  const savePos = (p) => { try { localStorage.setItem(POS_KEY, JSON.stringify(p)) } catch { /* אין אחסון — לא נורא */ } }
+  // הקטנה: נצמד לצד הקרוב, נשאר רק לשונית קטנה
+  function minimize() {
+    const r = box.current.getBoundingClientRect()
+    const p = clamp({ x: r.left, y: r.top })
+    setPos(p); savePos(p)
+    setDocked(r.left + r.width / 2 < window.innerWidth / 2 ? 'left' : 'right')
   }
   useEffect(() => {
     if (pos) setPos(clamp(pos))
@@ -64,12 +84,17 @@ export default function Calculator({ onClose }) {
   }
   function moveDrag(e) {
     if (!drag.current) return
-    setPos(clamp({ x: e.clientX - drag.current.dx, y: e.clientY - drag.current.dy }))
+    // בזמן גרירה מותר לחרוג חצי מהרוחב החוצה — כדי שאפשר יהיה "לזרוק" לצד
+    const { w } = size(), y = clamp({ x: 8, y: e.clientY - drag.current.dy }).y
+    setPos({ x: Math.min(Math.max(-w * 0.6, e.clientX - drag.current.dx), window.innerWidth - w * 0.4), y })
   }
   function endDrag() {
     if (!drag.current) return
     drag.current = null
-    setPos((p) => { try { localStorage.setItem(POS_KEY, JSON.stringify(p)) } catch { /* אין אחסון — לא נורא */ } return p })
+    const { w } = size(), p = posRef.current
+    if (!p) return
+    if (p.x < -w * 0.3 || p.x > window.innerWidth - w * 0.7) setDocked(p.x < 0 ? 'left' : 'right')
+    const c = clamp(p); setPos(c); savePos(c)
   }
 
   function press(k) {
@@ -92,7 +117,7 @@ export default function Calculator({ onClose }) {
   useEffect(() => {
     const map = { '*': '×', '/': '÷', '-': '−', Enter: '=', '=': '=', Backspace: '⌫', Delete: 'C' }
     const onKey = (e) => {
-      if (e.target.closest?.('input, textarea')) return
+      if (docked || e.target.closest?.('input, textarea')) return
       if (e.key === 'Escape') { onClose(); return }
       const k = map[e.key] || (/^[\d.+()]$/.test(e.key) ? e.key : null)
       if (k) { e.preventDefault(); press(k) }
@@ -100,6 +125,18 @@ export default function Calculator({ onClose }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   })
+
+  if (docked) {
+    // לשונית מציצה בקצה המסך — לחיצה מחזירה את המחשבון בדיוק למצב שהיה
+    const top = pos ? pos.y + 24 : undefined
+    return (
+      <button type="button" className={`calc-tab ${docked}`} style={top != null ? { top, bottom: 'auto' } : undefined}
+        aria-label="פתיחת המחשבון" onClick={() => setDocked(null)}>
+        <span aria-hidden="true">🧮</span>
+        {result?.ok && <span className="calc-tab-res" dir="ltr">{result.text}</span>}
+      </button>
+    )
+  }
 
   const style = pos ? { left: pos.x, top: pos.y, bottom: 'auto' } : undefined
   return (
@@ -109,7 +146,8 @@ export default function Calculator({ onClose }) {
           <span className="calc-grip" aria-hidden="true" />
           <span className="font-disp font-bold text-[15px] flex-1">מחשבון</span>
           <span className="text-[11.5px] text-muted">גררו מכאן</span>
-          <button type="button" className="calc-x" aria-label="סגירת המחשבון" onClick={onClose}>✕</button>
+          <button type="button" className="calc-x" aria-label="הקטנה לצד (החישוב נשמר)" onClick={minimize}>—</button>
+          <button type="button" className="calc-x" aria-label="סגירת המחשבון" onClick={() => { setExpr(''); setResult(null); onClose() }}>✕</button>
         </div>
         <div className="calc-screen" dir="ltr">
           <div className="calc-expr">{expr || '0'}</div>
