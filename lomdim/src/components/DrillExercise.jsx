@@ -21,6 +21,9 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   const [done, setDone] = useState(null)     // null | true | false
   const [picked, setPicked] = useState(null)
   const [badInput, setBadInput] = useState(false)   // ביטוי שלא הצלחנו לקרוא
+  const [work, setWork] = useState('')               // הדרך (לא חובה, לא נבדקת)
+  const workRef = useRef(null)
+  const target = useRef('ans')                        // לאיזו שורה הכפתורים מוסיפים
   const mathRef = useRef(null)
   const stepsRef = useRef(null)
   const firstInput = useRef(null)
@@ -108,28 +111,36 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
         </div>
       ) : ex.fields[0].poly ? (
         <>
-          <div className="md-answer">
-            <input ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
-              aria-label="התשובה" dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
-              value={vals[0] ?? ''} disabled={done !== null}
-              onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
-          </div>
+          {/* הדרך — לא חובה ולא נבדקת; התשובה — חובה, רק היא נבדקת */}
+          <label className="md-label" htmlFor="md-work">הדרך <span className="text-muted font-normal">(לא חובה — אפשר גם במחברת)</span></label>
+          <input id="md-work" ref={workRef} inputMode="text" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+            dir="ltr" className="md-poly md-work" value={work} disabled={done !== null}
+            onFocus={() => { target.current = 'work' }} onChange={(e) => setWork(e.target.value)} />
+          <label className="md-label" htmlFor="md-ans">התשובה <span className="text-muted font-normal">(חובה — רק היא נבדקת)</span></label>
+          <input id="md-ans" ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+            dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
+            value={vals[0] ?? ''} disabled={done !== null}
+            onFocus={() => { target.current = 'ans' }}
+            onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
           {done === null && (
-            // מקלדת בעברית — האות, החזקה והסימנים בלחיצה אחת, במקום המקום של הסמן
+            // מקלדת בעברית — האות, החזקה, הסימנים והסוגריים בלחיצה אחת, בשורה שבה נמצא הסמן
             <div className="md-keys">
-              {[ex.fields[0].v, '²', '+', '−'].map((k) => (
+              {[ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='].map((k) => (
                 <button key={k} type="button" className="md-key" onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    const el = firstInput.current, cur = vals[0] ?? ''
+                    const isWork = target.current === 'work'
+                    const el = isWork ? workRef.current : firstInput.current
+                    const cur = isWork ? work : (vals[0] ?? '')
                     const a = el?.selectionStart ?? cur.length, b = el?.selectionEnd ?? cur.length
-                    setVals([cur.slice(0, a) + k + cur.slice(b)]); setBadInput(false)
+                    const next = cur.slice(0, a) + k + cur.slice(b)
+                    if (isWork) setWork(next); else { setVals([next]); setBadInput(false) }
                     requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(a + k.length, a + k.length) })
                   }}>{k}</button>
               ))}
             </div>
           )}
-          {badInput && <div className="md-note">לא הצלחתי לקרוא את התשובה. כתבו את הביטוי, למשל: <bdi dir="ltr">{`${ex.fields[0].v}²+5${ex.fields[0].v}+6`}</bdi></div>}
+          {badInput && <div className="md-note">לא הצלחתי לקרוא את התשובה. בשורת התשובה כותבים רק את התוצאה הסופית, למשל: <bdi dir="ltr">{`${ex.fields[0].v}²+5${ex.fields[0].v}+6`}</bdi></div>}
         </>
       ) : (
         <div className="md-answer">
