@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
 import { supabase } from '../lib/supabase'
 import { BottomSheet } from './QuestionUI'
-import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel } from '../lib/mathDrill'
+import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel, parsePoly } from '../lib/mathDrill'
 
 const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
 // מספרים בתוך משפט בעברית — כיוון משמאל לימין, שהמינוס לא יקפוץ
@@ -20,6 +20,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   const [wrong, setWrong] = useState(null)   // אחרי ניסיון ראשון שגוי: אילו שדות לא נכונים
   const [done, setDone] = useState(null)     // null | true | false
   const [picked, setPicked] = useState(null)
+  const [badInput, setBadInput] = useState(false)   // ביטוי שלא הצלחנו לקרוא
   const mathRef = useRef(null)
   const stepsRef = useRef(null)
   const firstInput = useRef(null)
@@ -54,6 +55,17 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   }
 
   function check() {
+    const f0 = ex.fields[0]
+    if (f0.poly) {
+      // ביטוי שלם: לא קריא → הסבר איך לכתוב (לא נחשב ניסיון)
+      const c = parsePoly(vals[0] ?? '', f0.v)
+      if (!c) { setBadInput(true); return }
+      setBadInput(false)
+      const ok = c.every((n, i) => n === f0.ans[i])
+      if (ok) { setWrong(null); finish(true); return }
+      if (!wrong && !examMode) { setWrong([false]); return }
+      setWrong([false]); finish(false); return
+    }
     const ok = ex.fields.map((f, i) => num(vals[i] ?? '') === f.ans)
     if (ok.every(Boolean)) { setWrong(null); finish(true); return }
     if (!wrong && !examMode) { setWrong(ok); return }   // ניסיון ראשון — אפשר לתקן (לא בסימולציה)
@@ -94,6 +106,31 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
             return <button key={String(v)} type="button" className={`md-opt ${cls}`} disabled={done !== null} onClick={() => choose(v)}>{l}</button>
           })}
         </div>
+      ) : ex.fields[0].poly ? (
+        <>
+          <div className="md-answer">
+            <input ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
+              aria-label="התשובה" dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
+              value={vals[0] ?? ''} disabled={done !== null}
+              onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
+          </div>
+          {done === null && (
+            // מקלדת בעברית — האות, החזקה והסימנים בלחיצה אחת, במקום המקום של הסמן
+            <div className="md-keys">
+              {[ex.fields[0].v, '²', '+', '−'].map((k) => (
+                <button key={k} type="button" className="md-key" onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    const el = firstInput.current, cur = vals[0] ?? ''
+                    const a = el?.selectionStart ?? cur.length, b = el?.selectionEnd ?? cur.length
+                    setVals([cur.slice(0, a) + k + cur.slice(b)]); setBadInput(false)
+                    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(a + k.length, a + k.length) })
+                  }}>{k}</button>
+              ))}
+            </div>
+          )}
+          {badInput && <div className="md-note">לא הצלחתי לקרוא את התשובה. כתבו את הביטוי, למשל: <bdi dir="ltr">{`${ex.fields[0].v}²+5${ex.fields[0].v}+6`}</bdi></div>}
+        </>
       ) : (
         <div className="md-answer">
           {ex.fields.map((f, i) => (

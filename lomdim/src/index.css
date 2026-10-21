@@ -553,6 +553,9 @@ input[type="date"]::-webkit-date-and-time-value{ text-align:start }
 .md-answer input{ width:72px; font:inherit; font-size:20px; text-align:center; padding:8px 4px; border:1.5px solid var(--line); border-radius:12px; background:var(--surface); color:var(--ink) }
 .md-answer input:focus{ outline:2px solid var(--primary); outline-offset:1px }
 .md-answer input.sup{ width:50px; font-size:15px; padding:4px 2px; position:relative; top:-16px; margin-inline-start:-2px }
+.md-answer input.md-poly{ width:100%; max-width:300px; font-size:22px; text-align:left; padding:10px 14px }
+.md-keys{ display:flex; justify-content:center; gap:8px; margin:-2px 0 12px }
+.md-key{ min-width:52px; height:44px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); font-family:var(--disp); font-size:20px; font-weight:600 }
 .md-answer input.ok{ border-color:var(--good); background:var(--good-soft) }
 .md-answer input.no{ border-color:var(--bad); background:var(--bad-soft) }
 .md-opts{ display:flex; gap:8px; margin-bottom:12px }
