@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useG } from '../lib/gender'
 import { supabase } from '../lib/supabase'
 import { BottomSheet } from './QuestionUI'
+import Calculator from './Calculator'
 import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel, parsePoly } from '../lib/mathDrill'
 
 const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
@@ -20,6 +21,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   const [wrong, setWrong] = useState(null)   // אחרי ניסיון ראשון שגוי: אילו שדות לא נכונים
   const [done, setDone] = useState(null)     // null | true | false
   const [picked, setPicked] = useState(null)
+  const [calc, setCalc] = useState(false)          // מחשבון קטן בצד
   const [badInput, setBadInput] = useState(false)   // ביטוי שלא הצלחנו לקרוא
   const [work, setWork] = useState('')               // הדרך (לא חובה, לא נבדקת)
   const workRef = useRef(null)
@@ -92,9 +94,12 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
     <>
       <div className="flex items-center justify-between gap-2 mb-2">
         <span className="tp-badge inline-block" style={{ background: 'var(--primary)' }}>{topicName || ex.tag}{examMode ? ' · סימולציה' : ''}</span>
-        {lv > 0 && (
-          <span className="md-level" aria-label={`רמה ${lv} מתוך 3`}>רמה {[1, 2, 3].map((n) => <i key={n} className={n <= lv ? 'on' : ''} />)}</span>
-        )}
+        <span className="flex items-center gap-3">
+          {lv > 0 && (
+            <span className="md-level" aria-label={`רמה ${lv} מתוך 3`}>רמה {[1, 2, 3].map((n) => <i key={n} className={n <= lv ? 'on' : ''} />)}</span>
+          )}
+          <button type="button" className="calc-open" onClick={() => setCalc(!calc)} aria-expanded={calc}>🧮 מחשבון</button>
+        </span>
       </div>
       <h1 className="font-black text-[30px] leading-tight">{ex.title}</h1>
 
@@ -195,6 +200,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
           </button>
         </BottomSheet>
       )}
+      {calc && <Calculator onClose={() => setCalc(false)} />}
     </>
   )
 }

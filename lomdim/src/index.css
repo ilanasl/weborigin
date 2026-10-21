@@ -589,3 +589,18 @@ input.md-poly.no{ border-color:var(--bad); background:var(--bad-soft) }
 .en-pie-svg svg{ display:block; width:100% }
 .en-legend{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px }
 .en-dot{ width:12px; height:12px; border-radius:4px; flex:none; display:inline-block }
+
+/* מחשבון קטן בתרגילי מתמטיקה — צף מעל התרגיל, בצד */
+.calc-open{ font-size:12.5px; font-weight:700; border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:999px; padding:4px 10px }
+.calc-wrap{ position:fixed; z-index:60; left:12px; bottom:96px; width:min(240px, calc(100vw - 24px)) }
+.calc-wrap.top{ bottom:auto; top:12px }
+.calc{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:12px; box-shadow:var(--shadow) }
+.calc-x{ width:30px; height:30px; border-radius:50%; background:var(--surface-2); color:var(--ink); font-size:14px }
+.calc-screen{ background:var(--bg); border-radius:12px; padding:8px 12px; min-height:56px; text-align:right; font-family:var(--disp); margin-bottom:8px; overflow-x:auto }
+.calc-expr{ font-size:18px; white-space:nowrap; color:var(--muted) }
+.calc-res{ font-size:24px; font-weight:700; color:var(--primary); white-space:nowrap }
+.calc-res.bad{ font-size:15px; color:var(--bad) }
+.calc-keys{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px }
+.calc-key{ height:36px; border-radius:10px; background:var(--surface-2); color:var(--ink); font-family:var(--disp); font-size:18px; font-weight:600 }
+.calc-key.op{ color:var(--primary) }
+.calc-key.eq{ background:var(--btn); color:var(--btn-ink) }
