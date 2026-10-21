@@ -23,7 +23,8 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
   const [badInput, setBadInput] = useState(false)   // ביטוי שלא הצלחנו לקרוא
   const [work, setWork] = useState('')               // הדרך (לא חובה, לא נבדקת)
   const workRef = useRef(null)
-  const target = useRef('ans')                        // לאיזו שורה הכפתורים מוסיפים
+  const target = useRef(0)                            // לאיזו שורה הכפתורים מוסיפים: 'work' או מספר השדה
+  const ansRefs = useRef([])
   const mathRef = useRef(null)
   const stepsRef = useRef(null)
   const firstInput = useRef(null)
@@ -127,18 +128,18 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
             <input id="md-ans" ref={firstInput} inputMode="text" enterKeyHint="done" autoCapitalize="off" autoCorrect="off" spellCheck={false}
               dir="ltr" className={`md-poly ${wrong ? 'no' : done === true ? 'ok' : ''}`}
               value={vals[0] ?? ''} disabled={done !== null}
-              onFocus={() => { target.current = 'ans' }}
+              onFocus={() => { target.current = 0 }}
               onChange={(e) => { setVals([e.target.value]); setBadInput(false) }}
               onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
           ) : (
             <div className="md-answer">
               {ex.fields.map((f, i) => (
                 <span key={i} className="contents">
-                  {f.pre && <Html html={f.pre} />}
-                  <input id={i === 0 ? 'md-ans' : undefined} ref={i === 0 ? firstInput : undefined} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
+                  {f.pre && <Html html={f.pre} className={i > 0 ? 'ml-5' : undefined} />}
+                  <input id={i === 0 ? 'md-ans' : undefined} ref={(el) => { ansRefs.current[i] = el; if (i === 0) firstInput.current = el }} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
                     className={`${f.sup ? 'sup' : ''} ${wrong ? (wrong[i] ? 'ok' : 'no') : done === true ? 'ok' : ''}`}
                     value={vals[i] ?? ''} disabled={done !== null}
-                    onFocus={() => { target.current = 'ans' }}
+                    onFocus={() => { target.current = i }}
                     onChange={(e) => { const v = vals.slice(); v[i] = e.target.value; setVals(v) }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && filled && done === null) check() }} />
                   {f.post && <Html html={f.post} />}
@@ -152,12 +153,12 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
               {(poly ? [ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='] : ['x', '+', '−', '·', ':', '(', ')', '=']).map((k) => (
                 <button key={k} type="button" className="md-key" onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    const isWork = target.current === 'work'
-                    const el = isWork ? workRef.current : firstInput.current
-                    const cur = isWork ? work : (vals[0] ?? '')
+                    const isWork = target.current === 'work', fi = isWork ? 0 : target.current
+                    const el = isWork ? workRef.current : (poly ? firstInput.current : ansRefs.current[fi])
+                    const cur = isWork ? work : (vals[fi] ?? '')
                     const a = el?.selectionStart ?? cur.length, b = el?.selectionEnd ?? cur.length
                     const next = cur.slice(0, a) + k + cur.slice(b)
-                    if (isWork) setWork(next); else { const v = vals.slice(); v[0] = next; setVals(v); setBadInput(false) }
+                    if (isWork) setWork(next); else { const v = vals.slice(); v[fi] = next; setVals(v); setBadInput(false) }
                     requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(a + k.length, a + k.length) })
                   }}>{k}</button>
               ))}

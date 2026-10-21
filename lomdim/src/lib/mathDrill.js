@@ -28,7 +28,11 @@ const others = (ans, prefer = [], min = -Infinity) => {
 }
 
 /* ---------- 1. angles in a triangle ---------- */
+// שלושה סוגים: משולש רגיל, משולש ישר זווית (ריבוע בפינה), ומשולש שחוצים בקו מקודקוד (שני נעלמים)
 function genTri(lv){
+  const r = Math.random()
+  if (lv >= 2 && r < (lv === 2 ? 0.3 : 0.35)) return genSplit(lv)
+  if (r > (lv === 1 ? 0.6 : 0.7)) return genRight(lv)
   for(;;){
     const x = R(8,40)
     let terms
@@ -46,11 +50,18 @@ function genTri(lv){
     return finishTri(t, x, 'x')
   }
 }
+// ישר זווית: הזווית הישרה מסומנת בריבוע (בלי מספר) — כמו בלוח בכיתה
+function genRight(lv){
+  if (lv === 1) { const a = R(20,70); return finishTri([{c:0,k:90,right:true},{c:0,k:a},{c:1,k:0}], 90-a, 'x') }
+  if (Math.random() < 0.5) { const c = pick([2,4,5,8]); return finishTri([{c:0,k:90,right:true},{c:c,k:0},{c:1,k:0}], 90/(c+1), 'x') }
+  const x = R(15,38); return finishTri([{c:0,k:90,right:true},{c:1,k:0},{c:1,k:90-2*x}], x, 'x')
+}
 function finishTri(terms, x, v){
   const label = t => t.c === 0 ? t.k + '°' : lin(t.c, t.k) + '°'
   const vals = terms.map(t => t.c*x + t.k)
   const sumC = terms.reduce((s,t)=>s+t.c,0), sumK = terms.reduce((s,t)=>s+t.k,0)
   const steps = [
+    ...(terms[0].right ? [['הריבוע בפינה מסמן זווית ישרה', '90°']] : []),
     ['סכום הזוויות במשולש הוא 180°', terms.map(t=>t.c===0 ? t.k : t.k ? '(' + lin(t.c,t.k) + ')' : cx(t.c)).join(' + ') + ' = 180'],
     ['מחברים את ה-x לחוד ואת המספרים לחוד', lin(sumC,sumK) + ' = 180'],
   ]
@@ -58,31 +69,97 @@ function finishTri(terms, x, v){
   if(sumC !== 1) steps.push(['מחלקים ב-' + sumC, 'x = ' + (180-sumK) + ' : ' + sumC])
   steps.push(['התשובה', 'x = ' + x, true])
   if(terms.some(t=>t.c!==0 && !(t.c===1&&t.k===0))) steps.push(['בדיקה: מציבים x = '+x, vals.join(' + ') + ' = 180 ✓'])
-  const mc = { q: `במשולש הזוויות הן ${terms.map(t => iso(label(t))).join(', ')}. מצאו את x.`,
+  const mc = { q: `${terms[0].right ? 'במשולש ישר זווית' : 'במשולש'} הזוויות הן ${terms.map(t => iso(label(t))).join(', ')}. מצאו את x.`,
     right: 'x = ' + x, wrongs: others(x, [180 - sumK, x + 10, x - 10], 1).map(n => 'x = ' + n) }
-  return { type:'tri', tag:'גאומטרייה', title:'זוויות במשולש', math:null,
-    figure: triSVG(vals, terms.map(label)), ask:'מצאו את x.', fields:[{pre:'x =', ans:x}], steps, mc }
+  return { type:'tri', tag:'גאומטרייה', title: terms[0].right ? 'משולש ישר זווית' : 'זוויות במשולש', math:null,
+    figure: triSVG(vals, terms.map(t => (t.right ? '' : label(t))), terms[0].right), ask:'מצאו את x.', fields:[{pre:'x =', ans:x}], steps, mc }
 }
-function triSVG(ang, labels){
-  const [A,B] = ang.map(a => a*Math.PI/180), L = 300
-  // base from P0 (left) to P1 (right); apex where the two sides meet
-  const t = L * Math.sin(B) / Math.sin(A+B)
-  const P0 = [0,0], P1 = [L,0], P2 = [t*Math.cos(A), t*Math.sin(A)]
-  const pts = [P0,P1,P2], xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1])
+
+// משולש ACD, הנקודה B על CD, והקטע AB מחלק את זווית A. מוצאים x = ∠ABD (משולש קטן) ו-y = ∠C (משולש גדול)
+function genSplit(lv){
+  for(;;){
+    let a1, a2
+    if (lv === 2) { a1 = pick([30,40,45,50,60]); a2 = 90 - a1 }
+    else { a1 = 5 * R(5,12); a2 = 5 * R(5,12) }
+    const A = a1 + a2, d = R(20,60), y = 180 - A - d, x = 180 - a2 - d
+    if (y < 20 || x < 25 || x > 150) continue
+    const steps = [
+      ['במשולש הקטן ABD: סכום הזוויות 180°', `${a2} + ${d} + x = 180`],
+      ['', `${a2 + d} + x = 180`],
+      ['', `x = 180 − ${a2 + d}`],
+      ['', `x = ${x}`, true],
+      ['במשולש הגדול ACD: זווית A שלמה', `${a1} + ${a2} = ${A}`],
+      ['סכום הזוויות 180°', `y + ${A} + ${d} = 180`],
+      ['', `y = 180 − ${A + d}`],
+      ['', `y = ${y}`, true],
+    ]
+    const right = `x = ${x}, y = ${y}`
+    const wrongs = [...new Set([`x = ${180 - x}, y = ${y}`, `x = ${x}, y = ${y + 10}`, `x = ${180 - a1 - d}, y = ${y}`, `x = ${x - 10}, y = ${y}`])]
+      .filter((w) => w !== right).slice(0, 3)
+    return { type:'tri', tag:'גאומטרייה', title:'משולש שחוצים בקו', math:null,
+      figure: splitSVG(a1, a2, d), ask:'הקטע AB מחלק את המשולש. מצאו את x ואת y.',
+      fields:[{pre:'x =', ans:x},{pre:'y =', ans:y}], steps,
+      mc: { q: `במשולש ACD הנקודה B נמצאת על הצלע CD, והקטע AB מחלק את זווית A: ${iso('∠CAB = ' + a1 + '°')}, ${iso('∠BAD = ' + a2 + '°')}. זווית D היא ${iso(d + '°')}. מצאו את x (${iso('∠ABD')}) ואת y (${iso('∠C')}).`, right, wrongs } }
+  }
+}
+
+// גאומטריה משותפת לשרטוטים: נקודות במתמטיקה (y למעלה) → קואורדינטות SVG, ותווית על חוצה הזווית
+function fitPts(pts){
+  const xs = pts.map(p=>p[0]), ys = pts.map(p=>p[1])
   const minX = Math.min(...xs), maxX = Math.max(...xs), h = Math.max(...ys)
   const W = 340, pad = 28, sc = Math.min((W-2*pad)/(maxX-minX), 190/h)
   const H = h*sc + 2*pad
-  const P = pts.map(([x,y]) => [pad + (x-minX)*sc + ((W-2*pad)-(maxX-minX)*sc)/2, H - pad - y*sc])
-  const cx0 = (P[0][0]+P[1][0]+P[2][0])/3, cy0 = (P[0][1]+P[1][1]+P[2][1])/3
-  const names = ['A','B','C']
-  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="משולש עם זוויות ${labels.join(', ')}">`
+  return { W, H, P: pts.map(([x,y]) => [pad + (x-minX)*sc + ((W-2*pad)-(maxX-minX)*sc)/2, H - pad - y*sc]) }
+}
+const unit = (a, b) => { const dx = b[0]-a[0], dy = b[1]-a[1], d = Math.hypot(dx,dy) || 1; return [dx/d, dy/d] }
+function angleLabel(p, q, r, rad, text){
+  const u = unit(p,q), v = unit(p,r), bx = u[0]+v[0], by = u[1]+v[1], d = Math.hypot(bx,by) || 1
+  return `<text x="${p[0] + bx/d*rad}" y="${p[1] + by/d*rad}" text-anchor="middle" dominant-baseline="middle" fill="var(--ink)" font-family="Rubik, system-ui, sans-serif" font-size="15" font-weight="600" direction="ltr">${text}</text>`
+}
+const vName = (p, away, text) => {
+  const u = unit(away, p)
+  return `<text x="${p[0] + u[0]*15}" y="${p[1] + u[1]*15}" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)" font-family="Rubik, system-ui, sans-serif" font-size="13">${text}</text>`
+}
+
+function triSVG(ang, labels, right){
+  const [A,B] = ang.map(a => a*Math.PI/180), L = 300
+  // base from P0 (left) to P1 (right); apex where the two sides meet
+  const t = L * Math.sin(B) / Math.sin(A+B)
+  const { W, H, P } = fitPts([[0,0], [L,0], [t*Math.cos(A), t*Math.sin(A)]])
+  const cen = [(P[0][0]+P[1][0]+P[2][0])/3, (P[0][1]+P[1][1]+P[2][1])/3]
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="משולש עם זוויות ${labels.filter(Boolean).join(', ')}">`
   s += `<polygon points="${P.map(p=>p.join(',')).join(' ')}" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/>`
+  if (right) {
+    // ריבוע של זווית ישרה בקודקוד הראשון
+    const u = unit(P[0], P[1]), v = unit(P[0], P[2]), q = 16
+    s += `<polyline points="${P[0][0]+u[0]*q},${P[0][1]+u[1]*q} ${P[0][0]+(u[0]+v[0])*q},${P[0][1]+(u[1]+v[1])*q} ${P[0][0]+v[0]*q},${P[0][1]+v[1]*q}" fill="none" stroke="var(--primary)" stroke-width="2"/>`
+  }
   P.forEach((p,i) => {
-    const dx = cx0-p[0], dy = cy0-p[1], d = Math.hypot(dx,dy), r = Math.min(46, d*.55)
-    const lx = p[0] + dx/d*r, ly = p[1] + dy/d*r
-    s += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" fill="var(--ink)" font-family="Rubik, system-ui, sans-serif" font-size="15" font-weight="600" direction="ltr">${labels[i].replace(/<[^>]+>/g,'')}</text>`
-    s += `<text x="${p[0]-dx/d*14}" y="${p[1]-dy/d*14}" text-anchor="middle" dominant-baseline="middle" fill="var(--muted)" font-family="Rubik, system-ui, sans-serif" font-size="13">${names[i]}</text>`
+    if (labels[i]) {
+      const d = Math.hypot(cen[0]-p[0], cen[1]-p[1])
+      s += angleLabel(p, P[(i+1)%3], P[(i+2)%3], Math.min(46, d*.55), labels[i].replace(/<[^>]+>/g,''))
+    }
+    s += vName(p, cen, ['A','B','C'][i])
   })
+  return s + '</svg>'
+}
+
+function splitSVG(a1, a2, d){
+  const rad = (g) => g*Math.PI/180, A = rad(a1 + a2), D = rad(d), L = 300
+  const t = L * Math.sin(D) / Math.sin(A + D)
+  const pA = [0,0], pD = [L,0], pC = [t*Math.cos(A), t*Math.sin(A)]
+  // B = החיתוך של הקרן מ-A בזווית a2 עם הצלע CD
+  const dir = [Math.cos(rad(a2)), Math.sin(rad(a2))], cr = (u, v) => u[0]*v[1] - u[1]*v[0]
+  const CD = [pC[0]-pD[0], pC[1]-pD[1]], k = -cr(dir, pD) / cr(dir, CD)
+  const pB = [pD[0] + k*CD[0], pD[1] + k*CD[1]]
+  const { W, H, P } = fitPts([pA, pD, pC, pB])
+  const [sA, sD, sC, sB] = P
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="משולש ACD שחוצים בקטע AB">`
+  s += `<polygon points="${[sA,sD,sC].map(p=>p.join(',')).join(' ')}" fill="var(--primary-soft)" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/>`
+  s += `<line x1="${sA[0]}" y1="${sA[1]}" x2="${sB[0]}" y2="${sB[1]}" stroke="var(--primary)" stroke-width="2"/>`
+  s += angleLabel(sA, sD, sB, 44, a2 + '°') + angleLabel(sA, sB, sC, 44, a1 + '°')
+  s += angleLabel(sD, sA, sC, 38, d + '°') + angleLabel(sC, sA, sD, 30, 'y') + angleLabel(sB, sA, sD, 26, 'x')
+  s += vName(sA, sB, 'A') + vName(sD, sA, 'D') + vName(sC, sA, 'C') + vName(sB, sA, 'B')
   return s + '</svg>'
 }
 
