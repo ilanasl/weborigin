@@ -98,7 +98,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
         <div className="md-answer">
           {ex.fields.map((f, i) => (
             <span key={i} className="contents">
-              {f.pre && <span>{f.pre}</span>}
+              {f.pre && <Html html={f.pre} />}
               <input ref={i === 0 ? firstInput : undefined} inputMode="text" enterKeyHint="done" aria-label={`תשובה ${i + 1}`}
                 className={`${f.sup ? 'sup' : ''} ${wrong ? (wrong[i] ? 'ok' : 'no') : done === true ? 'ok' : ''}`}
                 value={vals[i] ?? ''} disabled={done !== null}

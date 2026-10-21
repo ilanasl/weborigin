@@ -113,7 +113,8 @@ function genExpand(lv){
   const math = `(${lin(a,b,v)})(${lin(c,d,v)})${tl}`
   return { type:'expand', tag:'אלגברה', title:'פילוג מורחב', mc: { q: `פתחו את הסוגריים וכנסו: ${iso(math)}`, right, wrongs },
     math, ask:'פתחו את הסוגריים וכנסו. השלימו את המספרים:',
-    fields:[{ans:A, post:sq(v)+' +'},{ans:B, post:v+' +'},{ans:C}], steps }
+    // מקדם 1 — לא כותבים "1x²" (כמו במחברת), אז אין לו תיבה
+    fields: A === 1 ? [{pre:sq(v)+' +', ans:B, post:v+' +'},{ans:C}] : [{ans:A, post:sq(v)+' +'},{ans:B, post:v+' +'},{ans:C}], steps }
 }
 
 /* ---------- 3. powers ---------- */
