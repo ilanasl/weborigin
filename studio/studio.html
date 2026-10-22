@@ -157,7 +157,7 @@
 
 <div id="bannersView">
 <div class="task-panel" id="taskPanel" hidden>
-  <div class="tp-row"><b>📥 New task</b><span class="muted" style="font-size:12px">Paste the Trello card (title + description) and attach its images. Claude picks the template, writes the prompts, generates, checks each banner and saves it to the output\QA folder.</span></div>
+  <div class="tp-row"><b>📥 New task</b><span class="muted" style="font-size:12px">Paste the Trello card (title + description) and attach its images. Claude picks the template, writes the prompts, generates, checks each banner and saves it to the QA folder.</span></div>
   <textarea id="tpCard" placeholder="Paste the task card here… (you can also paste images with Ctrl+V)"></textarea>
   <div class="tp-row">
     <label class="mini">+ Attach images<input type="file" id="tpFiles" accept="image/*" multiple></label>
@@ -2247,9 +2247,10 @@ async function runTask(){
       tpLog("   💾 saved v"+(i+1)+(flagged?" — still flagged, check it":""),flagged?"warn":"ok");
       report.push("Version "+(i+1)+": "+v.title,"Why: "+v.why,"Prompt: "+v.topic+(st.customPrompt?" | Fix: "+st.customPrompt:""),"Check: "+(review?(review.ok?"OK":(review.problems||[]).join("; ")):"off"),"");
     }
-    await postJSON("/api/save",{folder,filename:"brief.txt",text:report.join("\n")});
+    const saved=await postJSON("/api/save",{folder,filename:"brief.txt",text:report.join("\n")});
+    const where=String(saved.path||"").replace(/[\\/]brief\.txt$/,"");
     if(cardRefresh[tpl.id])cardRefresh[tpl.id]();
-    tpLog("✅ Done — "+versions.length+" version(s) in output\\"+folder.replace("/","\\")+". Each one is also in 📁 Saved to open in the editor.","ok");
+    tpLog("✅ Done — "+versions.length+" version(s) in "+where+". Each one is also in 📁 Saved to open in the editor.","ok");
   }catch(e){tpLog("✗ "+(e.message||e),"err");}
   finally{go.disabled=false;}
 }

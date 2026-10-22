@@ -52,6 +52,10 @@ function outputDir() {
     ? path.resolve(process.env.OUTPUT_DIR)
     : path.resolve(HERE, "output");
 }
+// Where the New-task banners go for checking (QA_DIR in .env, e.g. C:\SPOTOWER\QA) — default output/QA.
+function qaDir() {
+  return process.env.QA_DIR ? path.resolve(process.env.QA_DIR) : path.join(outputDir(), "QA");
+}
 // Where saved-banner backups live (one JSON per banner). Set BACKUP_DIR in .env
 // to any folder (e.g. an absolute path) — default is ./backups next to the app.
 function backupDir() {
@@ -502,7 +506,8 @@ app.post("/api/save", (req, res) => {
     }
     // Optional subfolder inside the output folder, e.g. "QA/1022 Pet Insurance" (each part cleaned; no "..").
     const parts = String(req.body?.folder || "").split(/[\\/]+/).map((p) => p.replace(/[^\w .\-]+/g, "_").replace(/^[.\s]+|[.\s]+$/g, "")).filter(Boolean);
-    const dir = path.join(outputDir(), ...parts);
+    // A folder starting with "QA" goes to the QA folder (QA_DIR), everything else under the output folder.
+    const dir = parts[0] === "QA" ? path.join(qaDir(), ...parts.slice(1)) : path.join(outputDir(), ...parts);
     fs.mkdirSync(dir, { recursive: true });
     const full = path.join(dir, filename);
     if (m) fs.writeFileSync(full, Buffer.from(m[1], "base64"));
@@ -561,7 +566,9 @@ app.listen(PORT, () => {
   if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}) — key …${String(process.env.OPENAI_API_KEY).slice(-4)}.`);
   console.log(`  💾 Saved-banner backups: ${backupDir()}`);
   if (hasKey() || hasOpenAI()) {
-    console.log(`  ✓ Generated banners save to: ${outputDir()}\n`);
+    console.log(`  ✓ Generated banners save to: ${outputDir()}`);
+    if (hasClaude()) console.log(`  ✓ New-task banners (for checking) save to: ${qaDir()}`);
+    console.log("");
   } else {
     console.log(`  ⚠  No AI key yet — you can still upload your own images.`);
     console.log(`     To turn on AI: copy .env.example to .env, paste a key, restart.\n`);
