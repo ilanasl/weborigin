@@ -538,7 +538,7 @@ function prodBoxFor(tpl,size){const b=tpl.productBox;return (b&&size==="mobile"&
 function prodRectFor(tpl,size,dim,image,over){const b=prodBoxFor(tpl,size),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
   if(!image)return {box:[bx,by,bw,bh],f:null};
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
-  const f=fitBox(image,bx,by,bw,bh,(over.zoom||1),(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
+  const f=fitBox(image,bx,by,bw,bh,zoomFor(over,size),(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:100,hx);
   const po=(over.prodOff&&over.prodOff[size])||{};f.dx+=(po.x||0)/100*dim.w;f.dy+=(po.y||0)/100*dim.h;return {box:[bx,by,bw,bh],f};}
 // Decoration colour taken from the visual: the average of its colourful, visible pixels.
 const DECO_COL=new WeakMap();
@@ -625,6 +625,9 @@ async function addExtraFiles(tpl,over,files){if(!Array.isArray(over.extras))over
     over.extras.push({id:Date.now().toString(36)+"-"+n,src,shadow:!!tpl.productShadow,glow:true,pos});added++;}catch(_){failed++;}}
   return {added,failed};}
 // Stretch an extra image over the whole banner as its backdrop (cover, centred, bottom layer).
+// Zoom and join blur are kept per size (desktop / mobile) by the tab editor; a value that was never split falls back to the shared one.
+function zoomFor(over,size){return (over&&over.zoomBy&&over.zoomBy[size]!=null)?over.zoomBy[size]:((over&&over.zoom)||1);}
+function seamBlurFor(tpl,over,size){return (over&&over.seamBlurBy&&over.seamBlurBy[size]!=null)?over.seamBlurBy[size]:((over&&over.seamBlur!=null)?over.seamBlur:tpl.seamBlur);}
 function fillExtra(tpl,over,e){const im=EXTRA_IMGS.get(e.src);
   for(const sz of ["desktop","mobile"]){const d=tpl.sizes[sz]||tpl.sizes.desktop;let w=100;if(im&&im.naturalWidth)w=Math.max(100,d.h*im.naturalWidth/im.naturalHeight/d.w*100);e.pos[sz]={x:50,y:50,w:Math.ceil(w*10)/10,rot:0};}
   e.bg=true;e.under=true;e.glow=false;e.shadow=false;const ex=over.extras,i=ex.indexOf(e);if(i>0){ex.splice(i,1);ex.unshift(e);}}
@@ -715,7 +718,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   const font=over.font||tpl.font;
   const hx=(over.anchorX&&over.anchorX[size]!=null)?over.anchorX[size]:horizNum(tpl.bgPos[size]);
   const vy=(over.anchorY&&over.anchorY[size]!=null)?over.anchorY[size]:vertNum(tpl.bgPos[size]);
-  const zoom=over.zoom||1;
+  const zoom=zoomFor(over,size);
   // matchBg blends a solid top into the photo by sampling the image's own background colour —
   // but a colour the user set by hand (or auto-tint) wins over the auto-match.
   const ovs=over.overlay&&over.overlay[size];
@@ -761,7 +764,7 @@ function renderBanner(tpl,size,image,texts,showText,logoImg,accent,over,tint,img
   else if(tpl.imageBox){const b=imageBoxFor(tpl,size,over),bx=b.x/100*dim.w,by=b.y/100*dim.h,bw=b.w/100*dim.w,bh=b.h/100*dim.h;
     if(image){if(tpl.seamBlur!=null){ // photo + blur on their own layer whose left edge always dissolves, so no fade setting can show a hard edge
         const RS=RENDER_SCALE||1,L=document.createElement("canvas");L.width=Math.max(1,Math.round(bw*RS));L.height=Math.max(1,Math.round(bh*RS));const lc=L.getContext("2d");lc.scale(RS,RS);
-        drawCoverBox(lc,image,0,0,bw,bh,hx,vy,zoom);drawSeamBlur(lc,image,0,0,bw,bh,hx,vy,zoom,(over.seamBlur!=null?over.seamBlur:tpl.seamBlur)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);
+        drawCoverBox(lc,image,0,0,bw,bh,hx,vy,zoom);drawSeamBlur(lc,image,0,0,bw,bh,hx,vy,zoom,seamBlurFor(tpl,over,size)*((size==="mobile"&&tpl.mobileBlurScale)||1),dim.w,dim.h);
         if(b.x>0.5){const fw=Math.min(bw*0.3,Math.max(dim.w*0.06,dim.h*0.5));lc.setTransform(1,0,0,1,0,0);lc.globalCompositeOperation="destination-in"; // edge feather only when the photo starts inside the banner
         const g=lc.createLinearGradient(0,0,fw*RS,0);[[0,0],[0.35,0.22],[0.7,0.75],[1,1]].forEach(([t,a])=>g.addColorStop(t,`rgba(0,0,0,${a})`));lc.fillStyle=g;lc.fillRect(0,0,L.width,L.height);}
         ctx.drawImage(L,bx,by,bw,bh);}
@@ -1248,7 +1251,7 @@ const V2_ICON={
  logo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16a8 8 0 0 1-16 0Z"/><path d="m14 4-2 8"/></svg>',
  text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg>'
 };
-const V2_MODE_FIELDS=["panelColor","panelColorR","panelTop","panelDir","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoY","logoAlign","halign","prodOff","subjOff","glow","glowSize","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
+const V2_MODE_FIELDS=["zoomBy","seamBlurBy","panelColor","panelColorR","panelTop","panelDir","splitAt","zoom","shadow","productRotate","subjZoom","subjX","subjY","subjRotate","logoX","logoY","logoAlign","halign","prodOff","subjOff","glow","glowSize","logoScale","anchorX","anchorY","pos","sizes","pads","bold","colors","overlay","overlay2","buttonAuto","buttonColor"];
 function ensureV2Css(){if(document.getElementById("v2css"))return;const st=document.createElement("style");st.id="v2css";st.textContent=`
 .v2.modal.editor{width:min(1180px,100%)}
 .v2 .editor-controls{flex:0 0 470px;gap:10px}
@@ -1339,14 +1342,17 @@ function openEditorV2(tpl,st,onClose){
   const setMode=split=>{if(!!o.split===split)return;if(split){o._fadeSnap=snap();o.split=true;if(o._splitSnap)load(o._splitSnap);else if(tpl.panelColorL)o.panelColor=tpl.panelColorL;}else{o._splitSnap=snap();o.split=false;if(o._fadeSnap)load(o._fadeSnap);}backfillOver(tpl,o);rebuildPending=true;};
   const settle=()=>{if(rebuildPending){rebuildPending=false;renderAll();}};
   const ov=()=>o.overlay[size],ov2=()=>o.overlay2&&o.overlay2[size];
+  const setZoom=v=>{if(!o.zoomBy)o.zoomBy={};o.zoomBy[size]=v;};
   const bgInUse=id=>o.split?id==="split":id===o.bgMode;
   // Show exactly one background: the chosen mode's fade colour over its own background colour; every other fade is off.
   const applyMode=id=>{const m=o.bgModes&&o.bgModes[id];if(!m)return;o.bgMode=id;
     if(m.none){if(m.bg){o.panelColor=m.bg;o.panelTop=m.bg;}["desktop","mobile"].forEach(z=>{o.overlay[z]=Object.assign({},o.overlay[z]||{},{opacity:0});if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});return;}
     {const pc=tpl.imageBox?(m.color||m.bg):m.bg;o.panelColor=pc;o.panelTop=m.tintTop?null:pc;o.panelDir="top";}
     const cov=id==="side"?(m.from||"left"):id;
-    ["desktop","mobile"].forEach(z=>{const sh=(z==="mobile"&&tpl.mobileFadeShift)||{hold:0,fade:0};const hd=Math.max(0,(m.hold||0)+sh.hold),fd=Math.max(hd+2,Math.min(100,(m.fade!=null?m.fade:100)+sh.fade));
-      o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:(m.opacity!=null?m.opacity:1),hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
+    ["desktop","mobile"].forEach(z=>{const sh=(z==="mobile"&&tpl.mobileFadeShift)||{hold:0,fade:0},own=(m.by&&m.by[z])||{};
+      let hd=own.hold!=null?own.hold:Math.max(0,(m.hold||0)+sh.hold),fd=own.fade!=null?own.fade:Math.min(100,(m.fade!=null?m.fade:100)+sh.fade);fd=Math.max(hd+2,fd);
+      const op=own.opacity!=null?own.opacity:(m.opacity!=null?m.opacity:1);
+      o.overlay[z]=Object.assign({},o.overlay[z]||{},{color:m.color,opacity:op,hold:hd,fade:fd,coverage:cov,auto:m.src==="image",autoLogo:m.src==="logo",userColor:true});
       if(o.overlay2&&o.overlay2[z])o.overlay2[z]=Object.assign({},o.overlay2[z],{opacity:0});});};
   const chooseBg=id=>{if(id==="split")setMode(true);else{setMode(false);applyMode(id);}select({t:"bg",id});};
   if(o._bgFresh){delete o._bgFresh;if(!o.split)applyMode(o.bgMode||"side");}
@@ -1448,11 +1454,14 @@ function openEditorV2(tpl,st,onClose){
     if((m.src||"custom")==="custom")p.append(rowColor(tpl.imageBox?"Colour":"Custom colour",()=>m.color,v=>{m.color=v;if(tpl.imageBox)m.bg=v;upd();}));
     if(!isFullPhoto&&!tpl.imageBox){p.append(rowColor("Background colour",()=>m.bg,v=>{m.bg=v;upd();}));
       p.append(checks([["Background slightly lighter at the top",()=>!!m.tintTop,v=>{m.tintTop=v;upd();}]]));}
-    if(tpl.fadeStrength)p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>m.opacity!=null?m.opacity:1,set:v=>{m.opacity=v;upd();},fmt:v=>Math.round(v*100)+"%",def:()=>tpl.bgModes[id].opacity!=null?tpl.bgModes[id].opacity:1}));
+    // Shape values belong to the size being edited (desktop / mobile), so changing one never moves the other.
+    const own=()=>{if(!m.by)m.by={};return m.by[size]||(m.by[size]={});};
+    const cur=k=>{const v=ov()&&ov()[k];return v!=null?v:(k==="opacity"?1:k==="fade"?100:0);};
+    if(tpl.fadeStrength)p.append(rowRange("Strength",{min:0,max:1,step:0.02,get:()=>cur("opacity"),set:v=>{own().opacity=v;upd();},fmt:v=>Math.round(v*100)+"%",def:()=>tpl.bgModes[id].opacity!=null?tpl.bgModes[id].opacity:1}));
     p.append(group("Shape"));
     if(id==="side")p.append(rowSeg("From",[["left","Left"],["right","Right"]],()=>m.from||"left",v=>{m.from=v;upd();}));
-    p.append(rowRange("Solid area",{min:0,max:100,get:()=>m.hold||0,set:v=>{m.hold=v;if((m.fade!=null?m.fade:100)<v+5){m.fade=Math.min(100,v+5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].hold}));
-    p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>m.fade!=null?m.fade:100,set:v=>{m.fade=v;if(v<(m.hold||0)+5){m.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>tpl.bgModes[id].fade}));
+    p.append(rowRange("Solid area",{min:0,max:100,get:()=>cur("hold"),set:v=>{const w=own();w.hold=v;if(cur("fade")<v+5){w.fade=Math.min(100,v+5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>Math.max(0,tpl.bgModes[id].hold+((size==="mobile"&&tpl.mobileFadeShift)?tpl.mobileFadeShift.hold:0))}));
+    p.append(rowRange("Fade ends at",{min:0,max:100,get:()=>cur("fade"),set:v=>{const w=own();w.fade=v;if(v<cur("hold")+5){w.hold=Math.max(0,v-5);rebuildPending=true;}upd();},fmt:v=>Math.round(v)+"%",def:()=>Math.min(100,(tpl.bgModes[id].fade!=null?tpl.bgModes[id].fade:100)+((size==="mobile"&&tpl.mobileFadeShift)?tpl.mobileFadeShift.fade:0))}));
     if(tpl.imageBox){const base=imageBoxFor(tpl,size);p.append(group("Colour area"));
       p.append(rowRange("Colour area ends at",{min:0,max:70,get:()=>photoBox().x,set:v=>{if(!o.photoStart)o.photoStart={};o.photoStart[size]=Math.round(v);},fmt:v=>Math.round(v)<=0?"none":Math.round(v)+"%",def:base.x}));
       p.append(note("Where the plain colour area ends and the photo begins (the dotted line marked \"Photo starts\"). 0% = no colour area, the photo fills the banner."));}}
@@ -1466,14 +1475,14 @@ function openEditorV2(tpl,st,onClose){
       p.append(note("Where the photo begins from the left. 0% = the photo fills the whole banner (no colour area)."));}
     p.append(group("Position (inside the photo area)"));
     p.append(rowRange("Left ↔ right",{min:0,max:100,get:()=>o.anchorX[size],set:v=>{o.anchorX[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorX[size]}));
-    {const im=st.img,b=photoBox(),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&(o.zoom||1)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
+    {const im=st.img,b=photoBox(),d=tpl.sizes[size];if(im&&(im.naturalWidth/im.naturalHeight)<=(d.w*b.w)/(d.h*b.h)*1.01&&zoomFor(o,size)<=1.001)p.append(note("Left ↔ right: the photo is exactly as wide as its area, so it can only move sideways after you raise Zoom."));}
     p.append(rowRange("Up ↕ down",{min:0,max:100,get:()=>Math.min(100,o.anchorY[size]),set:v=>{o.anchorY[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorY[size]}));
     p.append(group("Size"));
-    p.append(rowRange("Zoom",{min:1,max:2.5,step:0.05,get:()=>Math.max(1,o.zoom||1),set:v=>{o.zoom=v;},fmt:v=>Math.round(v*100)+"%",def:1}));
+    p.append(rowRange("Zoom",{min:1,max:2.5,step:0.05,get:()=>Math.max(1,zoomFor(o,size)),set:v=>{setZoom(v);},fmt:v=>Math.round(v*100)+"%",def:1}));
     if(tpl.seamBlur==null)return;
     p.append(group("Join with the background"));
     p.append(note("The blur softens the left edge of the photo. If that edge is a plain wall, there is little to blur — generate again or move the photo."));
-    p.append(rowRange("Blur at the join",{min:0,max:1,step:0.02,get:()=>o.seamBlur!=null?o.seamBlur:(tpl.seamBlur||0),set:v=>{o.seamBlur=v;},fmt:v=>v>0?Math.round(v*100)+"%":"off",def:tpl.seamBlur||0}));
+    p.append(rowRange("Blur at the join",{min:0,max:1,step:0.02,get:()=>seamBlurFor(tpl,o,size)||0,set:v=>{if(!o.seamBlurBy)o.seamBlurBy={};o.seamBlurBy[size]=v;},fmt:v=>v>0?Math.round(v*100)+"%":"off",def:tpl.seamBlur||0}));
     p.append(note("The fade itself (where the grey ends) is in the Background tab: Solid area / Fade ends at."));}
   function paneProd(p){if(isPhoto)return panePhoto(p);const s=mk("div","v2-slot");s.append(thumb(st.uploaded),fileBtn(st.uploaded?"Replace":"Upload",true,uploadMain));
     if(st.uploaded)s.append(btn("Remove",()=>{st.uploaded=null;st.img=null;st.accent=null;st.tint=null;forgetAuto(tpl);renderAll();}));
@@ -1486,7 +1495,7 @@ function openEditorV2(tpl,st,onClose){
     p.append(rowRange("Up ↕ down",{min:0,max:160,get:()=>o.anchorY[size],set:v=>{o.anchorY[size]=v;},fmt:v=>Math.round(v)+"%",def:()=>D.anchorY[size]}));
     if(off.x||off.y){const b=mk("div","v2-slot");b.append(note("Moved by dragging."),btn("Reset drag",()=>{o.prodOff[size]={};renderAll();}));p.append(b);}
     p.append(group("Size & rotation"));
-    p.append(rowRange("Size",{min:0.4,max:2.5,step:0.05,get:()=>o.zoom||1,set:v=>{o.zoom=v;},fmt:v=>Math.round(v*100)+"%",def:D.zoom||1}));
+    p.append(rowRange("Size",{min:0.4,max:2.5,step:0.05,get:()=>zoomFor(o,size),set:v=>{setZoom(v);},fmt:v=>Math.round(v*100)+"%",def:D.zoom||1}));
     p.append(rowRange("Rotate",{min:-30,max:30,get:()=>o.productRotate||0,set:v=>{o.productRotate=v;},fmt:v=>Math.round(v)+"°",def:0}));
     p.append(group("Effects"));
     p.append(checks([["Above the fade",()=>o.imgAbove!==false,v=>{o.imgAbove=v;}]]));
@@ -1602,7 +1611,7 @@ function openEditorV2(tpl,st,onClose){
     else if(s.t==="text"){const raw=elOf(s.key),rEl=resolveEl(raw,size),p=o.pos[size][s.key]||(o.pos[size][s.key]={});const x=p.x!=null?p.x:rEl.x,y=p.y!=null?p.y:rEl.y;
       const span=raw.splitOnly?(100-6-(divider()+6)):(divider()-12);p.x=x+(o.split?dx*100/Math.max(10,span):dx);p.y=y+dy;}}
   function scaleSel(s,f){
-    if(s.t==="prod")o.zoom=clamp((o.zoom||1)*f,isPhoto?1:0.4,2.5);else if(s.t==="subj")o.subjZoom=clamp((o.subjZoom||1)*f,0.4,2);
+    if(s.t==="prod")setZoom(clamp(zoomFor(o,size)*f,isPhoto?1:0.4,2.5));else if(s.t==="subj")o.subjZoom=clamp((o.subjZoom||1)*f,0.4,2);
     else if(s.t==="extra"){const e=o.extras.find(x=>x.id===s.id);if(e){const p=e.pos[size]||(e.pos[size]=Object.assign({},e.pos.desktop));p.w=clamp((p.w||30)*f,3,150);}}
     else if(s.t==="logo")o.logoScale=clamp((o.logoScale||1)*f,0.4,2);
     else if(s.t==="text"){const rEl=resolveEl(elOf(s.key),size);o.sizes[size][s.key]=clamp(Math.round((o.sizes[size][s.key]!=null?o.sizes[size][s.key]:rEl.size)*f),8,120);}}
