@@ -8,6 +8,7 @@ import { mastery } from '../lib/mastery'
 import { analyzeMaterial } from '../lib/gemini'
 import { useAuth } from '../context/AuthContext'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { pickTopicId } from '../lib/checkTopic'
 
 // מזהה הקובץ המקורי — כמה שורות (נושא לכל שורה) יכולות לחלוק את אותו דף
 const fileKey = (m) => m.storage_path || (m.content_hash || '').split(':')[0] || m.id
@@ -41,8 +42,21 @@ export default function Materials({ nav, params }) {
     ])
     setTopics(tp || [])
     // רק קבצים שהועלו בפועל (יש להם קובץ מאוחסן או חתימת תוכן) — לא סיכומים/הערות שנוצרו
-    setMaterials((mt || []).filter((m) => m.storage_path || m.content_hash))
+    const list = (mt || []).filter((m) => m.storage_path || m.content_hash)
+    setMaterials(list)
     setLoading(false)
+    // תרגילים שנבדקו לפני שהם שויכו לנושא — משייכים עכשיו ברקע (פעם אחת לכל תרגיל)
+    const loose = list.filter((m) => m.kind === 'check' && !m.topic_id)
+    if (loose.length && (tp || []).length) {
+      for (const m of loose) {
+        let text = m.title || ''
+        try { const o = JSON.parse(m.source_text || '{}'); text = [o.exercise, o.feedback].filter(Boolean).join('\n') || text } catch { /* */ }
+        const tid = await pickTopicId({ subjectId: id, subjectName, text, topics: tp })
+        if (tid) await supabase.from('materials').update({ topic_id: tid }).eq('id', m.id)
+      }
+      const { data: again } = await supabase.from('materials').select('*').eq('subject_id', id).order('created_at', { ascending: false })
+      setMaterials((again || []).filter((m) => m.storage_path || m.content_hash))
+    }
   }
   useEffect(() => { load() }, [id])
 
@@ -268,7 +282,7 @@ export default function Materials({ nav, params }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-[14.5px] leading-snug">{topics.find((t) => t.id === m.topic_id)?.name || m.title || 'חומר'}</div>
                     <div className="text-[12px] text-muted">
-                      {new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : 'תמונה'}
+                      {new Date(m.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} · {m.kind === 'pdf' ? 'PDF' : m.kind === 'text' ? 'טקסט' : m.kind === 'check' ? 'תרגיל שנבדק' : 'תמונה'}
                     </div>
                     {m.origin === 'חזרה' && <span className="tp-badge tp-badge-muted inline-block mt-1">משנה שעברה</span>}
                   </div>

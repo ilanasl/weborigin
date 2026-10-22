@@ -1,5 +1,6 @@
 import { SUPABASE_URL, SUPABASE_ANON } from './supabase'
 import { mathText } from './mathText'
+import { holdWork } from '../components/WorkNote'
 
 // ── שני מצבים ──
 // 1) מצב "ישיר" (הכי קל להרצה): אם הוגדר VITE_GEMINI_API_KEY, קוראים ל-Gemini
@@ -440,7 +441,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const isRetryable = (e) => /parse_failed|overload|unavailable|timeout|network|failed to fetch|\b(429|500|502|503|504)\b/i.test(String(e))
 
 // ניסיון חוזר אוטומטי — קריטי כשמעלים כמה קבצים ברצף וחלקם נתקלים בשגיאה חולפת
+// כל קריאת AI נחשבת "עבודה שרצה" — כדי שעדכון גרסה לא יטען את האפליקציה מחדש באמצעה
 async function call(payload) {
+  const release = holdWork()
+  try { return await callWithRetry(payload) } finally { release() }
+}
+async function callWithRetry(payload) {
   const run = () => (DIRECT_KEY ? callDirect(payload) : callFn(payload))
   let lastErr
   for (let attempt = 0; attempt < 3; attempt++) {

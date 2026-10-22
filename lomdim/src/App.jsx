@@ -26,6 +26,7 @@ import Parent from './pages/Parent'
 import Summaries from './pages/Summaries'
 import Materials from './pages/Materials'
 import { confirmLeave } from './lib/leaveGuard'
+import { isWorking } from './components/WorkNote'
 import { parseDay } from './lib/plan'
 import { startUpdateWatch, updateReady, reloadInto, restoredStack } from './lib/appUpdate'
 
@@ -126,7 +127,8 @@ function Shell() {
   // מעבר מסך: אם יש גרסה חדשה — טוענים אותה ישר למסך היעד; אחרת מעבר רגיל
   const apply = useCallback((next) => {
     stackRef.current = next   // מיידי — כדי ש-back ואחריו go באותה לחיצה יעבדו נכון
-    if (updateReady()) { reloadInto(next); return }
+    // גרסה חדשה נטענת רק כשאין עבודה שרצה ברקע (שמירת חומר וכו') — אחרת היא הייתה נקטעת
+    if (updateReady() && !isWorking()) { reloadInto(next); return }
     setStack(next)
   }, [])
   // מיקום הגלילה של כל מסך נשמר כשיוצאים ממנו, ו"חזרה" מחזירה בדיוק לאותו מקום

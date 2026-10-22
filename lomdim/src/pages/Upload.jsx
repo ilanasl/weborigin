@@ -4,7 +4,7 @@ import { aiErrorText, aiErrorReason } from '../lib/aiError'
 import { toAIInput } from '../lib/image'
 import { setLeaveGuard } from '../lib/leaveGuard'
 import Icon from '../components/Icon'
-import WorkNote from '../components/WorkNote'
+import WorkNote, { useWorking, holdWork } from '../components/WorkNote'
 import { supabase } from '../lib/supabase'
 import { subjectStyle } from '../lib/examStyle'
 import { consolidateTopic } from '../lib/consolidate'
@@ -55,6 +55,8 @@ export default function Upload({ nav, params }) {
   // ניקוי אם עוזבים את המסך (אחרי אישור) + שמירה מסגירת הלשונית ומנעילת מסך בזמן ניתוח
   const left = useRef(false)   // יצאו מהמסך באמצע — לא ממשיכים לנתח (ולא מבזבזים קריאות)
   useEffect(() => () => { left.current = true; setLeaveGuard(null); keepAwake(false) }, [])
+  // ניתוח ושמירה — מגנים עליהם גם מטעינת גרסה חדשה במעבר מסך (שמחקה בעבר שמירה באמצע)
+  useWorking(busy || addBusy !== null)
   useEffect(() => {
     if (!busy || results) return
     const onUnload = (e) => { e.preventDefault(); e.returnValue = '' }
@@ -218,6 +220,8 @@ export default function Upload({ nav, params }) {
     const active = chosen.filter((c) => c.name.trim())
     if (!active.length) return
     setBusy(true); setErr(''); setSaveMsg('')
+    // השמירה ממשיכה גם אם עוברים מסך — בינתיים לא טוענים גרסה חדשה של האפליקציה
+    const release = holdWork()
     try {
       const { data: userData } = await supabase.auth.getUser()
       const uid = userData.user?.id
@@ -297,7 +301,7 @@ export default function Upload({ nav, params }) {
       if (!left.current) nav.reset('subject', { id: subjectId })
     } catch (e) {
       setErr('שמירה נכשלה: ' + String(e))
-    } finally { setBusy(false) }
+    } finally { release(); setBusy(false) }
   }
 
   const dupeCount = files.filter((f) => f.dupe).length
