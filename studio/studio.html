@@ -249,7 +249,8 @@ const TEMPLATES = [
     ]
   },
   {
-    id:"sidebar-offer", name:"Sidebar Ad (Tall)", font:"Poppins", buttonAuto:false, defaultTransparent:true, textDefaultOn:true,
+    id:"sidebar-offer", name:"Side Banner", fileName:"Side-Banner", // name and file name as the client calls it
+    font:"Poppins", buttonAuto:false, defaultTransparent:true, textDefaultOn:true,
     // Defaults currently set for the Base44 ad (client brief): light teal, dark text, orange accent.
     sizes:{desktop:{w:320,h:800}, mobile:{w:320,h:800}},
     bgPos:{desktop:"center", mobile:"center"},
@@ -333,7 +334,8 @@ const TEMPLATES = [
   },
   {
     // Main tax banner: solid grey on the LEFT, a real photo on the RIGHT, joined by a soft blur + fade. Text optional (off).
-    id:"tax-hero", name:"Main Banner (Tax)", font:"Poppins", editorV2:true, textOptional:true,
+    id:"tax-hero", name:"Main Banner", fileName:"Main-Banner", // name and file name as the client calls it
+    font:"Poppins", editorV2:true, textOptional:true,
     sizes:{desktop:{w:3800,h:520}, mobile:{w:650,h:325}},
     bgPos:{desktop:"center", mobile:"right"}, anchorX:{desktop:50, mobile:75}, // mobile keeps the right part of the photo, where the people are
     bgColor:"#eaeaea", panelBg:true,
@@ -2111,7 +2113,7 @@ function stamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${p(d
 function exportScale(){const v=+((document.getElementById("rscale")||{}).value);return v>1?v:1;}
 function scaleTag(){const s=exportScale();return s>1?"@"+s+"x":"";}
 function renderForExport(...a){RENDER_SCALE=exportScale();try{return renderBanner(...a);}finally{RENDER_SCALE=1;}}
-async function exportBanner(tpl,st,size,f,sfx){const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);const {blob,fmt,fell,over}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,over,name:`${tpl.id}-${size}${sfx?"-"+sfx:""}${scaleTag()}.${extOf(fmt)}`};}
+async function exportBanner(tpl,st,size,f,sfx){const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);const {blob,fmt,fell,over}=await encodeCapped(canvas,f.fmt,f.kb);return {blob,fmt,fell,over,name:`${tpl.fileName||tpl.id}-${size}${sfx?"-"+sfx:""}${scaleTag()}.${extOf(fmt)}`};}
 // Always a real browser download (into the Downloads folder). Defaults to BOTH sizes.
 async function downloadOne(tpl,st,sizes){
   if(!st.img){alert("Generate or upload an image for this banner first.");return;}
@@ -2143,7 +2145,7 @@ document.getElementById("run").addEventListener("click",async()=>{
     for(const size of (tpl.desktopOnly?["desktop"]:["desktop","mobile"])){
       const canvas=renderForExport(tpl,size,st.img,st.text.enabled?st.text.texts:{},st.text.enabled,st.logoImg,st.accent,st.over,st.tint,st.img2);
       const {blob,fmt:usedFmt,over}=await encodeCapped(canvas,fmt,kb);
-      const name=`${tpl.id}-${size}-${sfx}${scaleTag()}.${extOf(usedFmt)}`;
+      const name=`${tpl.fileName||tpl.id}-${size}-${sfx}${scaleTag()}.${extOf(usedFmt)}`;
       const r=await saveBlob(blob,name);
       log(`✓ ${name} — ${Math.round(blob.size/1024)} KB (${r})${over?` · PNG over ${kb}KB target`:""}`);
     }
