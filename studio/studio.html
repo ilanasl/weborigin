@@ -56,6 +56,16 @@
   .src .lab{font-size:12px;color:var(--muted);margin-right:auto}
   .mini{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:600;display:inline-block}
   .mini input{display:none}
+  .task-panel{margin:14px 18px 0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .task-panel textarea{width:100%;min-height:92px;resize:vertical;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:inherit;font-size:13px;line-height:1.45;box-sizing:border-box}
+  .tp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tp-thumbs{display:flex;gap:6px;flex-wrap:wrap}
+  .tp-thumbs span{position:relative;display:inline-block}
+  .tp-thumbs img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block}
+  .tp-thumbs button{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:0;background:#c0392b;color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer}
+  .tp-log{font:12px/1.55 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);max-height:220px;overflow:auto;white-space:pre-wrap}
+  .tp-log:empty{display:none}
+  .tp-log .ok{color:#2e9d5b}.tp-log .warn{color:#c98a00}.tp-log .err{color:#d64545}
   .tiny{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:6px 10px;font-size:12px;font-weight:600}
   .tiny.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
   .card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -146,6 +156,18 @@
 </div>
 
 <div id="bannersView">
+<div class="task-panel" id="taskPanel" hidden>
+  <div class="tp-row"><b>📥 New task</b><span class="muted" style="font-size:12px">Paste the Trello card (title + description) and attach its images. Claude picks the template, writes the prompts, generates, checks each banner and saves it to the output\QA folder.</span></div>
+  <textarea id="tpCard" placeholder="Paste the task card here… (you can also paste images with Ctrl+V)"></textarea>
+  <div class="tp-row">
+    <label class="mini">+ Attach images<input type="file" id="tpFiles" accept="image/*" multiple></label>
+    <span class="tp-thumbs" id="tpThumbs"></span>
+    <span style="flex:1"></span>
+    <label class="chk" title="Claude looks at each finished banner and tries again (up to 3 times) if something looks wrong"><input type="checkbox" id="tpReview" checked> Check each banner</label>
+    <button class="btn" id="tpGo">Create</button>
+  </div>
+  <div class="tp-log" id="tpLog"></div>
+</div>
 <div class="run-panel">
   <span class="note">Set each banner's image (upload your own here — AI-from-topic runs in the local app), tick the ones to make, then Run.</span>
   <label class="f" id="engineWrap" hidden><span>AI engine</span>
@@ -2160,6 +2182,81 @@ document.getElementById("selAll").addEventListener("click",()=>{const showHid=do
 document.getElementById("clr").addEventListener("click",()=>{TEMPLATES.forEach(t=>{state[t.id].selected=false;});document.querySelectorAll(".card").forEach(c=>{c.classList.remove("sel");c.querySelector(".c-sel").checked=false;});});
 document.getElementById("theme").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");const next=cur==="dark"?"light":cur==="light"?"dark":(matchMedia("(prefers-color-scheme: dark)").matches?"light":"dark");document.documentElement.setAttribute("data-theme",next);});
 
+/* ---- New task: paste a Trello card -> Claude brief -> generate -> check -> save to output/QA ---- */
+const TP={files:[]};
+function tpLog(msg,cls){const l=document.getElementById("tpLog"),d=document.createElement("div");if(cls)d.className=cls;d.textContent=msg;l.appendChild(d);l.scrollTop=l.scrollHeight;}
+function tpThumbs(){const box=document.getElementById("tpThumbs");box.innerHTML="";TP.files.forEach((u,i)=>{const w=document.createElement("span"),im=document.createElement("img"),x=document.createElement("button");im.src=u;x.type="button";x.textContent="✕";x.title="remove";x.onclick=()=>{TP.files.splice(i,1);tpThumbs();};w.append(im,x);box.append(w);});}
+async function tpAddFiles(files){for(const f of files){if(f&&/^image\//.test(f.type)){try{TP.files.push(await fileToDataUrl(f));}catch(_){}}}tpThumbs();}
+// Any picture -> a JPEG no larger than `max` px (keeps the Claude requests small).
+function jpegOf(src,max){const W=src.naturalWidth||src.width,H=src.naturalHeight||src.height,k=Math.min(1,max/Math.max(W,H));const c=document.createElement("canvas");c.width=Math.max(1,Math.round(W*k));c.height=Math.max(1,Math.round(H*k));const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(src,0,0,c.width,c.height);return c.toDataURL("image/jpeg",0.85);}
+const textOnImage=t=>!t.textOptional||!!t.textDefaultOn;
+// What Claude needs to know about each template to pick one and fill it.
+function templateCatalog(){return TEMPLATES.filter(t=>!t.hidden).map(t=>({id:t.id,name:t.name,
+  desktop:t.sizes.desktop.w+"x"+t.sizes.desktop.h,mobile:t.desktopOnly?null:t.sizes.mobile.w+"x"+t.sizes.mobile.h,
+  text_on_image:textOnImage(t),text_fields:textOnImage(t)?t.elements.filter(e=>!e.splitOnly).map(e=>({key:e.key,label:e.label||e.key,example:e.val})):[],
+  transparent_cutout:!!(t.defaultTransparent&&t.transparentOK),isolated_object:!!t.isolatedObject,
+  layout:String(t.composition||"").slice(0,500),example_topics:(STARTERS[t.id]||[]).slice(0,3).map(s=>s.topic)}));}
+async function postJSON(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j;}
+async function runTask(){
+  const card=document.getElementById("tpCard").value.trim();const go=document.getElementById("tpGo");
+  document.getElementById("tpLog").innerHTML="";
+  if(!card){tpLog("Paste the task card first.","err");return;}
+  go.disabled=true;
+  try{
+    tpLog("🧠 Claude is reading the card…");
+    const images=await Promise.all(TP.files.map(async u=>jpegOf(await loadImage(u),1568)));
+    const brief=await postJSON("/api/brief",{card,images,templates:templateCatalog()});
+    const tpl=TEMPLATES.find(t=>t.id===brief.template_id&&!t.hidden);
+    if(!tpl){tpLog("✋ No matching template — this one needs you. "+(brief.template_reason||""),"err");return;}
+    tpLog("✓ Template: "+tpl.name+" — "+brief.template_reason);
+    if(brief.notes)tpLog("📝 "+brief.notes,"warn");
+    const st=state[tpl.id];
+    if(tpl.logo&&!st.logoImg)tpLog("📝 No logo on the "+tpl.name+" card yet — banners are made without it.","warn");
+    if(st.uploaded)await autoSaveBanner(tpl,st); // what was on the card stays in 📁 Saved
+    if(textOnImage(tpl)){const keys=new Set(tpl.elements.map(e=>e.key)),texts=Object.assign({},st.text.texts);
+      for(const t of brief.texts||[])if(keys.has(t.key))texts[t.key]=t.value;st.text={enabled:true,texts};}
+    else st.text={enabled:false,texts:Object.assign({},st.text.texts)};
+    st.transparent=!!(tpl.defaultTransparent&&tpl.transparentOK);
+    const d=new Date(),pad=n=>String(n).padStart(2,"0");
+    const folder="QA/"+pad(d.getMonth()+1)+pad(d.getDate())+" "+(String(brief.job_name||tpl.name).replace(/[^\w .\-]+/g," ").trim()||tpl.name);
+    const fmt=document.getElementById("fmt").value,kbRaw=parseInt(document.getElementById("kb").value,10),kb=isNaN(kbRaw)?0:kbRaw;
+    const doReview=document.getElementById("tpReview").checked,sizes=tpl.desktopOnly?["desktop"]:["desktop","mobile"];
+    const showText=tpl.textOptional?st.text.enabled:true;
+    const report=["Task card:",card,"","Template: "+tpl.name+" — "+brief.template_reason,"Texts: "+(brief.texts||[]).map(t=>t.key+" = "+t.value).join(" | "),"Notes: "+(brief.notes||"-"),""];
+    const versions=(brief.versions||[]).slice(0,4);
+    for(let i=0;i<versions.length;i++){const v=versions[i];let review=null;
+      tpLog("🎨 Version "+(i+1)+": "+v.title+" — "+v.why);
+      st.topic=v.topic;st.customPrompt="";
+      for(let attempt=1;attempt<=3;attempt++){
+        tpLog("   generating"+(attempt>1?" again ("+attempt+"/3)":"")+"…");
+        await aiGenerate(tpl,st);
+        if(!doReview)break;
+        const shots=sizes.map(sz=>({label:sz==="desktop"?"Desktop":"Mobile",dataUrl:jpegOf(renderBanner(tpl,sz,st.img,st.text.texts,showText,st.logoImg,st.accent,st.over,st.tint,st.img2),1568)}));
+        review=await postJSON("/api/review",{images:shots,brief:{template:tpl.name,idea:v.title,why:v.why,texts:brief.texts}});
+        if(review.ok){tpLog("   ✓ checked — looks good","ok");break;}
+        tpLog("   ⚠ "+(review.problems||[]).join(" · "),"warn");
+        if(attempt<3&&review.prompt_fix)st.customPrompt=review.prompt_fix;
+      }
+      for(const sz of sizes){
+        const cv=renderForExport(tpl,sz,st.img,st.text.enabled?st.text.texts:{},showText,st.logoImg,st.accent,st.over,st.tint,st.img2);
+        const {blob,fmt:used}=await encodeCapped(cv,fmt,kb);
+        await postJSON("/api/save",{folder,filename:(tpl.fileName||tpl.id)+"-v"+(i+1)+"-"+sz+"."+extOf(used),dataUrl:await blobToDataUrl(blob)});
+      }
+      await saveSnapshot(tpl,st); // reload any version into the editor from 📁 Saved
+      const flagged=review&&!review.ok;
+      tpLog("   💾 saved v"+(i+1)+(flagged?" — still flagged, check it":""),flagged?"warn":"ok");
+      report.push("Version "+(i+1)+": "+v.title,"Why: "+v.why,"Prompt: "+v.topic+(st.customPrompt?" | Fix: "+st.customPrompt:""),"Check: "+(review?(review.ok?"OK":(review.problems||[]).join("; ")):"off"),"");
+    }
+    await postJSON("/api/save",{folder,filename:"brief.txt",text:report.join("\n")});
+    if(cardRefresh[tpl.id])cardRefresh[tpl.id]();
+    tpLog("✅ Done — "+versions.length+" version(s) in output\\"+folder.replace("/","\\")+". Each one is also in 📁 Saved to open in the editor.","ok");
+  }catch(e){tpLog("✗ "+(e.message||e),"err");}
+  finally{go.disabled=false;}
+}
+document.getElementById("tpGo").addEventListener("click",runTask);
+document.getElementById("tpFiles").addEventListener("change",e=>{const fs=[...e.target.files];e.target.value="";tpAddFiles(fs);});
+document.getElementById("tpCard").addEventListener("paste",e=>{const fs=[...(e.clipboardData&&e.clipboardData.files)||[]].filter(f=>/^image\//.test(f.type));if(fs.length){e.preventDefault();tpAddFiles(fs);}});
+
 // Detect the local server (with a Gemini key) and switch on AI mode.
 function geminiLabel(id){
   const M={'gemini-3-pro-image':'Gemini 3 Pro (sharpest)','gemini-3-pro-image-preview':'Gemini 3 Pro preview','gemini-3.1-flash-image':'Gemini 3.1 Flash','gemini-3.1-flash-image-preview':'Gemini 3.1 Flash preview','gemini-3.1-flash-lite-image':'Gemini 3.1 Flash Lite','gemini-2.5-flash-image':'Gemini 2.5 Flash (softer)'};
@@ -2170,7 +2267,9 @@ Promise.all([
   fetch('/api/models').then(r=>r.json()).catch(()=>null)
 ]).then(([h,m])=>{
   if(!h||!h.ok) return;
-  if(h.hasKey||h.hasOpenAI){ LOCAL.on=true; enableLocalMode(); }
+  if(h.hasKey||h.hasOpenAI){ LOCAL.on=true; enableLocalMode();
+    document.getElementById("taskPanel").hidden=false;
+    if(!h.hasClaude){document.getElementById("tpGo").disabled=true;tpLog("Add ANTHROPIC_API_KEY to the .env file and restart the server to use New task.","warn");} }
   if(!(h.hasKey||h.hasOpenAI)) return;
   const opts=[];
   if(h.hasKey){

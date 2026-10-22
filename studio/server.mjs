@@ -13,6 +13,7 @@ import dotenv from "dotenv";
 // so this app can use its own key while other tools keep theirs.
 dotenv.config({ override: true });
 import express from "express";
+import Anthropic from "@anthropic-ai/sdk";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +42,10 @@ const hasKey = () =>
   !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== "your_key_here";
 const hasOpenAI = () =>
   !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== "your_key_here";
+const hasClaude = () =>
+  !!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY !== "your_key_here";
+// Claude reads task cards, writes the image prompts and checks the finished banners (text + vision only).
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 
 function outputDir() {
   return process.env.OUTPUT_DIR
@@ -300,12 +305,84 @@ async function generateIdeas(topic, negative, description, count) {
   throw new Error("Could not generate ideas: " + (lastErr?.message || "no text model available"));
 }
 
+// --- Claude: task brief + banner review --------------------------------------
+let anthropic = null;
+let claudeFallbacks = true; // turned off for the session once the account turns the option down
+// One JSON answer from Claude, shaped by `schema`. Refusals fall back to another model on the server side.
+async function askClaude({ system, content, schema, effort }) {
+  if (!hasClaude()) throw new Error("No Claude key — add ANTHROPIC_API_KEY to .env and restart.");
+  if (!anthropic) anthropic = new Anthropic();
+  const params = {
+    model: CLAUDE_MODEL,
+    max_tokens: 16000,
+    system,
+    messages: [{ role: "user", content }],
+    output_config: { effort, format: { type: "json_schema", schema } },
+  };
+  let resp;
+  if (claudeFallbacks) {
+    try {
+      resp = await anthropic.beta.messages.create({ ...params, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
+    } catch (err) {
+      // An account that can't use the fallback option yet: same request without it.
+      if (!(err instanceof Anthropic.BadRequestError)) throw err;
+      resp = await anthropic.messages.create(params);
+      claudeFallbacks = false;
+    }
+  } else resp = await anthropic.messages.create(params);
+  if (resp.stop_reason === "refusal") throw new Error("Claude declined this request.");
+  if (resp.stop_reason === "max_tokens") throw new Error("Claude's answer was cut off — try a shorter card.");
+  const text = resp.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  return JSON.parse(text);
+}
+// data:image/...;base64,... -> a Claude image block
+function imageBlock(dataUrl) {
+  const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.*)$/.exec(String(dataUrl || ""));
+  return m ? { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } } : null;
+}
+
+const BRIEF_SYSTEM = [
+  "You are the art director of a small banner studio. A client's task card arrives (pasted text, sometimes with attached images such as the current banner). Turn it into a ready-to-run brief for the studio's banner templates.",
+  "1. Pick the template whose desktop / mobile pixel sizes match the card. Sizes decide; the name is only a hint. If no template matches the sizes, set template_id to \"none\" and say why in template_reason.",
+  "2. texts: fill only the text_fields keys of the chosen template, using the client's exact wording (keep their spelling, punctuation and capitalisation). Split a long promotion line across the template's lines the way a designer would (for example the highlighted phrase in the highlight line). Leave a key out when the card has nothing for it. When the template's text_on_image is false the site writes its own text over the image, so return an empty texts list.",
+  "3. versions: as many as the card asks for (default 2). Each version is a different marketing idea, not a small variation — for example one with a person and one without, or two different messages taken from the client's page (savings, trust, speed, several pets...). Say in why which message it carries.",
+  "4. topic: the image prompt for that version, in English. Describe only the picture — who or what, doing what, where, the light, the mood. The template adds the layout, crop and background rules itself, so never mention banner sizes, text space, sides or crops, and never ask for text, logos or UI words in the image.",
+  "House style for topics: real-looking people with natural skin and a natural smile, shown close enough that faces stay large (chest or waist up, hands visible when they hold something); believable everyday settings; bright, airy, soft daylight; no kitsch, no clutter, no stock-photo poses; screens show a believable app, chart or dashboard, softly blurred so no words are readable. When the template is a transparent cut-out, describe one isolated subject with no background or scene. Follow the style of the template's example_topics.",
+  "If an attached image shows the client's current banner, keep its structure and mood and match its colour world, but bring new ideas.",
+  "5. job_name: 2 to 5 words for a folder name (e.g. Pet Insurance Main Banner). notes: anything the designer must do by hand (a logo to upload, a colour to set, a request the templates cannot do), or an empty string.",
+].join("\n");
+const BRIEF_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["template_id", "template_reason", "job_name", "texts", "versions", "notes"],
+  properties: {
+    template_id: { type: "string" },
+    template_reason: { type: "string" },
+    job_name: { type: "string" },
+    texts: { type: "array", items: { type: "object", additionalProperties: false, required: ["key", "value"],
+      properties: { key: { type: "string" }, value: { type: "string" } } } },
+    versions: { type: "array", items: { type: "object", additionalProperties: false, required: ["title", "why", "topic"],
+      properties: { title: { type: "string" }, why: { type: "string" }, topic: { type: "string" } } } },
+    notes: { type: "string" },
+  },
+};
+const REVIEW_SYSTEM = [
+  "You check finished web banners before they go to the client. You get the desktop and mobile renders of one banner plus its brief.",
+  "Pass it (ok = true) unless something would embarrass the studio: a cropped head or face, a person cut by the frame edge in an ugly place, deformed hands, faces or bodies, a stray wall, door frame or object at the photo's edge that looks like a mistake, two photos visibly stitched together, readable gibberish text or fake logos inside the image, the image covering the text, or text that is hard to read.",
+  "Small taste differences are not problems. Judge only what you can see.",
+  "problems: short plain sentences, empty when ok. prompt_fix: one short English sentence to add to the image prompt so the next try avoids the problems (empty when ok).",
+].join("\n");
+const REVIEW_SCHEMA = {
+  type: "object", additionalProperties: false,
+  required: ["ok", "problems", "prompt_fix"],
+  properties: { ok: { type: "boolean" }, problems: { type: "array", items: { type: "string" } }, prompt_fix: { type: "string" } },
+};
+
 // --- Server -----------------------------------------------------------------
 const app = express();
 app.use(express.json({ limit: "25mb" })); // banners with base64 images are large
 
 app.get("/api/health", (_req, res) =>
-  res.json({ ok: true, hasKey: hasKey(), hasOpenAI: hasOpenAI() })
+  res.json({ ok: true, hasKey: hasKey(), hasOpenAI: hasOpenAI(), hasClaude: hasClaude() })
 );
 
 // Diagnostic: which models does this OpenAI key actually have? (image ones highlighted)
@@ -378,17 +455,58 @@ app.post("/api/ideas", async (req, res) => {
   }
 });
 
+// POST /api/brief  { card, images?: [dataUrl], templates: [...] } -> brief (see BRIEF_SCHEMA)
+app.post("/api/brief", async (req, res) => {
+  try {
+    const card = String(req.body?.card || "").trim();
+    if (!card) return res.status(400).json({ error: "Paste the task card first." });
+    const templates = Array.isArray(req.body?.templates) ? req.body.templates : [];
+    const images = (req.body?.images || []).map(imageBlock).filter(Boolean).slice(0, 6);
+    const content = [
+      ...images,
+      { type: "text", text: "Templates available:\n" + JSON.stringify(templates, null, 1) + "\n\nTask card:\n" + card },
+    ];
+    const brief = await askClaude({ system: BRIEF_SYSTEM, content, schema: BRIEF_SCHEMA, effort: "medium" });
+    console.log(`  ✓ brief: ${brief.template_id} — ${brief.job_name}`);
+    res.json(brief);
+  } catch (err) {
+    console.error("brief failed:", err?.message || err);
+    res.status(500).json({ error: err?.message || "Brief failed." });
+  }
+});
+
+// POST /api/review  { images: [{label, dataUrl}], brief } -> { ok, problems, prompt_fix }
+app.post("/api/review", async (req, res) => {
+  try {
+    const content = [];
+    for (const im of req.body?.images || []) {
+      const b = imageBlock(im?.dataUrl);
+      if (b) content.push({ type: "text", text: String(im.label || "Banner") + ":" }, b);
+    }
+    if (!content.length) return res.status(400).json({ error: "No banner images to review." });
+    content.push({ type: "text", text: "Brief:\n" + JSON.stringify(req.body?.brief || {}, null, 1) });
+    res.json(await askClaude({ system: REVIEW_SYSTEM, content, schema: REVIEW_SCHEMA, effort: "low" }));
+  } catch (err) {
+    console.error("review failed:", err?.message || err);
+    res.status(500).json({ error: err?.message || "Review failed." });
+  }
+});
+
 app.post("/api/save", (req, res) => {
   try {
     const filename = String(req.body?.filename || "").replace(/[^\w.\-]+/g, "_");
     const m = /^data:[^;]+;base64,(.*)$/.exec(String(req.body?.dataUrl || ""));
-    if (!filename || !m) {
+    const text = typeof req.body?.text === "string" ? req.body.text : null;
+    if (!filename || (!m && text === null)) {
       return res.status(400).json({ error: "Missing 'filename' or valid 'dataUrl'." });
     }
-    const dir = outputDir();
+    // Optional subfolder inside the output folder, e.g. "QA/1022 Pet Insurance" (each part cleaned; no "..").
+    const parts = String(req.body?.folder || "").split(/[\\/]+/).map((p) => p.replace(/[^\w .\-]+/g, "_").replace(/^[.\s]+|[.\s]+$/g, "")).filter(Boolean);
+    const dir = path.join(outputDir(), ...parts);
     fs.mkdirSync(dir, { recursive: true });
     const full = path.join(dir, filename);
-    fs.writeFileSync(full, Buffer.from(m[1], "base64"));
+    if (m) fs.writeFileSync(full, Buffer.from(m[1], "base64"));
+    else fs.writeFileSync(full, text, "utf8");
     res.json({ ok: true, path: full });
   } catch (err) {
     console.error("save failed:", err?.message || err);
@@ -439,6 +557,7 @@ app.listen(PORT, () => {
   console.log(`\n  🗂  Banner Studio is running.`);
   console.log(`  Open this in your browser:  http://localhost:${PORT}\n`);
   if (hasKey()) console.log(`  ✓ Gemini active (model: ${MODEL}) — key …${String(process.env.GEMINI_API_KEY).slice(-4)}.`);
+  if (hasClaude()) console.log(`  ✓ Claude active for task cards (model: ${CLAUDE_MODEL}) — key …${String(process.env.ANTHROPIC_API_KEY).slice(-4)}.`);
   if (hasOpenAI()) console.log(`  ✓ GPT active (model: ${OPENAI_MODEL}, quality: ${OPENAI_QUALITY}) — key …${String(process.env.OPENAI_API_KEY).slice(-4)}.`);
   console.log(`  💾 Saved-banner backups: ${backupDir()}`);
   if (hasKey() || hasOpenAI()) {
