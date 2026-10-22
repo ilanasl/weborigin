@@ -31,7 +31,7 @@ export default function CheckExercise({ params }) {
   }
   useEffect(() => { loadHistory() }, [subjectId])
 
-  // שמירת הבדיקה כהיסטוריה (בטבלת materials, kind='check', בלי נושא — לא מופיע ברשימת החומרים)
+  // שמירת הבדיקה כהיסטוריה (בטבלת materials, kind='check') — עם הנושא שהתרגיל עוסק בו
   async function saveCheck(out, theFile) {
     try {
       const { data: u } = await supabase.auth.getUser()
@@ -41,8 +41,11 @@ export default function CheckExercise({ params }) {
         storagePath = `${uid}/check-${Date.now()}`
         await supabase.storage.from('materials').upload(storagePath, theFile).catch(() => {})
       }
+      // משויך לנושא שהתרגיל עוסק בו — כך הוא מופיע תחת הנושא ב"החומרים שהעליתי"
+      const { data: topics } = await supabase.from('topics').select('id, name').eq('subject_id', subjectId)
+      const topicId = await pickTopicId({ subjectId, subjectName, text: [out.exercise, out.feedback].filter(Boolean).join('\n'), topics })
       await supabase.from('materials').insert({
-        subject_id: subjectId, kind: 'check', title: out.exercise || 'תרגיל שנבדק',
+        subject_id: subjectId, topic_id: topicId, kind: 'check', title: out.exercise || 'תרגיל שנבדק',
         storage_path: storagePath, source_text: JSON.stringify(out),
       })
       loadHistory()

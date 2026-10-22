@@ -8,6 +8,20 @@ import { useEffect } from 'react'
 
 let lock = null
 let holders = 0
+// עבודה שממשיכה גם אחרי שיוצאים מהמסך (למשל שמירת חומר) — לא תלויה בחיי המסך
+let background = 0
+const onUnloadBg = (e) => { e.preventDefault(); e.returnValue = '' }
+export function holdWork() {
+  if (background++ === 0) window.addEventListener('beforeunload', onUnloadBg)
+  let done = false
+  return () => {
+    if (done) return
+    done = true
+    if (--background === 0) window.removeEventListener('beforeunload', onUnloadBg)
+  }
+}
+// יש עבודה ארוכה שרצה עכשיו — כדי שעדכון גרסה לא יטען את האפליקציה מחדש באמצע
+export const isWorking = () => holders > 0 || background > 0
 async function awake(on) {
   try {
     if (on && !lock && navigator.wakeLock) {
