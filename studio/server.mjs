@@ -352,15 +352,18 @@ const BRIEF_SYSTEM = [
   "3. versions: as many as the card asks for (default 2). Each version is a different marketing idea, not a small variation — for example one with a person and one without, or two different messages taken from the client's page (savings, trust, speed, several pets...). Say in why which message it carries.",
   "4. topic: the image prompt for that version, in English. Describe only the picture — who or what, doing what, where, the light, the mood. The template adds the layout, crop and background rules itself, so never mention banner sizes, text space, sides or crops, and never ask for text, logos or UI words in the image.",
   "House style for topics: real-looking people with natural skin and a natural smile, shown close enough that faces stay large (chest or waist up, hands visible when they hold something); believable everyday settings; bright, airy, soft daylight; no kitsch, no clutter, no stock-photo poses; screens show a believable app, chart or dashboard, softly blurred so no words are readable. When the template is a transparent cut-out, describe one isolated subject with no background or scene. Follow the style of the template's example_topics.",
+  "Framing: one person (two at most) with the pet or object, shown close — chest or waist up, faces large, the group compact — so it still reads in a narrow photo strip and on mobile. No wide room shots, no groups or crowds, no small figures in a big space. Leave a little space above the heads.",
   "If an attached image shows the client's current banner, keep its structure and mood and match its colour world, but bring new ideas.",
+  "style_name: when the chosen template lists saved_styles, pick the one whose name matches the client's site or domain (exact name from the list); otherwise an empty string.",
   "5. job_name: 2 to 5 words for a folder name (e.g. Pet Insurance Main Banner). notes: anything the designer must do by hand (a logo to upload, a colour to set, a request the templates cannot do), or an empty string.",
 ].join("\n");
 const BRIEF_SCHEMA = {
   type: "object", additionalProperties: false,
-  required: ["template_id", "template_reason", "job_name", "texts", "versions", "notes"],
+  required: ["template_id", "template_reason", "style_name", "job_name", "texts", "versions", "notes"],
   properties: {
     template_id: { type: "string" },
     template_reason: { type: "string" },
+    style_name: { type: "string" },
     job_name: { type: "string" },
     texts: { type: "array", items: { type: "object", additionalProperties: false, required: ["key", "value"],
       properties: { key: { type: "string" }, value: { type: "string" } } } },
@@ -371,7 +374,7 @@ const BRIEF_SCHEMA = {
 };
 const REVIEW_SYSTEM = [
   "You check finished web banners before they go to the client. You get the desktop and mobile renders of one banner plus its brief.",
-  "Pass it (ok = true) unless something would embarrass the studio: a cropped head or face, a person cut by the frame edge in an ugly place, deformed hands, faces or bodies, a stray wall, door frame or object at the photo's edge that looks like a mistake, two photos visibly stitched together, readable gibberish text or fake logos inside the image, the image covering the text, or text that is hard to read.",
+  "Pass it (ok = true) unless something would embarrass the studio: a cropped head or face, a head touching the top edge, people or pets so small in the photo that faces are hard to see (they should fill most of the photo's height), more than three people crowding the picture, a visible hard edge or colour jump where the plain colour area meets the photo, a person cut by the frame edge in an ugly place, deformed hands, faces or bodies, a stray wall, door frame or object at the photo's edge that looks like a mistake, two photos visibly stitched together, readable gibberish text or fake logos inside the image, the image covering the text, or text that is hard to read.",
   "Small taste differences are not problems. Judge only what you can see.",
   "problems: short plain sentences, empty when ok. prompt_fix: one short English sentence to add to the image prompt so the next try avoids the problems (empty when ok).",
 ].join("\n");

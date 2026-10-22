@@ -2195,7 +2195,23 @@ function templateCatalog(){return TEMPLATES.filter(t=>!t.hidden).map(t=>({id:t.i
   desktop:t.sizes.desktop.w+"x"+t.sizes.desktop.h,mobile:t.desktopOnly?null:t.sizes.mobile.w+"x"+t.sizes.mobile.h,
   text_on_image:textOnImage(t),text_fields:textOnImage(t)?t.elements.filter(e=>!e.splitOnly).map(e=>({key:e.key,label:e.label||e.key,example:e.val})):[],
   transparent_cutout:!!(t.defaultTransparent&&t.transparentOK),isolated_object:!!t.isolatedObject,
-  layout:String(t.composition||"").slice(0,500),example_topics:(STARTERS[t.id]||[]).slice(0,3).map(s=>s.topic)}));}
+  layout:String(t.composition||"").slice(0,500),example_topics:(STARTERS[t.id]||[]).slice(0,3).map(s=>s.topic),
+  saved_styles:stylesFor(t.id).map(x=>x.name)}));}
+// Photo-beside-colour banners: take the background colour from the photo where it meets the colour area,
+// so the join is seamless (kept light, so the site's dark text stays readable).
+function matchJoinColour(tpl,st){const o=st.over;if(!tpl.imageBox||!st.img||!o)return null;
+  const probe=JSON.parse(JSON.stringify(o));probe.seamBlur=0;probe.seamBlurBy=null;
+  ["desktop","mobile"].forEach(z=>{if(probe.overlay&&probe.overlay[z])probe.overlay[z].opacity=0;if(probe.overlay2&&probe.overlay2[z])probe.overlay2[z].opacity=0;});
+  const c=renderBanner(tpl,"desktop",st.img,{},false,null,null,probe,st.tint,null),b=imageBoxFor(tpl,"desktop",o);
+  const x0=Math.round(c.width*Math.min(0.95,(b.x+1)/100)),w=Math.max(4,Math.round(c.width*0.04));
+  const d=c.getContext("2d").getImageData(x0,0,Math.min(w,c.width-x0),c.height).data;let r=0,g=0,bl=0,n=0;
+  for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];bl+=d[i+2];n++;}if(!n)return null;
+  let hex="#"+[r,g,bl].map(v=>Math.round(v/n).toString(16).padStart(2,"0")).join("");
+  const L=hexLum(hex);if(L<0.86)hex=mixHex(hex,"#ffffff",Math.min(0.85,(0.86-L)/(1-L)+0.08));
+  const m=o.bgModes&&o.bgModes[o.bgMode||"side"];if(m){m.src="custom";m.color=hex;m.bg=hex;}
+  o.panelColor=hex;o.panelTop=hex;
+  ["desktop","mobile"].forEach(z=>{if(o.overlay&&o.overlay[z])Object.assign(o.overlay[z],{color:hex,auto:false,autoLogo:false,userColor:true});});
+  return hex;}
 async function postJSON(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j;}
 async function runTask(){
   const card=document.getElementById("tpCard").value.trim();const go=document.getElementById("tpGo");
@@ -2213,6 +2229,9 @@ async function runTask(){
     const st=state[tpl.id];
     if(tpl.logo&&!st.logoImg)tpLog("📝 No logo on the "+tpl.name+" card yet — banners are made without it.","warn");
     if(st.uploaded)await autoSaveBanner(tpl,st); // what was on the card stays in 📁 Saved
+    {const pick=stylesFor(tpl.id).find(x=>brief.style_name&&x.name===brief.style_name)||defaultStyle(tpl.id);
+      if(pick){applyStyleTo(tpl,st.over,pick);tpLog("🎛 Style: "+pick.name+(pick.isDefault&&pick.name!==brief.style_name?" (default)":""));}
+      else tpLog("🎛 No saved style for "+tpl.name+" — using the card's current settings. Save one from a banner you approved (Style → Save style).","warn");}
     if(textOnImage(tpl)){const keys=new Set(tpl.elements.map(e=>e.key)),texts=Object.assign({},st.text.texts);
       for(const t of brief.texts||[])if(keys.has(t.key))texts[t.key]=t.value;st.text={enabled:true,texts};}
     else st.text={enabled:false,texts:Object.assign({},st.text.texts)};
@@ -2230,6 +2249,7 @@ async function runTask(){
       for(let attempt=1;attempt<=3;attempt++){
         tpLog("   generating"+(attempt>1?" again ("+attempt+"/3)":"")+"…");
         await aiGenerate(tpl,st);
+        {const col=matchJoinColour(tpl,st);if(col)tpLog("   colour from the photo: "+col.toUpperCase());}
         if(!doReview)break;
         const shots=sizes.map(sz=>({label:sz==="desktop"?"Desktop":"Mobile",dataUrl:jpegOf(renderBanner(tpl,sz,st.img,st.text.texts,showText,st.logoImg,st.accent,st.over,st.tint,st.img2),1568)}));
         review=await postJSON("/api/review",{images:shots,brief:{template:tpl.name,idea:v.title,why:v.why,texts:brief.texts}});
