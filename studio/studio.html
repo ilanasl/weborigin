@@ -2071,8 +2071,8 @@ async function saveBlob(blob,name){
 }
 
 /* ---- Saved banners bank (IndexedDB) — BankDB + cardRefresh are declared earlier (before the card loop) to avoid the temporal-dead-zone crash ---- */
-function snapRecord(tpl,st,id,snapshot){return {id,tpl:tpl.id,tplName:tpl.name,snapshot,when:Date.now(),
-  name:(st.topic||"").trim()||tpl.name, topic:st.topic||"", customPrompt:st.customPrompt||"",
+function snapRecord(tpl,st,id,snapshot,name){return {id,tpl:tpl.id,tplName:tpl.name,snapshot,when:Date.now(),
+  name:name||(st.topic||"").trim()||tpl.name, topic:st.topic||"", customPrompt:st.customPrompt||"",
   uploaded:st.uploaded||null, uploaded2:st.uploaded2||null, logo:st.logo||null,
   over:JSON.parse(JSON.stringify(st.over||{})), text:JSON.parse(JSON.stringify(st.text||{enabled:false,texts:{}}))};}
 // Folder backup via the local server (auto — so you never forget; restores anywhere).
@@ -2080,7 +2080,7 @@ function backupPut(rec){ if(!rec) return; try{fetch("/api/bank/put",{method:"POS
 function backupDel(id){ if(!id) return; try{fetch("/api/bank/del",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})}).catch(()=>{});}catch(_){}}
 async function syncFromBackup(){ try{const r=await fetch("/api/bank/all");if(!r.ok)return 0;const j=await r.json();const recs=(j&&j.records)||[];for(const rec of recs){if(rec&&rec.id){try{await BankDB.put(rec);}catch(_){}}}return recs.length;}catch(_){return 0;}}
 async function autoSaveBanner(tpl,st){ if(!st.uploaded) return; const rec=snapRecord(tpl,st,"auto:"+tpl.id,false); try{await BankDB.put(rec);}catch(_){} backupPut(rec); }
-async function saveSnapshot(tpl,st){ if(!st.uploaded){alert("Generate or upload an image for this banner first.");return null;} const rec=snapRecord(tpl,st,"snap:"+Date.now()+":"+tpl.id,true); try{await BankDB.put(rec);}catch(_){return null;} backupPut(rec); return rec.id; }
+async function saveSnapshot(tpl,st,name){ if(!st.uploaded){alert("Generate or upload an image for this banner first.");return null;} const rec=snapRecord(tpl,st,"snap:"+Date.now()+":"+tpl.id,true,name); try{await BankDB.put(rec);}catch(_){return null;} backupPut(rec); return rec.id; }
 async function forgetAuto(tpl){ try{await BankDB.del("auto:"+tpl.id);}catch(_){} backupDel("auto:"+tpl.id); }
 async function restoreRecord(rec){
   const tpl=TEMPLATES.find(t=>t.id===rec.tpl); if(!tpl||!rec.uploaded) return null;
@@ -2275,7 +2275,7 @@ async function runTask(){
         const {blob,fmt:used}=await encodeCapped(cv,fmt,kb);
         await postJSON("/api/save",{folder,filename:(tpl.fileName||tpl.id)+"-v"+(i+1)+"-"+sz+"."+extOf(used),dataUrl:await blobToDataUrl(blob)});
       }
-      await saveSnapshot(tpl,st); // reload any version into the editor from 📁 Saved
+      await saveSnapshot(tpl,st,"🤖 "+folder.replace(/^QA\//,"")+" — v"+(i+1)+": "+v.title); // reload any version into the editor from 📁 Saved
       const flagged=review&&!review.ok;
       tpLog("   💾 saved v"+(i+1)+(flagged?" — still flagged, check it":""),flagged?"warn":"ok");
       report.push("Version "+(i+1)+": "+v.title,"Why: "+v.why,"Prompt: "+v.topic+(st.customPrompt?" | Fix: "+st.customPrompt:""),"Check: "+(review?(review.ok?"OK":(review.problems||[]).join("; ")):"off"),"");
