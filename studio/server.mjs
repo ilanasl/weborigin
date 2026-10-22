@@ -371,15 +371,28 @@ const BRIEF_SCHEMA = {
   },
 };
 const REVIEW_SYSTEM = [
-  "You check finished web banners before they go to the client. You get the desktop and mobile renders of one banner plus its brief.",
-  "Pass it (ok = true) unless something would embarrass the studio: a cropped head or face, a head touching the top edge, people or pets so small in the photo that faces are hard to see (they should fill most of the photo's height), more than three people crowding the picture, a visible hard edge or colour jump where the plain colour area meets the photo, a person cut by the frame edge in an ugly place, deformed hands, faces or bodies, a stray wall, door frame or object at the photo's edge that looks like a mistake, two photos visibly stitched together, readable gibberish text or fake logos inside the image, the image covering the text, or text that is hard to read.",
-  "Small taste differences are not problems. Judge only what you can see.",
-  "problems: short plain sentences, empty when ok. prompt_fix: one short English sentence to add to the image prompt so the next try avoids the problems (empty when ok).",
+  "You check finished web banners before they go to the client. You get the desktop and mobile renders of one banner, its brief, and the photo's current layout.",
+  "Pass it (ok = true) unless something would embarrass the studio: part of a head or face cut off, people or pets so small that faces are hard to see (they should fill most of the photo's height), more than three people crowding the picture, a visible hard edge or colour jump where the plain colour area meets the photo, deformed hands, faces or bodies, a stray wall, door frame or object at the photo's edge that looks like a mistake, two photos visibly stitched together, readable gibberish text or fake logos inside the image, the image covering the text, or text that is hard to read.",
+  "These are fine and must NOT fail a banner (the studio approves them): hair touching the top edge, a body, shoulder or arm cut by the frame edge, a pet partly out of frame, a close tight crop. Small taste differences are not problems. Judge only what you can see.",
+  "Fix with the layout first — it costs nothing, a new image costs money. layout lists, per size, zoom (1 = the photo just fills its area; up to 1.8), x and y (0-100: which part of the photo shows when it is larger than its area — y 0 shows the top of the photo, 100 the bottom; x 0 the left, 100 the right) and room (how much of the photo is hidden beyond the area, in % of the area's width and height: you can only move in a direction where there is room, or after raising zoom, which also crops more).",
+  "When moving or zooming can fix every problem, set layout_fix.possible = true with the new zoom, x and y for both sizes (repeat the current values for a size that is fine) and needs_new_image = false. When only a new picture can fix it (for example a head already cut in the original photo, or a deformed hand), set needs_new_image = true and write prompt_fix.",
+  "problems: short plain sentences, empty when ok. prompt_fix: one short English sentence to add to the image prompt so a new picture avoids the problems (empty when not needed).",
 ].join("\n");
+const LAYOUT_SIZE = {
+  type: "object", additionalProperties: false, required: ["zoom", "x", "y"],
+  properties: { zoom: { type: "number" }, x: { type: "number" }, y: { type: "number" } },
+};
 const REVIEW_SCHEMA = {
   type: "object", additionalProperties: false,
-  required: ["ok", "problems", "prompt_fix"],
-  properties: { ok: { type: "boolean" }, problems: { type: "array", items: { type: "string" } }, prompt_fix: { type: "string" } },
+  required: ["ok", "problems", "layout_fix", "needs_new_image", "prompt_fix"],
+  properties: {
+    ok: { type: "boolean" },
+    problems: { type: "array", items: { type: "string" } },
+    layout_fix: { type: "object", additionalProperties: false, required: ["possible", "desktop", "mobile"],
+      properties: { possible: { type: "boolean" }, desktop: LAYOUT_SIZE, mobile: LAYOUT_SIZE } },
+    needs_new_image: { type: "boolean" },
+    prompt_fix: { type: "string" },
+  },
 };
 
 // --- Server -----------------------------------------------------------------
@@ -489,7 +502,8 @@ app.post("/api/review", async (req, res) => {
       if (b) content.push({ type: "text", text: String(im.label || "Banner") + ":" }, b);
     }
     if (!content.length) return res.status(400).json({ error: "No banner images to review." });
-    content.push({ type: "text", text: "Brief:\n" + JSON.stringify(req.body?.brief || {}, null, 1) });
+    content.push({ type: "text", text: "Brief:\n" + JSON.stringify(req.body?.brief || {}, null, 1) +
+      "\n\nCurrent photo layout:\n" + (req.body?.layout ? JSON.stringify(req.body.layout, null, 1) : "fixed — this template cannot be moved or zoomed here; use needs_new_image for anything that needs fixing") });
     res.json(await askClaude({ system: REVIEW_SYSTEM, content, schema: REVIEW_SCHEMA, effort: "low" }));
   } catch (err) {
     console.error("review failed:", err?.message || err);

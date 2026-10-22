@@ -2204,6 +2204,7 @@ async function tpAddFiles(files){for(const f of files){if(f&&/^image\//.test(f.t
 // Any picture -> a JPEG no larger than `max` px (keeps the Claude requests small).
 function jpegOf(src,max){const W=src.naturalWidth||src.width,H=src.naturalHeight||src.height,k=Math.min(1,max/Math.max(W,H));const c=document.createElement("canvas");c.width=Math.max(1,Math.round(W*k));c.height=Math.max(1,Math.round(H*k));const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(src,0,0,c.width,c.height);return c.toDataURL("image/jpeg",0.85);}
 const textOnImage=t=>!t.textOptional||!!t.textDefaultOn;
+const HEADROOM="Leave clear empty space above the heads, about a sixth of the frame height.";
 // What Claude needs to know about each template to pick one and fill it.
 function templateCatalog(){return TEMPLATES.filter(t=>!t.hidden).map(t=>({id:t.id,name:t.name,
   desktop:t.sizes.desktop.w+"x"+t.sizes.desktop.h,mobile:t.desktopOnly?null:t.sizes.mobile.w+"x"+t.sizes.mobile.h,
@@ -2220,11 +2221,21 @@ function matchJoinColour(tpl,st){const o=st.over;if(!tpl.imageBox||!st.img||!o)r
   const d=c.getContext("2d").getImageData(x0,0,Math.min(w,c.width-x0),c.height).data;let r=0,g=0,bl=0,n=0;
   for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];bl+=d[i+2];n++;}if(!n)return null;
   let hex="#"+[r,g,bl].map(v=>Math.round(v/n).toString(16).padStart(2,"0")).join("");
-  const L=hexLum(hex);if(L<0.86)hex=mixHex(hex,"#ffffff",Math.min(0.85,(0.86-L)/(1-L)+0.08));
+  const L=hexLum(hex);if(L<0.9)hex=mixHex(hex,"#ffffff",Math.min(0.85,(0.9-L)/(1-L)+0.08));
   const m=o.bgModes&&o.bgModes[o.bgMode||"side"];if(m){m.src="custom";m.color=hex;m.bg=hex;}
   o.panelColor=hex;o.panelTop=hex;
   ["desktop","mobile"].forEach(z=>{if(o.overlay&&o.overlay[z])Object.assign(o.overlay[z],{color:hex,auto:false,autoLogo:false,userColor:true});});
   return hex;}
+// The photo's position / zoom per size, and how much of it is hidden beyond its area (what a move can still reveal).
+function photoLayout(tpl,st){if(!tpl.imageBox||!st.img)return null;const o=st.over,out={};
+  for(const sz of (tpl.desktopOnly?["desktop"]:["desktop","mobile"])){const d=tpl.sizes[sz],b=imageBoxFor(tpl,sz,o),bw=d.w*b.w/100,bh=d.h*b.h/100,z=zoomFor(o,sz);
+    const k=Math.max(bw/st.img.naturalWidth,bh/st.img.naturalHeight)*z;
+    out[sz]={zoom:+z.toFixed(2),x:Math.round(o.anchorX[sz]),y:Math.round(Math.min(100,o.anchorY[sz])),
+      room:{width_pct:Math.round((st.img.naturalWidth*k-bw)/bw*100),height_pct:Math.round((st.img.naturalHeight*k-bh)/bh*100)}};}
+  return out;}
+function applyLayoutFix(tpl,st,fix){const o=st.over,c=(v,a,b)=>Math.max(a,Math.min(b,+v||0));
+  for(const sz of (tpl.desktopOnly?["desktop"]:["desktop","mobile"])){const f=fix&&fix[sz];if(!f)continue;
+    if(!o.zoomBy)o.zoomBy={};o.zoomBy[sz]=c(f.zoom,1,1.8);o.anchorX[sz]=c(f.x,0,100);o.anchorY[sz]=c(f.y,0,100);}}
 async function postJSON(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j;}
 async function runTask(){
   const card=document.getElementById("tpCard").value.trim();const go=document.getElementById("tpGo");
@@ -2258,17 +2269,26 @@ async function runTask(){
     const versions=(brief.versions||[]).slice(0,4);
     for(let i=0;i<versions.length;i++){const v=versions[i];let review=null;
       tpLog("🎨 Version "+(i+1)+": "+v.title+" — "+v.why);
-      st.topic=v.topic;st.customPrompt="";
+      st.topic=v.topic;st.customPrompt=HEADROOM;
+      const startLayout=JSON.stringify({x:st.over.anchorX,y:st.over.anchorY,z:st.over.zoomBy||null});
       for(let attempt=1;attempt<=3;attempt++){
-        tpLog("   generating"+(attempt>1?" again ("+attempt+"/3)":"")+"…");
+        tpLog("   generating"+(attempt>1?" a new image ("+attempt+"/3)":"")+"…");
+        {const L=JSON.parse(startLayout);st.over.anchorX=L.x;st.over.anchorY=L.y;st.over.zoomBy=L.z;} // a new image starts from the style's layout
         await aiGenerate(tpl,st);
         {const col=matchJoinColour(tpl,st);if(col)tpLog("   colour from the photo: "+col.toUpperCase());}
         if(!doReview)break;
-        const shots=sizes.map(sz=>({label:sz==="desktop"?"Desktop":"Mobile",dataUrl:jpegOf(renderBanner(tpl,sz,st.img,st.text.texts,showText,st.logoImg,st.accent,st.over,st.tint,st.img2),1568)}));
-        review=await postJSON("/api/review",{images:shots,brief:{template:tpl.name,idea:v.title,why:v.why,texts:brief.texts}});
+        let moves=0;
+        for(;;){
+          const shots=sizes.map(sz=>({label:sz==="desktop"?"Desktop":"Mobile",dataUrl:jpegOf(renderBanner(tpl,sz,st.img,st.text.texts,showText,st.logoImg,st.accent,st.over,st.tint,st.img2),1568)}));
+          review=await postJSON("/api/review",{images:shots,brief:{template:tpl.name,idea:v.title,why:v.why,texts:brief.texts},layout:photoLayout(tpl,st)});
+          if(review.ok)break;
+          tpLog("   ⚠ "+(review.problems||[]).join(" · "),"warn");
+          // Moving / zooming is free — try it (twice at most) before paying for a new image.
+          if(tpl.imageBox&&review.layout_fix&&review.layout_fix.possible&&!review.needs_new_image&&moves<2){moves++;applyLayoutFix(tpl,st,review.layout_fix);tpLog("   ↔ adjusting position / zoom ("+moves+"/2)…");continue;}
+          break;
+        }
         if(review.ok){tpLog("   ✓ checked — looks good","ok");break;}
-        tpLog("   ⚠ "+(review.problems||[]).join(" · "),"warn");
-        if(attempt<3&&review.prompt_fix)st.customPrompt=review.prompt_fix;
+        if(attempt<3)st.customPrompt=HEADROOM+(review.prompt_fix?" "+review.prompt_fix:"");
       }
       for(const sz of sizes){
         const cv=renderForExport(tpl,sz,st.img,st.text.enabled?st.text.texts:{},showText,st.logoImg,st.accent,st.over,st.tint,st.img2);
