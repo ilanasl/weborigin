@@ -6,6 +6,15 @@ import Calculator, { calcMemory } from './Calculator'
 import { makeExercise, toQuestion, difficultyOf, levelOf, bumpLevel, parsePoly } from '../lib/mathDrill'
 
 const num = (s) => Number(String(s).trim().replace(/[−–]/g, '-').replace(/\s/g, ''))
+// תשובה שיכולה להיות לא שלמה: שבר (27/2 או 27:2) או עשרוני. עשרוני מעוגל מתקבל אם יש בו לפחות 2 ספרות אחרי הנקודה
+function fracOk(raw, ans) {
+  const t = String(raw).trim().replace(/[−–]/g, '-').replace(/\s/g, '').replace(':', '/')
+  const m = /^(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)$/.exec(t)
+  const v = m ? Number(m[1]) / Number(m[2]) : Number(t)
+  if (!Number.isFinite(v)) return false
+  if (Math.abs(v - ans) < 1e-9) return true
+  return !m && (t.split('.')[1] || '').length >= 2 && Math.abs(v - ans) < 0.006
+}
 // מספרים בתוך משפט בעברית — כיוון משמאל לימין, שהמינוס לא יקפוץ
 const ltrNums = (t) => t.replace(/\(?−?\d+°?\)?/g, (m) => `<bdi dir="ltr">${m}</bdi>`)
 // ה-HTML נבנה בקוד שלנו בלבד (mathDrill) — לא מתוכן שהמשתמש או ה-AI כתבו
@@ -74,7 +83,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
       if (!wrong && !examMode) { setWrong([false]); return }
       setWrong([false]); finish(false); return
     }
-    const ok = ex.fields.map((f, i) => num(vals[i] ?? '') === f.ans)
+    const ok = ex.fields.map((f, i) => (f.frac ? fracOk(vals[i] ?? '', f.ans) : num(vals[i] ?? '') === f.ans))
     if (ok.every(Boolean)) { setWrong(null); finish(true); return }
     if (!wrong && !examMode) { setWrong(ok); return }   // ניסיון ראשון — אפשר לתקן (לא בסימולציה)
     setWrong(ok); finish(false)
@@ -158,7 +167,7 @@ export default function DrillExercise({ subjectId, item, topicName, examMode, on
           {withWork && done === null && (
             // מקלדת בעברית — האות, החזקה, הסימנים והסוגריים בלחיצה אחת, בשורה שבה נמצא הסמן
             <div className="md-keys">
-              {(poly ? [ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='] : ['x', '+', '−', '·', ':', '(', ')', '=']).map((k) => (
+              {(poly ? [ex.fields[0].v, '²', '+', '−', '·', '(', ')', '='] : (ex.fields[0].frac ? ['x', '+', '−', '·', ':', '/', '.', '(', ')', '='] : ['x', '+', '−', '·', ':', '(', ')', '='])).map((k) => (
                 <button key={k} type="button" className="md-key" onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     const isWork = target.current === 'work', fi = isWork ? 0 : target.current

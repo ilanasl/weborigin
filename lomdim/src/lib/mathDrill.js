@@ -165,27 +165,33 @@ function splitSVG(a1, a2, d){
 
 /* ---------- 2. expanding brackets ---------- */
 function genExpand(lv){
-  let a=1, c=1, b, d, tail = 0
+  let a=1, c=1, b, d, t2 = 0, t1 = 0, t0 = 0
   const v = lv === 1 ? 'x' : pick(['x','x','a','b','y'])
   do {
-    a = 1; c = 1; tail = 0
+    a = 1; c = 1; t2 = 0; t1 = 0; t0 = 0
     if(lv === 1){ b = R(1,9); d = R(1,9); }
     else if(lv === 2){ b = R(1,9); d = -R(1,9); }
-    else if(Math.random() < .35){ b = R(1,7); d = -R(1,7); tail = pick([-1,1])*R(1,6); }  // like (x+2)(x−6)+3x
+    else if(Math.random() < .45){
+      // "זנב" אחרי הסוגריים, כמו במצגת: (x+2)(x+1) + 2x + 15 · (2x+7)(x+2) − 3x + 18 + x²
+      a = pick([1,1,2]); b = pick([-1,1])*R(1,8); d = pick([-1,1])*R(1,8)
+      t1 = pick([-1,1])*R(1,6); t0 = pick([0, pick([-1,1])*R(1,20)]); t2 = pick([0,0,1,-1])
+    }
     else { a = R(1,3); c = R(2,4); b = pick([-1,1])*R(1,7); d = pick([-1,1])*R(1,7); }
-  } while(a*d + b*c === 0 || a*d + b*c + tail === 0)
-  const A = a*c, B = a*d + b*c + tail, C = b*d
-  const tl = tail ? scx(tail,v) : ''
+  } while(a*d + b*c === 0 || a*d + b*c + t1 === 0 || a*c + t2 === 0)
+  const A = a*c + t2, B = a*d + b*c + t1, C = b*d + t0
+  // הזנב בסדר שבמצגת: x, מספר, ואז x²
+  const tl = (t1 ? scx(t1,v) : '') + (t0 ? sgn(t0) : '') + (t2 ? (t2 > 0 ? ' + ' : ' − ') + sq(v) : '')
   const steps = [
     ['כל איבר בסוגריים הראשונים כפול כל איבר בשניים',
       `${cx(a,v)}·${cx(c,v)} ${d<0?'−':'+'} ${cx(a,v)}·${Math.abs(d)} ${b<0?'−':'+'} ${Math.abs(b)}·${cx(c,v)} ${(b<0)!==(d<0)?'−':'+'} ${Math.abs(b)}·${Math.abs(d)}${tl}`],
-    [`מכפילים: ${v}·${v} = ${v}²`, `${quad(A,0,0,v)}${scx(a*d,v)}${scx(b*c,v)}${sgn(C)}${tl}`],
-    ['מכנסים איברים דומים', quad(A,B,C,v), true],
+    [`מכפילים: ${v}·${v} = ${v}²`, `${quad(a*c,0,0,v)}${scx(a*d,v)}${scx(b*c,v)}${sgn(b*d)}${tl}`],
+    [tl ? `מכנסים איברים דומים: ה-${v}² יחד, ה-${v} יחד והמספרים יחד` : 'מכנסים איברים דומים', quad(A,B,C,v), true],
   ]
   const right = quad(A,B,C,v), wrongs = []
-  for (const [x2, x1, x0] of [[A,-B,C],[A,B,-C],[A,-B,-C],[A,a*d-b*c+tail,C],[A,B,C+b+d],[A,B+2,C]]) {
+  for (const [x2, x1, x0] of [[A,-B,C],[A,B,-C],[A,-B,-C],[A,a*d-b*c+t1,C],[A - t2,B,C],[A,B,C+b+d],[A,B+2,C]]) {
+    if (!x2) continue
     const w = quad(x2,x1,x0,v)
-    if (x1 && w !== right && !wrongs.includes(w) && wrongs.length < 3) wrongs.push(w)
+    if (w !== right && !wrongs.includes(w) && wrongs.length < 3) wrongs.push(w)
   }
   const math = `(${lin(a,b,v)})(${lin(c,d,v)})${tl}`
   return { type:'expand', tag:'אלגברה', title:'פילוג מורחב', mc: { q: `פתחו את הסוגריים וכנסו: ${iso(math)}`, right, wrongs },
@@ -198,7 +204,8 @@ function genExpand(lv){
 const P = (b,n) => `${b}<sup>${n}</sup>`
 const frac = (t,b) => `<span class="frac"><span>${t}</span><span>${b}</span></span>`
 function genPow(lv){
-  const k = pick(lv === 1 ? ['val','val','r1'] : lv === 2 ? ['r1','r2','r3','tf'] : ['r1','r2','r3','mix','tf','tf'])
+  const k = pick(lv === 1 ? ['val','val','r1'] : lv === 2 ? ['r1','r2','r3','tf','multi','signed']
+    : ['r1','r2','r3','mix','tf','multi','frac2','coef','signed'])
   const out = (title, math, ask, fields, steps, kind, mc) => ({ type:'pow', tag:'חזקות', title, math, ask, fields, steps, kind, mc })
   const expMc = (left, b, ans, prefer) => ({ q: `${iso(left)} = ?`, right: P(b,ans), wrongs: others(ans, prefer, 0).map(n => P(b,n)) })
   if(k === 'val'){
@@ -230,6 +237,70 @@ function genPow(lv){
     return out('חוק 3 — חזקה של חזקה', `(${P(b,m)})<sup>${n}</sup> = ${P(b,'?')}`, 'מה המעריך?', [{pre:String(b), ans:m*n, sup:true}], [
       ['חוק 3: חזקה של חזקה — כופלים את המעריכים', P(b, m+'·'+n)], ['התשובה', P(b,m*n), true]], undefined,
       expMc(`(${P(b,m)})<sup>${n}</sup>`, b, m*n, [m+n, m*n+n]))
+  }
+  if(k === 'signed'){
+    // בסיס שלילי או שבר — כל הבסיס (בסוגריים) נשאר, רק המעריכים משתנים
+    const b = pick(['(−2)','(−3)','(−5)',`(${frac(1,2)})`,`(${frac(2,3)})`]), mul = Math.random() < 0.6
+    const m = R(2,8), n = R(2,7), ans = mul ? m + n : m + n - n
+    if (mul) return out('חוק 1 — כפל חזקות', `${P(b,m)} · ${P(b,n)} = ${P(b,'?')}`, 'מה המעריך?', [{pre:b, ans:m+n, sup:true}], [
+      ['הבסיס הוא כל מה שבתוך הסוגריים — הוא לא משתנה', b],
+      ['חוק 1: כפל, אותו בסיס — מחברים את המעריכים', P(b, m+'+'+n)], ['התשובה', P(b,m+n), true]], undefined,
+      expMc(`${P(b,m)} · ${P(b,n)}`, b, m+n, [m*n, m+n-1]))
+    const top = m + n
+    return out('חוק 2 — חילוק חזקות', frac(P(b,top),P(b,n)) + ' = ' + P(b,'?'), 'מה המעריך?', [{pre:b, ans, sup:true}], [
+      ['הבסיס הוא כל מה שבתוך הסוגריים — הוא לא משתנה', b],
+      ['חוק 2: חילוק, אותו בסיס — מחסרים את המעריכים', P(b, top+'−'+n)], ['התשובה', P(b,ans), true]], undefined,
+      expMc(frac(P(b,top),P(b,n)), b, ans, [top+n, ans+1]))
+  }
+  if(k === 'multi' || k === 'frac2'){
+    // שני בסיסים שונים בתרגיל אחד — כל בסיס מחשבים לחוד (a²·a³·b²·b⁵ = a⁵b⁷)
+    const [b1, b2] = pick([['a','b'],['x','y'],['a','b'],[2,3],[7,3],[2,5]])
+    const f = (b, e) => (e === 1 ? String(b) : P(b, e))
+    const parts = (n, lo, hi) => Array.from({ length: n }, () => R(lo, hi))
+    if (k === 'multi') {
+      const e1 = parts(R(1,3), 1, 6), e2 = parts(R(1,2), 1, 6)
+      if (e1.length + e2.length < 3) e1.push(R(1,5))
+      const fac = [...e1.map((e) => [b1, e]), ...e2.map((e) => [b2, e])].sort(() => Math.random() - 0.5)
+      const s1 = e1.reduce((p,q)=>p+q,0), s2 = e2.reduce((p,q)=>p+q,0)
+      const left = fac.map(([b, e]) => f(b, e)).join(' · ')
+      return out('כפל חזקות — שני בסיסים', left, 'מקבצים לפי בסיס. מה המעריכים?',
+        [{pre:String(b1), ans:s1, sup:true}, {pre:'· ' + b2, ans:s2, sup:true}], [
+          ['כל בסיס לחוד: מחברים את המעריכים שלו (בסיס בלי מעריך = חזקת 1)', `${P(b1, e1.join('+'))} · ${P(b2, e2.join('+'))}`],
+          ['התשובה', `${P(b1,s1)} · ${P(b2,s2)}`, true]], undefined,
+        { q: `כתבו בכתיב חזקות: ${iso(left)}`, right: `${P(b1,s1)} · ${P(b2,s2)}`,
+          wrongs: [`${P(b1,s2)} · ${P(b2,s1)}`, `${P(b1,s1+1)} · ${P(b2,s2)}`, `${P(b1,s1)} · ${P(b2,s2+1)}`, `${P(b1,s1+s2)}`] })
+    }
+    // שבר: במונה ובמכנה כמה גורמים — בכל בסיס מחברים במונה, מחברים במכנה ומחסרים
+    const d1 = parts(R(1,2), 1, 3), d2 = parts(R(1,2), 1, 3)
+    const sd1 = d1.reduce((p,q)=>p+q,0), sd2 = d2.reduce((p,q)=>p+q,0)
+    const r1 = R(1,4), r2 = R(1,4)
+    const split = (tot) => { const a = R(1, tot - 1 || 1); return tot > 1 && Math.random() < 0.6 ? [a, tot - a] : [tot] }
+    const n1 = split(sd1 + r1), n2 = split(sd2 + r2)
+    const num = [...n1.map((e) => [b1, e]), ...n2.map((e) => [b2, e])].sort(() => Math.random() - 0.5)
+    const den = [...d1.map((e) => [b1, e]), ...d2.map((e) => [b2, e])].sort(() => Math.random() - 0.5)
+    const show = (arr) => arr.map(([b, e]) => f(b, e)).join(' · ')
+    const left = frac(show(num), show(den))
+    return out('כפל וחילוק — שני בסיסים', left, 'כתבו בכתיב חזקות. מה המעריכים?',
+      [{pre:String(b1), ans:r1, sup:true}, {pre:'· ' + b2, ans:r2, sup:true}], [
+        [`הבסיס ${b1}: מחברים במונה, מחברים במכנה, ומחסרים`, `(${n1.join('+')}) − (${d1.join('+')}) = ${r1}`],
+        [`הבסיס ${b2}: אותו דבר`, `(${n2.join('+')}) − (${d2.join('+')}) = ${r2}`],
+        ['התשובה', `${P(b1,r1)} · ${P(b2,r2)}`, true]], undefined,
+      { q: `כתבו בכתיב חזקות: ${iso(left)}`, right: `${P(b1,r1)} · ${P(b2,r2)}`,
+        wrongs: [`${P(b1,r1+sd1*2)} · ${P(b2,r2)}`, `${P(b1,r2)} · ${P(b2,r1)}`, `${P(b1,r1+1)} · ${P(b2,r2+1)}`] })
+  }
+  if(k === 'coef'){
+    // מספר ליד החזקה: מחלקים את המספרים, ומחסרים מעריכים (14b²·b⁵ : 2b³·b = 7b³)
+    const b = pick(['a','b','x','y']), cd = R(2,5), q = R(2,9), cn = cd * q
+    const den = [R(1,4), 1], top = den[0] + 1 + R(1,5), nA = R(1, top - 1)
+    const numS = `${cn}${P(b,nA)} · ${top - nA === 1 ? b : P(b, top - nA)}`, denS = `${cd}${P(b,den[0])} · ${b}`
+    const res = top - den[0] - 1
+    return out('מספר וחזקה — כפל וחילוק', frac(numS, denS), 'מה המספר ומה המעריך?',
+      [{ans:q}, {pre:b, ans:res, sup:true}], [
+        ['המספרים: מחלקים', `${cn} : ${cd} = ${q}`],
+        [`החזקות של ${b}: מחברים במונה, מחברים במכנה, ומחסרים`, `(${nA}+${top - nA}) − (${den[0]}+1) = ${res}`],
+        ['התשובה', `${q}${P(b,res)}`, true]], undefined,
+      { q: `פשטו: ${iso(frac(numS, denS))}`, right: `${q}${P(b,res)}`,
+        wrongs: [`${cn - cd}${P(b,res)}`, `${q}${P(b,res+2)}`, `${q * cd}${P(b,res)}`] })
   }
   if(k === 'mix'){
     const c = R(2,5), b = R(2,4), n = R(2,3), d = R(2,3), m = R(2,3)
@@ -306,6 +377,34 @@ function genEq(lv){
         ...(a-c!==1?[['מחלקים ב-'+(a-c), `x = ${M(e-(a*b-c*d))} : ${a-c}`]]:[]),
         ['התשובה', 'x = '+M(x), true]])
     }
+    if (Math.random() < 0.5) {
+      // כמו במצגת: (5x−1)(x−1) = 5(x²−1) · (2x+6)(x−4) = 2x² − 4x + 3 — אפשר גם תשובה לא שלמה
+      const a = R(1,5), c = a === 1 ? R(2,3) : 1, b = pick([-1,1])*R(1,8), d = pick([-1,1])*R(1,8)
+      const ac = a*c, L1 = a*d + b*c, L0 = b*d
+      const factored = Math.random() < 0.4
+      const r1 = pick([-1,1])*R(0,8), r0 = pick([-1,1])*R(1,9)
+      const R1 = factored ? ac*r1 : pick([-1,1])*R(1,9)
+      // בערך חצי מהתרגילים עם תשובה שלמה, והשאר כמו במצגת (13.5, ‎−9/14)
+      const whole = !factored && Math.random() < 0.55
+      const R0 = factored ? ac*r0 : whole ? (L1 - R1) * pick([-1,1])*R(1,9) + L0 : pick([-1,1])*R(1,30)
+      const K = L1 - R1, N = R0 - L0
+      if (!K || !N || !L1 || Math.abs(K) > 25) continue
+      const rhs = factored ? `${ac}(${quad(1,r1,r0)})` : quad(ac,R1,R0)
+      const ans = fracAns(N, K)
+      if (Math.abs(ans.v) > 40) continue
+      return { ...eqOut(`(${lin(a,b)})(${lin(c,d)}) = ${rhs}`, ans.v, [
+        ['פותחים סוגריים בצד שמאל', `${quad(ac,L1,L0)} = ${rhs}`],
+        ...(factored ? [['פותחים סוגריים גם בצד ימין: כופלים את '+ac+' בכל איבר', `${quad(ac,L1,L0)} = ${quad(ac,R1,R0)}`]] : []),
+        [`${cx(ac)}² מופיע בשני הצדדים — מבטלים אותו`, `${lin(L1,L0)} = ${R1 ? lin(R1,R0) : M(R0)}`],
+        ['מעבירים x לשמאל ומספרים לימין', `${cx(L1)}${R1 ? scx(-R1) : ''} = ${M(R0)}${sgn(-L0)}`],
+        ['מכנסים', `${cx(K)} = ${M(N)}`],
+        ...(K !== 1 ? [['מחלקים ב-'+par(K), `x = ${M(N)} : ${par(K)}`]] : []),
+        ['התשובה', 'x = ' + ans.long, true]]),
+        ask: 'פתרו את המשוואה. אם התשובה לא שלמה — כתבו שבר (למשל 27/2) או מספר עשרוני.',
+        fields: [{pre:'x =', ans: ans.v, frac: true}],
+        mc: { q: `פתרו את המשוואה: ${iso(`(${lin(a,b)})(${lin(c,d)}) = ${rhs}`)}`, right: 'x = ' + ans.short,
+          wrongs: [...new Set([fracAns(-N,K).short, fracAns(K,N).short, fracAns(N+K,K).short])].filter((w) => w !== ans.short).map((w) => 'x = ' + w) } }
+    }
     // (x + p)(x + q) = x² + rx + s
     const p = pick([-1,1])*R(1,8), q = pick([-1,1])*R(1,8), r = pick([-1,1])*R(1,9)
     const k = p+q-r; if(!k) continue
@@ -318,6 +417,19 @@ function genEq(lv){
       ...(k!==1?[['מחלקים ב-'+par(k), `x = ${M(s-p*q)} : ${par(k)}`]]:[]),
       ['התשובה', 'x = '+M(x), true]])
   }
+}
+// N/K מצומצם: v — הערך, short — לתשובה (שלם / עשרוני סופי / שבר), long — לפתרון (עם עשרוני או קירוב)
+function fracAns(N, K) {
+  const g = (a, b) => (b ? g(b, a % b) : Math.abs(a))
+  const gg = g(N, K) || 1
+  let n = N / gg, d = K / gg
+  if (d < 0) { n = -n; d = -d }
+  const v = n / d
+  if (d === 1) return { v, short: M(n), long: M(n) }
+  let t = d; while (t % 2 === 0) t /= 2; while (t % 5 === 0) t /= 5
+  const dec = M(Number(v.toFixed(6)))
+  if (t === 1) return { v, short: dec, long: `${M(n)}/${d} = ${dec}` }
+  return { v, short: `${M(n)}/${d}`, long: `${M(n)}/${d} ≈ ${M(Number(v.toFixed(2)))}` }
 }
 const eqOut = (math, x, steps) => ({ type:'eq', tag:'אלגברה', title:'משוואה עם סוגריים', math, ask:'פתרו את המשוואה.', fields:[{pre:'x =', ans:x}], steps,
   mc: { q: `פתרו את המשוואה: ${iso(math)}`, right: 'x = ' + M(x), wrongs: others(x, [-x]).map(n => 'x = ' + M(n)) } })
@@ -353,7 +465,8 @@ export const difficultyOf = (level) => DIFF[level] || 'בינוני'
 
 // התרגיל כשאלה אמריקאית ל"לחיזוק" — אותו מבנה כמו שאלה רגילה
 export function toQuestion(ex, level) {
-  const { q, right, wrongs } = ex.mc
+  const { q, right } = ex.mc
+  const wrongs = [...new Set(ex.mc.wrongs)].filter((w) => w !== right).slice(0, 3)
   const fix = (c) => (/[א-ת]/.test(c) ? plain(c) : iso(c))
   const choices = [right, ...wrongs].map(fix).sort(() => Math.random() - 0.5)
   const explain = ex.steps.map(([why, e]) => [why && plain(why), e && iso(e)].filter(Boolean).join(': ')).join('\n')
