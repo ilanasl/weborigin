@@ -873,12 +873,21 @@ function styleFromOver(o){const d={};for(const k in o){if(STYLE_SKIP.indexOf(k)<
 // Apply a style IN PLACE (keeps the same object, so an open editor sees it); the banner's own images stay.
 function applyStyleTo(tpl,o,style){const keep={};STYLE_SKIP.forEach(k=>{if(o[k]!==undefined)keep[k]=o[k];});
   Object.keys(o).forEach(k=>{delete o[k];});Object.assign(o,initOverrides(tpl),JSON.parse(JSON.stringify(style.data||{})),keep);backfillOver(tpl,o);}
-function defaultStyle(tid){return stylesFor(tid).find(x=>x.isDefault)||null;}
-function freshOver(tpl){const o=initOverrides(tpl);const d=defaultStyle(tpl.id);if(d)applyStyleTo(tpl,o,d);return o;}
+// Each size has its own default style (⭐): isDefault = desktop, isDefaultMobile = mobile.
+// A style saved before the split (no isDefaultMobile yet) counts for both.
+function isDefaultFor(x,size){return size==="mobile"?(x.isDefaultMobile!==undefined?!!x.isDefaultMobile:!!x.isDefault):!!x.isDefault;}
+function defaultStyle(tid,size){const l=stylesFor(tid);if(size==="mobile")return l.find(x=>x.isDefaultMobile)||l.find(x=>x.isDefault&&x.isDefaultMobile===undefined)||null;return l.find(x=>x.isDefault)||null;}
+// Copy every mobile-only setting (any "mobile" entry, at any depth) of a style onto o.
+function mergeMobileFrom(o,data){const has=v=>v&&typeof v==="object"&&!Array.isArray(v)&&("mobile" in v||Object.values(v).some(has));
+  const walk=(dst,src)=>{for(const k in src){const v=src[k];if(k==="mobile")dst.mobile=JSON.parse(JSON.stringify(v));else if(has(v)){if(!dst[k]||typeof dst[k]!=="object")dst[k]={};walk(dst[k],v);}}};walk(o,data||{});}
+// The desktop default style for everything, then the mobile default style's mobile settings on top.
+function applyDefaultStyles(tpl,o){const d=defaultStyle(tpl.id,"desktop"),m=tpl.desktopOnly?null:defaultStyle(tpl.id,"mobile"),base=d||m;
+  if(base)applyStyleTo(tpl,o,base);if(m&&m!==base){mergeMobileFrom(o,m.data);backfillOver(tpl,o);}return {desktop:d,mobile:m};}
+function freshOver(tpl){const o=initOverrides(tpl);applyDefaultStyles(tpl,o);return o;}
 async function loadStylesFromBank(){try{if(Object.keys(loadStyles()).length)return;const all=await BankDB.all();const r=all.find(x=>x&&x.id==="styles:all");
   if(r&&r.styles){try{localStorage.setItem(STYLES_KEY,JSON.stringify(r.styles));}catch(_){} }}catch(_){}}
 function styleOptionsHTML(tid,ph){const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-  return `<option value="">${ph}</option>`+stylesFor(tid).map(x=>`<option value="${esc(x.id)}">${x.isDefault?"⭐ ":""}${esc(x.name)}</option>`).join("");}
+  return `<option value="">${ph}</option>`+stylesFor(tid).map(x=>`<option value="${esc(x.id)}">${(d=>d[0]&&d[1]?"⭐ ":d[0]?"⭐ desktop · ":d[1]?"⭐ mobile · ":"")([isDefaultFor(x,"desktop"),isDefaultFor(x,"mobile")])}${esc(x.name)}</option>`).join("");}
 
 /* ---------------- State ---------------- */
 const state = {}; // id -> {selected,mobile,topic,customPrompt,uploaded,img,accent,logo,logoImg,over,text}
@@ -1610,7 +1619,12 @@ function openEditorV2(tpl,st,onClose){
       if(x&&!confirm(`Replace the saved style "${x.name}" with the current settings?`))return;
       if(!x){x={id:"st"+Date.now().toString(36),name,isDefault:false};arr.push(x);}x.data=styleFromOver(o);saveStyles(all);o._styleId=x.id;renderStyleBar();refreshCardStyles();},"save every setting of this banner (not the images) under a name");
     const cur=list.find(z=>z.id===sel.value);
-    const def=btn(cur&&cur.isDefault?"⭐ Default":"☆ Make default",()=>{if(!cur)return;const all=loadStyles();(all[tpl.id]||[]).forEach(z=>{z.isDefault=(z.id===cur.id)?!cur.isDefault:false;});saveStyles(all);renderStyleBar();refreshCardStyles();},"new banners of this type (and Reset) start with this style");
+    const sz=tpl.desktopOnly?"desktop":size,szName=sz==="mobile"?"mobile":"desktop";
+    const def=btn(cur&&isDefaultFor(cur,sz)?"⭐ Default for "+szName:"☆ Default for "+szName,()=>{if(!cur)return;const all=loadStyles(),arr=all[tpl.id]||[];
+      arr.forEach(z=>{if(z.isDefaultMobile===undefined)z.isDefaultMobile=!!z.isDefault;}); // split old both-size stars first
+      const key=sz==="mobile"?"isDefaultMobile":"isDefault",me=arr.find(z=>z.id===cur.id),on=!(me&&me[key]);
+      arr.forEach(z=>{z[key]=(z.id===cur.id)?on:false;if(tpl.desktopOnly)z.isDefaultMobile=z.isDefault;});saveStyles(all);renderStyleBar();refreshCardStyles();},
+      "new banners of this type (and Reset, and New task) start with this style for "+szName+" — switch Desktop / Mobile to set the other one");
     const del=btn("🗑",()=>{if(!cur||!confirm(`Delete the style "${cur.name}"?`))return;const all=loadStyles();all[tpl.id]=(all[tpl.id]||[]).filter(z=>z.id!==cur.id);saveStyles(all);delete o._styleId;renderStyleBar();refreshCardStyles();},"delete this style");
     if(!cur){def.disabled=true;del.disabled=true;}
     styleBar.append(lab,sel,save,def,del);}
@@ -1660,7 +1674,7 @@ function openEditorV2(tpl,st,onClose){
     const k={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[ev.key];if(!k)return;ev.preventDefault();if(t&&t.type==="range")t.blur();const stp=ev.shiftKey?5:0.5;moveSel(sel,k[0]*stp,k[1]*stp);draw();paneSoon();};
   document.addEventListener("keydown",onKey);
 
-  back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));renderAll();applyZoom();}));
+  back.querySelectorAll(".seg2 button").forEach(b=>b.addEventListener("click",()=>{size=b.dataset.s;[...back.querySelectorAll(".seg2 button")].forEach(x=>x.classList.toggle("on",x===b));renderAll();renderStyleBar();applyZoom();}));
   // Zoom (wide banners): enlarge the preview inside a scroll box and bring the visual into view.
   const box=back.querySelector(".e-canvas");
   const applyZoom=()=>{draw();if(zoomF<=1){box.style.width="";prev.style.width="";prev.style.maxWidth="";prev.style.maxHeight="";return;}
@@ -2195,8 +2209,7 @@ function templateCatalog(){return TEMPLATES.filter(t=>!t.hidden).map(t=>({id:t.i
   desktop:t.sizes.desktop.w+"x"+t.sizes.desktop.h,mobile:t.desktopOnly?null:t.sizes.mobile.w+"x"+t.sizes.mobile.h,
   text_on_image:textOnImage(t),text_fields:textOnImage(t)?t.elements.filter(e=>!e.splitOnly).map(e=>({key:e.key,label:e.label||e.key,example:e.val})):[],
   transparent_cutout:!!(t.defaultTransparent&&t.transparentOK),isolated_object:!!t.isolatedObject,
-  layout:String(t.composition||"").slice(0,500),example_topics:(STARTERS[t.id]||[]).slice(0,3).map(s=>s.topic),
-  saved_styles:stylesFor(t.id).map(x=>x.name)}));}
+  layout:String(t.composition||"").slice(0,500),example_topics:(STARTERS[t.id]||[]).slice(0,3).map(s=>s.topic)}));}
 // Photo-beside-colour banners: take the background colour from the photo where it meets the colour area,
 // so the join is seamless (kept light, so the site's dark text stays readable).
 function matchJoinColour(tpl,st){const o=st.over;if(!tpl.imageBox||!st.img||!o)return null;
@@ -2229,9 +2242,9 @@ async function runTask(){
     const st=state[tpl.id];
     if(tpl.logo&&!st.logoImg)tpLog("📝 No logo on the "+tpl.name+" card yet — banners are made without it.","warn");
     if(st.uploaded)await autoSaveBanner(tpl,st); // what was on the card stays in 📁 Saved
-    {const pick=stylesFor(tpl.id).find(x=>brief.style_name&&x.name===brief.style_name)||defaultStyle(tpl.id);
-      if(pick){applyStyleTo(tpl,st.over,pick);tpLog("🎛 Style: "+pick.name+(pick.isDefault&&pick.name!==brief.style_name?" (default)":""));}
-      else tpLog("🎛 No saved style for "+tpl.name+" — using the card's current settings. Save one from a banner you approved (Style → Save style).","warn");}
+    {const used=applyDefaultStyles(tpl,st.over);
+      if(used.desktop||used.mobile)tpLog("🎛 Style: desktop "+(used.desktop||used.mobile).name+(tpl.desktopOnly?"":" · mobile "+(used.mobile||used.desktop).name));
+      else tpLog("🎛 No ⭐ default style for "+tpl.name+" — using the card's current settings. Open a banner you approved → Style → Save style → ☆ Default.","warn");}
     if(textOnImage(tpl)){const keys=new Set(tpl.elements.map(e=>e.key)),texts=Object.assign({},st.text.texts);
       for(const t of brief.texts||[])if(keys.has(t.key))texts[t.key]=t.value;st.text={enabled:true,texts};}
     else st.text={enabled:false,texts:Object.assign({},st.text.texts)};

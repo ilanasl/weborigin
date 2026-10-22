@@ -354,16 +354,14 @@ const BRIEF_SYSTEM = [
   "House style for topics: real-looking people with natural skin and a natural smile, shown close enough that faces stay large (chest or waist up, hands visible when they hold something); believable everyday settings; bright, airy, soft daylight; no kitsch, no clutter, no stock-photo poses; screens show a believable app, chart or dashboard, softly blurred so no words are readable. When the template is a transparent cut-out, describe one isolated subject with no background or scene. Follow the style of the template's example_topics.",
   "Framing: one person (two at most) with the pet or object, shown close — chest or waist up, faces large, the group compact — so it still reads in a narrow photo strip and on mobile. No wide room shots, no groups or crowds, no small figures in a big space. Leave a little space above the heads.",
   "If an attached image shows the client's current banner, keep its structure and mood and match its colour world, but bring new ideas.",
-  "style_name: when the chosen template lists saved_styles, pick the one whose name matches the client's site or domain (exact name from the list); otherwise an empty string.",
   "5. job_name: 2 to 5 words for a folder name (e.g. Pet Insurance Main Banner). notes: anything the designer must do by hand (a logo to upload, a colour to set, a request the templates cannot do), or an empty string.",
 ].join("\n");
 const BRIEF_SCHEMA = {
   type: "object", additionalProperties: false,
-  required: ["template_id", "template_reason", "style_name", "job_name", "texts", "versions", "notes"],
+  required: ["template_id", "template_reason", "job_name", "texts", "versions", "notes"],
   properties: {
     template_id: { type: "string" },
     template_reason: { type: "string" },
-    style_name: { type: "string" },
     job_name: { type: "string" },
     texts: { type: "array", items: { type: "object", additionalProperties: false, required: ["key", "value"],
       properties: { key: { type: "string" }, value: { type: "string" } } } },
