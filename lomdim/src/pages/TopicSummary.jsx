@@ -14,7 +14,7 @@ import { forget } from '../lib/screenCache'
 import { consolidateTopic, needsConsolidation, autoTried, readOff, moveOffTopic, markOffDone } from '../lib/consolidate'
 import { GEN_MARK } from '../lib/plan'
 import { addMoreQuestions } from '../lib/moreQuestions'
-import { isMathSubject, drillTypeOf } from '../lib/mathDrill'
+import { isMathSubject, drillTypeOf, VARIANTS } from '../lib/mathDrill'
 
 // מוצג כלשונית של נושא בתוך מחברת הסיכומים (embedded). onChanged — רענון הלשוניות (שם/נושא חדש), onOpen — מעבר ללשונית של נושא אחר
 export default function TopicSummary({ nav, params, embedded = false, onChanged, onOpen }) {
@@ -65,6 +65,7 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
   useWorking(busy || moreBusy || !!noteBusy || autoMerging || completing || fetching || !!offBusy || removing)
 
   const drillTopic = isMathSubject(subjectName) && !!drillTypeOf(name)
+  const [showKinds, setShowKinds] = useState(false)   // "תרגול לפי סוג"
   const isBible = /תנ["״׳']?ך|מקרא|תורה|נביאים|כתובים/.test(subjectName || '')
   // טקסט מקור מלא רלוונטי רק לספרות/תנ״ך — לא לדקדוק/לשון/מתמטיקה וכו'
   const isLiterary = isBible || /ספרות|שיר|פזמון|יצירה|בלדה|סיפור|פרוזה/.test(subjectName || '')
@@ -360,6 +361,22 @@ export default function TopicSummary({ nav, params, embedded = false, onChanged,
         <span>{gx('תרגל את הנושא', 'תרגלי את הנושא')}</span>
         {qCount > 0 && !drillTopic && <span className="ts-count tnum">{qCount}</span>}
       </button>
+      {/* תרגול לפי סוג — רק בנושא עם תרגילים; סגור כברירת מחדל כדי לא להעמיס */}
+      {drillTopic && (
+        <div className="mb-4 -mt-2">
+          <button type="button" className="text-[13.5px] font-semibold text-muted underline underline-offset-2" onClick={() => setShowKinds((v) => !v)} aria-expanded={showKinds}>
+            {showKinds ? 'הסתרת הסוגים' : 'או תרגול לפי סוג ←'}
+          </button>
+          {showKinds && (
+            <div className="flex flex-wrap gap-2 mt-2.5">
+              {(VARIANTS[drillTypeOf(name)] || []).map(([v, label]) => (
+                <button key={v} type="button" className="kind-chip"
+                  onClick={() => nav.go('practice', { subjectId, subjectName, topicId, topicName: name, mode: 'practice', variant: v })}>{label}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {sourceText && !pasteMode ? (
         <>

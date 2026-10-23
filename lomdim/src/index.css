@@ -613,3 +613,5 @@ input.md-poly.no{ border-color:var(--bad); background:var(--bad-soft) }
 .calc-tab.left{ left:0; border-radius:0 16px 16px 0; border-left:0 }
 .calc-tab.right{ right:0; border-radius:16px 0 0 16px; border-right:0 }
 .calc-tab-res{ font-family:var(--disp); font-size:12px; font-weight:700; color:var(--primary); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.kind-chip{ border:1.5px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:999px; padding:8px 14px; font-weight:700; font-size:14px }
+.kind-chip:active{ background:var(--primary); color:var(--on-fill) }

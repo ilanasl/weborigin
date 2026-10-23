@@ -29,8 +29,10 @@ const others = (ans, prefer = [], min = -Infinity) => {
 
 /* ---------- 1. angles in a triangle ---------- */
 // שלושה סוגים: משולש רגיל, משולש ישר זווית (ריבוע בפינה), ומשולש שחוצים בקו מקודקוד (שני נעלמים)
-function genTri(lv){
-  const r = Math.random()
+function genTri(lv, variant){
+  if (variant === 'split') return genSplit(Math.max(lv, 2))
+  if (variant === 'right') return genRight(lv)
+  const r = variant === 'plain' ? 0.5 : Math.random()
   if (lv >= 2 && r < (lv === 2 ? 0.3 : 0.35)) return genSplit(lv)
   if (r > (lv === 1 ? 0.6 : 0.7)) return genRight(lv)
   for(;;){
@@ -164,18 +166,20 @@ function splitSVG(a1, a2, d){
 }
 
 /* ---------- 2. expanding brackets ---------- */
-function genExpand(lv){
+function genExpand(lv, variant){
   let a=1, c=1, b, d, t2 = 0, t1 = 0, t0 = 0
   const v = lv === 1 ? 'x' : pick(['x','x','a','b','y'])
+  // "עם איברים נוספים" — תמיד זנב; "פתיחת סוגריים" — אף פעם; בלי בחירה — לפעמים ברמה 3
+  const tail = variant === 'tail' || (variant !== 'plain' && lv === 3 && Math.random() < .45)
   do {
     a = 1; c = 1; t2 = 0; t1 = 0; t0 = 0
-    if(lv === 1){ b = R(1,9); d = R(1,9); }
-    else if(lv === 2){ b = R(1,9); d = -R(1,9); }
-    else if(Math.random() < .45){
+    if(tail){
       // "זנב" אחרי הסוגריים, כמו במצגת: (x+2)(x+1) + 2x + 15 · (2x+7)(x+2) − 3x + 18 + x²
       a = pick([1,1,2]); b = pick([-1,1])*R(1,8); d = pick([-1,1])*R(1,8)
       t1 = pick([-1,1])*R(1,6); t0 = pick([0, pick([-1,1])*R(1,20)]); t2 = pick([0,0,1,-1])
     }
+    else if(lv === 1){ b = R(1,9); d = R(1,9); }
+    else if(lv === 2){ b = R(1,9); d = -R(1,9); }
     else { a = R(1,3); c = R(2,4); b = pick([-1,1])*R(1,7); d = pick([-1,1])*R(1,7); }
   } while(a*d + b*c === 0 || a*d + b*c + t1 === 0 || a*c + t2 === 0)
   const A = a*c + t2, B = a*d + b*c + t1, C = b*d + t0
@@ -203,9 +207,10 @@ function genExpand(lv){
 /* ---------- 3. powers ---------- */
 const P = (b,n) => `${b}<sup>${n}</sup>`
 const frac = (t,b) => `<span class="frac"><span>${t}</span><span>${b}</span></span>`
-function genPow(lv){
-  const k = pick(lv === 1 ? ['val','val','r1'] : lv === 2 ? ['r1','r2','r3','tf','multi','signed']
-    : ['r1','r2','r3','mix','tf','multi','frac2','coef','signed'])
+const POW_KIND = { mul: ['r1'], div: ['r2'], pow3: ['r3'], two: ['multi'], fracs: ['frac2','coef'], signed: ['signed'] }
+function genPow(lv, variant){
+  const k = pick(POW_KIND[variant] || (lv === 1 ? ['val','val','r1'] : lv === 2 ? ['r1','r2','r3','tf','multi','signed']
+    : ['r1','r2','r3','mix','tf','multi','frac2','coef','signed']))
   const out = (title, math, ask, fields, steps, kind, mc) => ({ type:'pow', tag:'חזקות', title, math, ask, fields, steps, kind, mc })
   const expMc = (left, b, ans, prefer) => ({ q: `${iso(left)} = ?`, right: P(b,ans), wrongs: others(ans, prefer, 0).map(n => P(b,n)) })
   if(k === 'val'){
@@ -354,10 +359,10 @@ function genErr(){
 }
 
 /* ---------- 5. equations with brackets ---------- */
-function genEq(lv){
+function genEq(lv, variant){
   for(;;){
     const x = pick([-1,1])*R(1,9) || 2
-    if(lv === 1){                       // a(x + b) = cx + d
+    if(lv === 1 && variant !== 'coef'){                       // a(x + b) = cx + d
       const a = R(2,5), b = pick([-1,1])*R(1,8), c = R(1,a+3); if(c===a) continue
       const d = a*x + a*b - c*x
       return eqOut(`${a}(${lin(1,b)}) = ${lin(c,d)}`, x, [
@@ -367,7 +372,7 @@ function genEq(lv){
         ...(a-c!==1?[['מחלקים ב-'+par(a-c), `x = ${M(d-a*b)} : ${par(a-c)}`]]:[]),
         ['התשובה', 'x = '+M(x), true]])
     }
-    if(lv === 2){                       // a(x + b) − c(x + d) = e
+    if(lv === 2 && variant !== 'coef'){                       // a(x + b) − c(x + d) = e
       const a = R(3,7), c = R(1,a-1), b = pick([-1,1])*R(1,6), d = pick([-1,1])*R(1,6)
       const e = a*(x+b) - c*(x+d)
       return eqOut(`${a}(${lin(1,b)}) − ${c}(${lin(1,d)}) = ${M(e)}`, x, [
@@ -377,7 +382,8 @@ function genEq(lv){
         ...(a-c!==1?[['מחלקים ב-'+(a-c), `x = ${M(e-(a*b-c*d))} : ${a-c}`]]:[]),
         ['התשובה', 'x = '+M(x), true]])
     }
-    if (Math.random() < 0.5) {
+    // "עם מקדם ושברים" — תמיד; "משוואות" — אף פעם; בלי בחירה — חצי מהתרגילים ברמה 3
+    if (variant === 'coef' || (variant !== 'simple' && Math.random() < 0.5)) {
       // כמו במצגת: (5x−1)(x−1) = 5(x²−1) · (2x+6)(x−4) = 2x² − 4x + 3 — אפשר גם תשובה לא שלמה
       const a = R(1,5), c = a === 1 ? R(2,3) : 1, b = pick([-1,1])*R(1,8), d = pick([-1,1])*R(1,8)
       const ac = a*c, L1 = a*d + b*c, L0 = b*d
@@ -475,7 +481,16 @@ export function toQuestion(ex, level) {
 
 const GEN = { tri: genTri, expand: genExpand, eq: genEq, pow: genPow, err: genErr }
 export const LEVELED = ['tri', 'expand', 'eq', 'pow']
-export const makeExercise = (type, level) => GEN[type](level || 1)
+export const makeExercise = (type, level, variant) => GEN[type](level || 1, variant)
+
+// סוגי תרגיל בכל נושא — ל"תרגול לפי סוג" במסך הנושא, ולוודא ש"הכל" כולל כל סוג
+export const VARIANTS = {
+  pow: [['mul','כפל'],['div','חילוק'],['pow3','חזקה של חזקה'],['two','שני בסיסים'],['fracs','שברים ומקדם'],['signed','בסיס שלילי או שבר']],
+  tri: [['plain','משולש רגיל'],['right','ישר זווית'],['split','חוצים בקו']],
+  expand: [['plain','פתיחת סוגריים'],['tail','עם איברים נוספים'],['fix','מצא ותקן']],
+  eq: [['simple','משוואות'],['coef','עם מקדם ושברים']],
+}
+export const variantLabel = (type, v) => ((VARIANTS[type] || []).find(([k]) => k === v) || [])[1] || ''
 
 // ── שילוב בתרגול הרגיל: נושא מתמטי שיש לו סוג תרגיל → תרגילים במקום שאלות אמריקאיות ──
 export const isMathSubject = (name) => /מתמטיקה|חשבון|אלגברה|גאומטרי/.test(name || '')
@@ -484,15 +499,20 @@ const TOPIC_TYPES = [['pow', /חזק/], ['eq', /משווא/], ['tri', /זווי.
 export const drillTypeOf = (topicName) => (TOPIC_TYPES.find(([, re]) => re.test(topicName || '')) || [])[0] || null
 
 // n תרגילים מהנושאים (בסבב, בסדר אקראי); בנושא פילוג — מדי פעם "איפה הטעות?"
-export function drillItems(topics, n) {
+// variant — "תרגול לפי סוג": כל הסבב מהסוג הזה. בלי variant ("הכל") — קודם פעם אחת כל סוג של כל נושא
+// (כדי שסוגים חדשים לא יחכו לרמה גבוהה), ואחר כך אקראי
+export function drillItems(topics, n, variant) {
   if (!topics.length || n <= 0) return []
-  const order = topics.slice().sort(() => Math.random() - 0.5)
-  return Array.from({ length: n }, (_, i) => {
-    const t = order[i % order.length]
+  const item = (t, v) => {
     let type = drillTypeOf(t.name)
-    if (type === 'expand' && Math.random() < 0.12) type = 'err'
-    return { drill: true, type, topic_id: t.id }
-  })
+    if (v === 'fix' || (!v && type === 'expand' && Math.random() < 0.12)) type = 'err'
+    return { drill: true, type, variant: v === 'fix' ? undefined : v, topic_id: t.id }
+  }
+  if (variant) return Array.from({ length: n }, () => item(topics[0], variant))
+  const order = topics.slice().sort(() => Math.random() - 0.5)
+  const must = order.flatMap((t) => (VARIANTS[drillTypeOf(t.name)] || []).map(([v]) => [t, v])).sort(() => Math.random() - 0.5).slice(0, n)
+  const rest = Array.from({ length: n - must.length }, (_, i) => item(order[i % order.length]))
+  return [...must.map(([t, v]) => item(t, v)), ...rest].sort(() => Math.random() - 0.5)
 }
 
 // רמה לכל סוג (1–3), שמורה במכשיר: 2 נכונות ברצף → עולה, טעות → יורדת
