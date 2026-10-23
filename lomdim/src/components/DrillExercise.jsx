@@ -25,7 +25,7 @@ const Html = ({ html, className, as: Tag = 'span' }) => <Tag className={classNam
 export default function DrillExercise({ subjectId, item, topicName, examMode, onDone, onReview }) {
   const g = useG()
   const [lv] = useState(() => levelOf(subjectId, item.type))
-  const [ex] = useState(() => makeExercise(item.type, lv))
+  const [ex] = useState(() => makeExercise(item.type, lv, item.variant))
   const [vals, setVals] = useState([])
   const [wrong, setWrong] = useState(null)   // אחרי ניסיון ראשון שגוי: אילו שדות לא נכונים
   const [done, setDone] = useState(null)     // null | true | false

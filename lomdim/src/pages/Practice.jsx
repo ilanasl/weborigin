@@ -12,7 +12,7 @@ import { checkPlanDayDone, daysUntil, nearestKind } from '../lib/plan'
 import { primeAudio } from '../lib/celebrate'
 import { SegProgress, QuestionBlock, Options, FeedbackSheet } from '../components/QuestionUI'
 import { buildItem, isChatCard } from '../lib/flashcardQuiz'
-import { isMathSubject, drillTypeOf, drillItems } from '../lib/mathDrill'
+import { isMathSubject, drillTypeOf, drillItems, variantLabel } from '../lib/mathDrill'
 import DrillExercise from '../components/DrillExercise'
 
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0;[a[i], a[j]] = [a[j], a[i]] } return a }
@@ -97,7 +97,7 @@ export default function Practice({ nav, params }) {
           .map((it) => ({ ...it, fc: true, explain: `התשובה הנכונה: **${it.choices[it.answer]}**`, difficulty: 'קל' }))
       }
       const qs = shuffle(data).slice(0, Math.max(0, total - drillN - fcItems.length)).map(shuffleChoices)
-      setQueue(shuffle([...qs, ...fcItems, ...drillItems(drillScope, drillN)]))
+      setQueue(shuffle([...qs, ...fcItems, ...drillItems(drillScope, drillN, params.variant)]))
       setLoading(false)
     })()
   }, [subjectId, topicId])
@@ -244,7 +244,8 @@ export default function Practice({ nav, params }) {
       <SegProgress total={queue.length} idx={idx} results={results} />
 
       {q.drill ? (
-        <DrillExercise key={idx} subjectId={subjectId} item={q} topicName={topicLabel} examMode={examMode}
+        <DrillExercise key={idx} subjectId={subjectId} item={q} examMode={examMode}
+          topicName={params.variant ? `${topicLabel} · ${variantLabel(drillTypeOf(topicLabel), params.variant)}` : topicLabel}
           onDone={drillDone} onReview={() => setDrillReview(true)} />
       ) : (
         <>
